@@ -7,6 +7,7 @@
 #include <digivice/digivice_config.h>
 #include <digivice/digivice_draw.h>
 #include <storage/storage.h>
+#include <loader/loader.h>
 
 // 5 fps keeps the wake-up rate close to the stock dolphin animations.
 #define DESKTOP_DIGIVICE_FRAME_MS 200
@@ -15,11 +16,16 @@ struct DesktopDigiviceView {
     View* view;
     Digivice* digivice;
     Storage* storage;
+    Loader* loader;
     FuriPubSubSubscription* state_subscription;
+    FuriPubSubSubscription* loader_subscription;
     FuriPubSubSubscription* storage_subscription;
     FuriTimer* frame_timer;
     DesktopMainViewCallback callback;
     void* context;
+    // The view stays on the GUI under running apps, so the timer must follow both flags.
+    volatile bool active;
+    volatile bool app_running;
 };
 
 typedef struct {
@@ -53,8 +59,17 @@ static bool desktop_digivice_view_input(InputEvent* event, void* context) {
     return false;
 }
 
+static void desktop_digivice_view_sync_timer(DesktopDigiviceView* digivice_view) {
+    if(digivice_view->active && !digivice_view->app_running) {
+        furi_timer_start(digivice_view->frame_timer, furi_ms_to_ticks(DESKTOP_DIGIVICE_FRAME_MS));
+    } else {
+        furi_timer_stop(digivice_view->frame_timer);
+    }
+}
+
 static void desktop_digivice_view_frame(void* context) {
     DesktopDigiviceView* digivice_view = context;
+    if(!digivice_view->active || digivice_view->app_running) return;
     bool evolution_done = false;
     with_view_model(
         digivice_view->view,
@@ -81,7 +96,11 @@ static void desktop_digivice_view_state_callback(const void* message, void* cont
     DesktopDigiviceView* digivice_view = context;
     const DigiviceState* state = message;
     with_view_model(
-        digivice_view->view, DesktopDigiviceViewModel * m, { m->state = *state; }, true);
+        digivice_view->view, DesktopDigiviceViewModel * m, {
+            if(m->state.evo_from != state->evo_from) m->evo_frame = 0;
+            m->state = *state;
+        },
+        true);
 }
 
 static void desktop_digivice_view_storage_callback(const void* message, void* context) {
@@ -96,14 +115,31 @@ static void desktop_digivice_view_storage_callback(const void* message, void* co
         digivice_view->view, DesktopDigiviceViewModel * m, { m->sd_ok = sd_ok; }, true);
 }
 
+static void desktop_digivice_view_loader_callback(const void* message, void* context) {
+    DesktopDigiviceView* digivice_view = context;
+    const LoaderEvent* event = message;
+    if(event->type == LoaderEventTypeApplicationBeforeLoad) {
+        digivice_view->app_running = true;
+    } else if(
+        event->type == LoaderEventTypeApplicationStopped ||
+        event->type == LoaderEventTypeApplicationLoadFailed) {
+        digivice_view->app_running = false;
+    } else {
+        return;
+    }
+    desktop_digivice_view_sync_timer(digivice_view);
+}
+
 static void desktop_digivice_view_enter(void* context) {
     DesktopDigiviceView* digivice_view = context;
-    furi_timer_start(digivice_view->frame_timer, furi_ms_to_ticks(DESKTOP_DIGIVICE_FRAME_MS));
+    digivice_view->active = true;
+    desktop_digivice_view_sync_timer(digivice_view);
 }
 
 static void desktop_digivice_view_exit(void* context) {
     DesktopDigiviceView* digivice_view = context;
-    furi_timer_stop(digivice_view->frame_timer);
+    digivice_view->active = false;
+    desktop_digivice_view_sync_timer(digivice_view);
 }
 
 DesktopDigiviceView* desktop_digivice_view_alloc(void) {
@@ -123,6 +159,22 @@ DesktopDigiviceView* desktop_digivice_view_alloc(void) {
     digivice_view->digivice = furi_record_open(RECORD_DIGIVICE);
     digivice_view->storage = furi_record_open(RECORD_STORAGE);
 
+    digivice_view->loader = furi_record_open(RECORD_LOADER);
+    digivice_view->app_running = loader_is_locked(digivice_view->loader);
+    digivice_view->loader_subscription = furi_pubsub_subscribe(
+        loader_get_pubsub(digivice_view->loader),
+        desktop_digivice_view_loader_callback,
+        digivice_view);
+    digivice_view->storage_subscription = furi_pubsub_subscribe(
+        storage_get_pubsub(digivice_view->storage),
+        desktop_digivice_view_storage_callback,
+        digivice_view);
+    // Subscribe before reading so no state publish can fall between the two.
+    digivice_view->state_subscription = furi_pubsub_subscribe(
+        digivice_get_pubsub(digivice_view->digivice),
+        desktop_digivice_view_state_callback,
+        digivice_view);
+
     DigiviceState state;
     digivice_get_state(digivice_view->digivice, &state);
     bool sd_ok = storage_sd_status(digivice_view->storage) == FSE_OK;
@@ -136,25 +188,19 @@ DesktopDigiviceView* desktop_digivice_view_alloc(void) {
         },
         false);
 
-    digivice_view->state_subscription = furi_pubsub_subscribe(
-        digivice_get_pubsub(digivice_view->digivice),
-        desktop_digivice_view_state_callback,
-        digivice_view);
-    digivice_view->storage_subscription = furi_pubsub_subscribe(
-        storage_get_pubsub(digivice_view->storage),
-        desktop_digivice_view_storage_callback,
-        digivice_view);
-
     return digivice_view;
 }
 
 void desktop_digivice_view_free(DesktopDigiviceView* digivice_view) {
     furi_assert(digivice_view);
     furi_pubsub_unsubscribe(
+        loader_get_pubsub(digivice_view->loader), digivice_view->loader_subscription);
+    furi_pubsub_unsubscribe(
         storage_get_pubsub(digivice_view->storage), digivice_view->storage_subscription);
     furi_pubsub_unsubscribe(
         digivice_get_pubsub(digivice_view->digivice), digivice_view->state_subscription);
     furi_timer_free(digivice_view->frame_timer);
+    furi_record_close(RECORD_LOADER);
     furi_record_close(RECORD_STORAGE);
     furi_record_close(RECORD_DIGIVICE);
     view_free(digivice_view->view);
