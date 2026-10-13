@@ -33,6 +33,16 @@ const NotificationSequence digivice_sequence_evolution = {
     NULL,
 };
 
+// Sleep-window variant: LED only.
+const NotificationSequence digivice_sequence_evolution_silent = {
+    &message_red_255,
+    &message_blue_255,
+    &message_delay_500,
+    &message_red_0,
+    &message_blue_0,
+    NULL,
+};
+
 // Cyan stays on while the attack meter charges; the hit sequence clears it.
 const NotificationSequence digivice_sequence_charge = {
     &message_red_0,

@@ -107,6 +107,7 @@ static void digivice_save(Digivice* digivice) {
         digivice->dirty = false;
     } else {
         FURI_LOG_E(TAG, "Failed to save state");
+        furi_event_loop_timer_start(digivice->flush_timer, DIGIVICE_FLUSH_S * 1000UL);
     }
 }
 
@@ -123,7 +124,11 @@ static void digivice_changed(Digivice* digivice, const DigiviceState* before) {
     if(digivice_rules_same_visible(before, &after)) return;
 
     if(after.evo_from != DigiviceFormNone && after.evo_from != before->evo_from) {
-        notification_message(digivice->notification, &digivice_sequence_evolution);
+        uint8_t hour = (uint8_t)((furi_hal_rtc_get_timestamp() % 86400UL) / 3600UL);
+        bool asleep = digivice_rules_is_sleep_hour(hour);
+        notification_message(
+            digivice->notification,
+            asleep ? &digivice_sequence_evolution_silent : &digivice_sequence_evolution);
     }
     digivice->dirty = true;
     furi_event_loop_timer_start(digivice->flush_timer, DIGIVICE_FLUSH_S * 1000UL);

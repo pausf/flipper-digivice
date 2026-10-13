@@ -4,6 +4,7 @@
 
 extern const NotificationSequence digivice_sequence_virux;
 extern const NotificationSequence digivice_sequence_evolution;
+extern const NotificationSequence digivice_sequence_evolution_silent;
 extern const NotificationSequence digivice_sequence_charge;
 extern const NotificationSequence digivice_sequence_hit;
 extern const NotificationSequence digivice_sequence_win;
