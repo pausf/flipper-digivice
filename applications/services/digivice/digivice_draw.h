@@ -68,7 +68,7 @@ void digivice_draw_meter(Canvas* canvas, int32_t x, int32_t y, uint8_t zone_star
 const char* digivice_form_name(DigiviceForm form);
 const char* digivice_type_name(DigiviceType type);
 
-/** Full home screen. `now` is the RTC timestamp, used for the clock and the VIRUX alert. */
+/** Full home screen. `now` is the RTC timestamp, drives the VIRUX countdown and alert. */
 void digivice_draw_home(
     Canvas* canvas,
     const DigiviceState* state,

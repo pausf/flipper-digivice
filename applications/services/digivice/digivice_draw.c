@@ -28,6 +28,51 @@ static uint32_t dv_hash(uint32_t x) {
     return x;
 }
 
+// u8g2 does not clip lines and its coordinates are unsigned 16 bit: a negative endpoint wraps to
+// ~65535 and the line loops for ages. Every line goes through this Cohen-Sutherland clip.
+static int dv_outcode(int32_t x, int32_t y) {
+    return (x < 0 ? 1 : 0) | (x > 127 ? 2 : 0) | (y < 0 ? 4 : 0) | (y > 63 ? 8 : 0);
+}
+
+static bool dv_clip_line(int32_t* x0, int32_t* y0, int32_t* x1, int32_t* y1) {
+    int c0 = dv_outcode(*x0, *y0);
+    int c1 = dv_outcode(*x1, *y1);
+    while(c0 | c1) {
+        if(c0 & c1) return false;
+        int c = c0 ? c0 : c1;
+        int32_t dx = *x1 - *x0;
+        int32_t dy = *y1 - *y0;
+        int32_t x, y;
+        if(c & 8) {
+            x = *x0 + dx * (63 - *y0) / dy;
+            y = 63;
+        } else if(c & 4) {
+            x = *x0 + dx * (0 - *y0) / dy;
+            y = 0;
+        } else if(c & 2) {
+            y = *y0 + dy * (127 - *x0) / dx;
+            x = 127;
+        } else {
+            y = *y0 + dy * (0 - *x0) / dx;
+            x = 0;
+        }
+        if(c == c0) {
+            *x0 = x;
+            *y0 = y;
+            c0 = dv_outcode(x, y);
+        } else {
+            *x1 = x;
+            *y1 = y;
+            c1 = dv_outcode(x, y);
+        }
+    }
+    return true;
+}
+
+static void dv_line(Canvas* canvas, int32_t x0, int32_t y0, int32_t x1, int32_t y1) {
+    if(dv_clip_line(&x0, &y0, &x1, &y1)) canvas_draw_line(canvas, x0, y0, x1, y1);
+}
+
 void digivice_draw_text(Canvas* canvas, int32_t x, int32_t y, const char* text) {
     canvas_set_custom_u8g2_font(canvas, u8g2_font_4x6_tr);
     canvas_draw_str(canvas, x, y + 5, text);
@@ -41,7 +86,7 @@ uint16_t digivice_draw_text_width(Canvas* canvas, const char* text) {
 void digivice_draw_fill_ellipse(Canvas* canvas, int32_t cx, int32_t cy, int32_t rx, int32_t ry) {
     if(rx < 0 || ry < 0) return;
     if(ry == 0) {
-        canvas_draw_line(canvas, cx - rx, cy, cx + rx, cy);
+        dv_line(canvas, cx - rx, cy, cx + rx, cy);
         return;
     }
     for(int32_t y = -ry; y <= ry; y++) {
@@ -49,7 +94,7 @@ void digivice_draw_fill_ellipse(Canvas* canvas, int32_t cx, int32_t cy, int32_t 
         int32_t hw = rx;
         while(hw > 0 && hw * hw * ry * ry + y * y * rx * rx > rx * rx * ry * ry)
             hw--;
-        canvas_draw_line(canvas, cx - hw, cy + y, cx + hw, cy + y);
+        dv_line(canvas, cx - hw, cy + y, cx + hw, cy + y);
     }
 }
 
@@ -102,43 +147,31 @@ void digivice_draw_brackets(
     int32_t x1,
     int32_t y1,
     int32_t len) {
-    canvas_draw_line(canvas, x0, y0, x0 + len - 1, y0);
-    canvas_draw_line(canvas, x0, y0, x0, y0 + len - 1);
-    canvas_draw_line(canvas, x1 - len + 1, y0, x1, y0);
-    canvas_draw_line(canvas, x1, y0, x1, y0 + len - 1);
-    canvas_draw_line(canvas, x0, y1, x0 + len - 1, y1);
-    canvas_draw_line(canvas, x0, y1 - len + 1, x0, y1);
-    canvas_draw_line(canvas, x1 - len + 1, y1, x1, y1);
-    canvas_draw_line(canvas, x1, y1 - len + 1, x1, y1);
-}
-
-// Clips the far end of a floor ray to the screen edge so u8g2 never sees wild coordinates.
-static void dv_floor_ray(Canvas* canvas, int32_t x0, int32_t y0, int32_t x1, int32_t y1) {
-    if(x1 < 0) {
-        y1 = y0 + (y1 - y0) * (0 - x0) / (x1 - x0);
-        x1 = 0;
-    } else if(x1 > 127) {
-        y1 = y0 + (y1 - y0) * (127 - x0) / (x1 - x0);
-        x1 = 127;
-    }
-    canvas_draw_line(canvas, x0, y0, x1, y1);
+    dv_line(canvas, x0, y0, x0 + len - 1, y0);
+    dv_line(canvas, x0, y0, x0, y0 + len - 1);
+    dv_line(canvas, x1 - len + 1, y0, x1, y0);
+    dv_line(canvas, x1, y0, x1, y0 + len - 1);
+    dv_line(canvas, x0, y1, x0 + len - 1, y1);
+    dv_line(canvas, x0, y1 - len + 1, x0, y1);
+    dv_line(canvas, x1 - len + 1, y1, x1, y1);
+    dv_line(canvas, x1, y1 - len + 1, x1, y1);
 }
 
 void digivice_draw_grid(Canvas* canvas, int32_t horizon, uint32_t frame) {
     int32_t depth = 63 - horizon;
     for(int32_t i = -8; i <= 8; i++) {
-        dv_floor_ray(canvas, 64 + i * 4, horizon, 64 + i * 26, 63);
+        dv_line(canvas, 64 + i * 4, horizon, 64 + i * 26, 63);
     }
     for(int32_t k = 0; k < 6; k++) {
         int32_t z = k * 8 + (int32_t)(frame % 8);
-        canvas_draw_line(
+        dv_line(
             canvas,
             0,
             horizon + z * z * depth / (48 * 48),
             127,
             horizon + z * z * depth / (48 * 48));
     }
-    canvas_draw_line(canvas, 0, horizon, 127, horizon);
+    dv_line(canvas, 0, horizon, 127, horizon);
 }
 
 void digivice_draw_glitch(Canvas* canvas, uint32_t seed, uint8_t strips) {
@@ -158,7 +191,7 @@ void digivice_draw_scanline(Canvas* canvas, uint32_t frame) {
     int32_t y = (int32_t)((frame * 3) % 90);
     if(y >= 64) return;
     canvas_set_color(canvas, ColorXOR);
-    canvas_draw_line(canvas, 0, y, 127, y);
+    dv_line(canvas, 0, y, 127, y);
     canvas_set_color(canvas, ColorBlack);
 }
 
@@ -174,7 +207,7 @@ static void dv_eyes_and_mouth(
         int32_t ex = cx + 2 + sd * 3 * k10 / 10;
         int32_t ey = by - 1;
         if(blink) {
-            canvas_draw_line(canvas, ex - 1, ey, ex + 1, ey);
+            dv_line(canvas, ex - 1, ey, ex + 1, ey);
         } else {
             canvas_draw_box(canvas, ex - 1, ey - 2, 3, 4);
             canvas_set_color(canvas, ColorWhite);
@@ -232,7 +265,7 @@ static void dv_mon(
                     cx + sd * (rx + 4),
                     by + 2);
                 canvas_set_color(canvas, ColorBlack);
-                canvas_draw_line(
+                dv_line(
                     canvas, cx + sd * rx * 6 / 10, by - 2, cx + sd * (rx + 9), by - 11 + f);
             }
         }
@@ -282,8 +315,8 @@ static void dv_egg(Canvas* canvas, int32_t cx, int32_t cy, uint32_t frame, bool 
     canvas_set_color(canvas, ColorBlack);
     // Zigzag crack and two data spots.
     for(int32_t i = -6; i < 6; i += 2) {
-        canvas_draw_line(canvas, cx + i, cy, cx + i + 1, cy - 2);
-        canvas_draw_line(canvas, cx + i + 1, cy - 2, cx + i + 2, cy);
+        dv_line(canvas, cx + i, cy, cx + i + 1, cy - 2);
+        dv_line(canvas, cx + i + 1, cy - 2, cx + i + 2, cy);
     }
     canvas_draw_box(canvas, cx - 4, cy - 6, 2, 2);
     canvas_draw_box(canvas, cx + 2, cy + 4, 3, 2);
@@ -302,7 +335,7 @@ static void dv_bitling(Canvas* canvas, int32_t cx, int32_t cy, uint32_t frame, b
     bool blink = (frame % 32) == 0;
     canvas_draw_box(canvas, cx - 3, cy - 1, 2, blink ? 1 : 2);
     canvas_draw_box(canvas, cx + 2, cy - 1, 2, blink ? 1 : 2);
-    canvas_draw_line(canvas, cx - 1, cy + 2, cx + 1, cy + 2);
+    dv_line(canvas, cx - 1, cy + 2, cx + 1, cy + 2);
 }
 
 // Champion emblems sit on the big mon's chest or head and tell the four types apart.
@@ -322,7 +355,7 @@ static void dv_emblem(Canvas* canvas, DigiviceForm form, int32_t cx, int32_t cy)
         // IR: a visor over the eyes with a slit.
         canvas_draw_box(canvas, cx - 7, cy - 4, 15, 4);
         canvas_set_color(canvas, ColorWhite);
-        canvas_draw_line(canvas, cx - 5, cy - 2, cx + 5, cy - 2);
+        dv_line(canvas, cx - 5, cy - 2, cx + 5, cy - 2);
         canvas_set_color(canvas, ColorBlack);
         break;
     case DigiviceFormPlugdrake:
@@ -359,13 +392,13 @@ static void dv_virubyte(
     canvas_set_color(canvas, ColorWhite);
     for(int32_t sd = -1; sd <= 1; sd += 2) {
         int32_t ex = cx + 2 + sd * 3;
-        canvas_draw_line(canvas, ex - 1, cy - 3, ex + 1, cy - 1);
-        canvas_draw_line(canvas, ex + 1, cy - 3, ex - 1, cy - 1);
+        dv_line(canvas, ex - 1, cy - 3, ex + 1, cy - 1);
+        dv_line(canvas, ex + 1, cy - 3, ex - 1, cy - 1);
     }
     if(pose == DigivicePoseAttack) {
         canvas_draw_box(canvas, cx, cy + 2, 5, 3);
     } else {
-        canvas_draw_line(canvas, cx - 1, cy + 3, cx + 4, cy + 3);
+        dv_line(canvas, cx - 1, cy + 3, cx + 4, cy + 3);
     }
     canvas_set_color(canvas, ColorBlack);
 }
@@ -420,8 +453,8 @@ void digivice_draw_virux(Canvas* canvas, int32_t cx, int32_t cy, uint32_t frame)
     canvas_set_color(canvas, ColorWhite);
     digivice_draw_fill_triangle(canvas, cx - 5, cy - 2, cx - 1, cy, cx - 5, cy + 1);
     digivice_draw_fill_triangle(canvas, cx + 5, cy - 2, cx + 1, cy, cx + 5, cy + 1);
-    canvas_draw_line(canvas, cx - 2, cy + 3, cx - 2, cy + 4);
-    canvas_draw_line(canvas, cx + 2, cy + 3, cx + 2, cy + 4);
+    dv_line(canvas, cx - 2, cy + 3, cx - 2, cy + 4);
+    dv_line(canvas, cx + 2, cy + 3, cx + 2, cy + 4);
     canvas_set_color(canvas, ColorBlack);
 }
 
@@ -499,7 +532,7 @@ static void dv_vertical_meter(
         if(i < value) {
             canvas_draw_box(canvas, x, sy, 3, 3);
         } else {
-            canvas_draw_line(canvas, x, sy + 2, x + 2, sy + 2);
+            dv_line(canvas, x, sy + 2, x + 2, sy + 2);
         }
     }
 }
@@ -533,7 +566,7 @@ void digivice_draw_home(
     canvas_draw_box(canvas, 0, 13, 40, 9);
     canvas_set_color(canvas, ColorBlack);
     digivice_draw_text(canvas, 3, 14, digivice_form_name((DigiviceForm)state->form));
-    canvas_draw_line(canvas, 3, 21, 28, 21);
+    dv_line(canvas, 3, 21, 28, 21);
 
     canvas_set_color(canvas, ColorWhite);
     canvas_draw_box(canvas, 106, 13, 22, 24);
@@ -567,8 +600,8 @@ void digivice_draw_home(
 }
 
 static void dv_sparkle(Canvas* canvas, int32_t x, int32_t y, int32_t size) {
-    canvas_draw_line(canvas, x - size, y, x + size, y);
-    canvas_draw_line(canvas, x, y - size, x, y + size);
+    dv_line(canvas, x - size, y, x + size, y);
+    dv_line(canvas, x, y - size, x, y + size);
 }
 
 void digivice_draw_evolution(Canvas* canvas, DigiviceForm from, DigiviceForm to, uint32_t frame) {
@@ -630,8 +663,8 @@ void digivice_draw_evolution(Canvas* canvas, DigiviceForm from, DigiviceForm to,
         canvas_set_color(canvas, ColorWhite);
         canvas_draw_box(canvas, bx, 0, 128, 11);
         canvas_set_color(canvas, ColorBlack);
-        canvas_draw_line(canvas, bx, 0, bx + 127, 0);
-        canvas_draw_line(canvas, bx, 10, bx + 127, 10);
+        dv_line(canvas, bx, 0, bx + 127, 0);
+        dv_line(canvas, bx, 10, bx + 127, 10);
         digivice_draw_text(canvas, bx + 38, 3, "> EVOLUTION!");
         int32_t nx = t < 8 ? -60 + (int32_t)t * 15 / 2 : 0;
         canvas_set_color(canvas, ColorWhite);
