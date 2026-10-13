@@ -40,7 +40,7 @@ flowchart LR
     S -->|state pubsub| H[Desktop HUD view]
     S -->|RECORD_DIGIVICE| A[Digivice app]
     A -->|uses| R
-    S --> F[(Saved state in internal flash)]
+    S --> F[(Saved state on SD<br/>/int → /ext/.int)]
 ```
 
 | Path | Role |
