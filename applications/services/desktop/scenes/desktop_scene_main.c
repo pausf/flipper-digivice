@@ -68,6 +68,14 @@ static void desktop_scene_main_open_app_or_profile(Desktop* desktop, FavoriteApp
     }
 }
 
+static void desktop_scene_main_open_digivice(Desktop* desktop, FavoriteApp* application) {
+    if(strlen(application->name_or_path) > 0) {
+        loader_start_detached_with_gui_error(desktop->loader, application->name_or_path, NULL);
+    } else {
+        loader_start_detached_with_gui_error(desktop->loader, "digivice", NULL);
+    }
+}
+
 static void desktop_scene_main_start_favorite(Desktop* desktop, FavoriteApp* application) {
     if(strlen(application->name_or_path) > 0) {
         loader_start_detached_with_gui_error(desktop->loader, application->name_or_path, NULL);
@@ -95,6 +103,8 @@ void desktop_scene_main_on_enter(void* context) {
         desktop->animation_manager, desktop_scene_main_interact_animation_callback);
 
     desktop_main_set_callback(main_view, desktop_scene_main_callback, desktop);
+    desktop_digivice_view_set_callback(
+        desktop->digivice_view, desktop_scene_main_callback, desktop);
 
     view_dispatcher_switch_to_view(desktop->view_dispatcher, DesktopViewIdMain);
 }
@@ -170,14 +180,16 @@ bool desktop_scene_main_on_event(void* context, SceneManagerEvent event) {
             consumed = true;
             break;
         case DesktopAnimationEventInteractAnimation:
-            if(!animation_manager_interact_process(desktop->animation_manager)) {
-                if(!desktop->settings.dummy_mode) {
-                    desktop_scene_main_open_app_or_profile(
-                        desktop, &desktop->settings.favorite_apps[FavoriteAppRightShort]);
-                } else {
-                    desktop_scene_main_open_app_or_profile(
-                        desktop, &desktop->settings.dummy_apps[DummyAppRight]);
-                }
+            // The dolphin view is hidden, so a pending level-up would swallow presses unseen:
+            // run both of its steps (pending -> active -> idle) and always open something.
+            animation_manager_interact_process(desktop->animation_manager);
+            animation_manager_interact_process(desktop->animation_manager);
+            if(!desktop->settings.dummy_mode) {
+                desktop_scene_main_open_digivice(
+                    desktop, &desktop->settings.favorite_apps[FavoriteAppRightShort]);
+            } else {
+                desktop_scene_main_open_app_or_profile(
+                    desktop, &desktop->settings.dummy_apps[DummyAppRight]);
             }
             consumed = true;
             break;
@@ -215,4 +227,5 @@ void desktop_scene_main_on_exit(void* context) {
     animation_manager_set_check_callback(desktop->animation_manager, NULL);
     animation_manager_set_interact_callback(desktop->animation_manager, NULL);
     animation_manager_set_context(desktop->animation_manager, desktop);
+    desktop_digivice_view_set_callback(desktop->digivice_view, NULL, NULL);
 }

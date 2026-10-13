@@ -11,6 +11,7 @@
 #include "views/desktop_view_lock_menu.h"
 #include "views/desktop_view_debug.h"
 #include "views/desktop_view_slideshow.h"
+#include "views/desktop_view_digivice.h"
 
 #include <gui/gui.h>
 #include <gui/view_stack.h>
@@ -56,6 +57,7 @@ struct Desktop {
     DesktopViewPinTimeout* pin_timeout_view;
     DesktopSlideshowView* slideshow_view;
     DesktopViewPinInput* pin_input_view;
+    DesktopDigiviceView* digivice_view;
 
     ViewStack* main_view_stack;
     ViewStack* locked_view_stack;

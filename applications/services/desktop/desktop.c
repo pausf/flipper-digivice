@@ -283,7 +283,9 @@ static Desktop* desktop_alloc(void) {
 
     desktop->main_view_stack = view_stack_alloc();
     desktop->main_view = desktop_main_alloc();
-    View* dolphin_view = animation_manager_get_animation_view(desktop->animation_manager);
+    // The digivice takes the dolphin's place; animation_manager stays allocated but hidden.
+    desktop->digivice_view = desktop_digivice_view_alloc();
+    View* dolphin_view = desktop_digivice_view_get_view(desktop->digivice_view);
     view_stack_add_view(desktop->main_view_stack, desktop_main_get_view(desktop->main_view));
     view_stack_add_view(desktop->main_view_stack, dolphin_view);
     view_stack_add_view(
