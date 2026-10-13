@@ -473,7 +473,8 @@ void digivice_draw_hp_box(
     digivice_draw_text(canvas, x + 3, y + 1, name);
 
     uint32_t pct = hp_max ? (uint32_t)hp * 100 / hp_max : 0;
-    char text[6];
+    // Sized for any 32-bit value: gcc's -Wformat-truncation can't see that pct <= 100.
+    char text[12];
     snprintf(text, sizeof(text), "%lu%%", (unsigned long)pct);
     digivice_draw_text(canvas, x + w - 3 - digivice_draw_text_width(canvas, text), y + 1, text);
 
@@ -574,7 +575,8 @@ void digivice_draw_home(
     dv_vertical_meter(canvas, 109, 36, "H", state->hunger, DIGIVICE_HUNGER_MAX);
     dv_vertical_meter(canvas, 119, 36, "M", state->mood, DIGIVICE_MOOD_MAX);
 
-    char text[16];
+    // Fits "!VIRUX " plus a full 32-bit minute count.
+    char text[20];
     canvas_set_color(canvas, ColorWhite);
     canvas_draw_box(canvas, 0, 56, 128, 8);
     canvas_set_color(canvas, ColorBlack);
