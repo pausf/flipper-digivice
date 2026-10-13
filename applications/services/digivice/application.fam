@@ -1,0 +1,20 @@
+App(
+    appid="digivice_srv",
+    name="DigiviceSrv",
+    apptype=FlipperAppType.SERVICE,
+    entry_point="digivice_srv",
+    cdefines=["SRV_DIGIVICE"],
+    requires=[
+        "dolphin",
+        "notification",
+        "storage",
+    ],
+    # Explicit list: fbt globs app folders recursively, and test/ must stay out of the firmware.
+    sources=[
+        "digivice_srv.c",
+        "digivice_rules.c",
+        "digivice_notify.c",
+    ],
+    stack_size=int(1.5 * 1024),
+    order=110,
+)
