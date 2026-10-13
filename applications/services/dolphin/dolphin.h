@@ -53,6 +53,9 @@ void dolphin_upgrade_level(Dolphin* dolphin);
 
 FuriPubSub* dolphin_get_pubsub(Dolphin* dolphin);
 
+/** Pubsub of completed deeds: every publish carries a `const DolphinDeed*`. */
+FuriPubSub* dolphin_get_deed_pubsub(Dolphin* dolphin);
+
 #ifdef __cplusplus
 }
 #endif

@@ -30,6 +30,7 @@ typedef struct {
 struct Dolphin {
     DolphinState* state;
     FuriPubSub* pubsub;
+    FuriPubSub* deed_pubsub;
     FuriMessageQueue* event_queue;
     FuriEventLoop* event_loop;
     FuriEventLoopTimer* butthurt_timer;

@@ -104,6 +104,11 @@ FuriPubSub* dolphin_get_pubsub(Dolphin* dolphin) {
     return dolphin->pubsub;
 }
 
+FuriPubSub* dolphin_get_deed_pubsub(Dolphin* dolphin) {
+    furi_check(dolphin);
+    return dolphin->deed_pubsub;
+}
+
 // Private functions
 
 static void dolphin_butthurt_timer_callback(void* context) {
@@ -137,6 +142,7 @@ static Dolphin* dolphin_alloc(void) {
 
     dolphin->state = dolphin_state_alloc();
     dolphin->pubsub = furi_pubsub_alloc();
+    dolphin->deed_pubsub = furi_pubsub_alloc();
     dolphin->event_queue = furi_message_queue_alloc(EVENT_QUEUE_SIZE, sizeof(DolphinEvent));
     dolphin->event_loop = furi_event_loop_alloc();
 
@@ -226,6 +232,7 @@ static void dolphin_process_event(FuriEventLoopObject* object, void* context) {
 
         DolphinPubsubEvent pubsub_event = DolphinPubsubEventUpdate;
         furi_pubsub_publish(dolphin->pubsub, &pubsub_event);
+        furi_pubsub_publish(dolphin->deed_pubsub, &event.deed);
         furi_event_loop_timer_start(dolphin->butthurt_timer, BUTTHURT_INCREASE_PERIOD_TICKS);
         furi_event_loop_timer_start(dolphin->flush_timer, FLUSH_TIMEOUT_TICKS);
 
