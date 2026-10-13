@@ -37,20 +37,40 @@ typedef struct {
     uint32_t evo_frame;
     bool sd_ok;
     bool have_state;
+    // The cutscene waits for a key press so it is not played with the screen off.
+    bool evo_armed;
 } DesktopDigiviceViewModel;
 
 static void desktop_digivice_view_draw(Canvas* canvas, void* model) {
     DesktopDigiviceViewModel* m = model;
     if(m->state.evo_from != DigiviceFormNone) {
         digivice_draw_evolution(
-            canvas, (DigiviceForm)m->state.evo_from, (DigiviceForm)m->state.form, m->evo_frame);
+            canvas,
+            (DigiviceForm)m->state.evo_from,
+            (DigiviceForm)m->state.form,
+            m->evo_frame,
+            // Below the desktop status bar.
+            13);
     } else {
         digivice_draw_home(canvas, &m->state, m->frame, m->now, m->sd_ok);
     }
 }
 
+static void desktop_digivice_view_sync_timer(DesktopDigiviceView* digivice_view) {
+    if(digivice_view->active && !digivice_view->app_running) {
+        furi_timer_start(digivice_view->frame_timer, furi_ms_to_ticks(DESKTOP_DIGIVICE_FRAME_MS));
+    } else {
+        furi_timer_stop(digivice_view->frame_timer);
+    }
+}
+
 static bool desktop_digivice_view_input(InputEvent* event, void* context) {
     DesktopDigiviceView* digivice_view = context;
+    // Input can only reach this view while the desktop is in front, whatever the loader said.
+    digivice_view->app_running = false;
+    desktop_digivice_view_sync_timer(digivice_view);
+    with_view_model(
+        digivice_view->view, DesktopDigiviceViewModel * m, { m->evo_armed = true; }, false);
     // Only short Right is ours; every other key keeps its stock desktop meaning.
     if(event->key == InputKeyRight && event->type == InputTypeShort) {
         if(digivice_view->callback) {
@@ -60,14 +80,6 @@ static bool desktop_digivice_view_input(InputEvent* event, void* context) {
         return true;
     }
     return false;
-}
-
-static void desktop_digivice_view_sync_timer(DesktopDigiviceView* digivice_view) {
-    if(digivice_view->active && !digivice_view->app_running) {
-        furi_timer_start(digivice_view->frame_timer, furi_ms_to_ticks(DESKTOP_DIGIVICE_FRAME_MS));
-    } else {
-        furi_timer_stop(digivice_view->frame_timer);
-    }
 }
 
 static void desktop_digivice_view_frame(void* context) {
@@ -82,7 +94,9 @@ static void desktop_digivice_view_frame(void* context) {
             m->now = furi_hal_rtc_get_timestamp();
             if(m->state.evo_from != DigiviceFormNone) {
                 // The cutscene is authored at 10 fps, so skip a frame at 5 fps.
-                if(m->evo_frame < DIGIVICE_EVO_FRAMES) {
+                if(!m->evo_armed) {
+                    m->evo_frame = 0;
+                } else if(m->evo_frame < DIGIVICE_EVO_FRAMES) {
                     m->evo_frame += 2;
                 } else {
                     evolution_done = true;
@@ -100,7 +114,10 @@ static void desktop_digivice_view_state_callback(const void* message, void* cont
     const DigiviceState* state = message;
     with_view_model(
         digivice_view->view, DesktopDigiviceViewModel * m, {
-            if(m->state.evo_from != state->evo_from) m->evo_frame = 0;
+            if(m->state.evo_from != state->evo_from) {
+                m->evo_frame = 0;
+                m->evo_armed = false;
+            }
             m->state = *state;
             m->have_state = true;
         },
@@ -129,6 +146,10 @@ static void desktop_digivice_view_loader_callback(const void* message, void* con
         digivice_view->app_running = digivice_view->running_before_load;
     } else if(event->type == LoaderEventTypeApplicationStopped) {
         digivice_view->app_running = false;
+        digivice_view->running_before_load = false;
+    } else if(event->type == LoaderEventTypeNoMoreAppsInQueue) {
+        // Start failures end here without Stopped; a failed second start keeps the first app.
+        digivice_view->app_running = digivice_view->running_before_load;
     } else {
         return;
     }
