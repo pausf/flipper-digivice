@@ -252,6 +252,8 @@ bool digivice_rules_on_deed(
 }
 
 bool digivice_rules_evolve(DigiviceState* s, uint32_t now) {
+    // The pending cutscene must be acknowledged first or it would be overwritten unseen.
+    if(s->evo_from != DigiviceFormNone) return false;
     switch(s->form) {
     case DigiviceFormByteegg:
         if(now >= s->born_at && now - s->born_at >= DIGIVICE_HATCH_S) {

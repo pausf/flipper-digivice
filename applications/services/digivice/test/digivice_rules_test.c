@@ -323,6 +323,21 @@ static void test_champion_paths_and_ties(void) {
     CHECK(champion_for(0, 0, 0, 0) == DigiviceFormTagdrake);
 }
 
+static void test_evolution_waits_for_ack(void) {
+    DigiviceState s = fresh(T0);
+    s.form = DigiviceFormBitling;
+    s.exp = DIGIVICE_CHAMPION_EXP;
+    CHECK(digivice_rules_evolve(&s, T0));
+    CHECK(s.form == DigiviceFormBytemon);
+    CHECK(s.evo_from == DigiviceFormBitling);
+    CHECK(!digivice_rules_evolve(&s, T0));
+    CHECK(s.form == DigiviceFormBytemon);
+    CHECK(s.evo_from == DigiviceFormBitling);
+    digivice_rules_ack_evolution(&s);
+    CHECK(digivice_rules_evolve(&s, T0));
+    CHECK(s.evo_from == DigiviceFormBytemon);
+}
+
 static void test_champion_and_corrupt_do_not_evolve(void) {
     DigiviceState s = rookie(T0);
     s.form = DigiviceFormTagdrake;
@@ -539,6 +554,7 @@ int main(void) {
     test_egg_hatches_after_1h();
     test_baby_to_rookie_at_50_exp();
     test_champion_paths_and_ties();
+    test_evolution_waits_for_ack();
     test_champion_and_corrupt_do_not_evolve();
     test_deed_types();
     test_deed_grants_exp_and_data();
