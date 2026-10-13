@@ -1,0 +1,34 @@
+name: digivice
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  rules-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run host rules test
+        run: applications/services/digivice/test/run.sh
+
+  firmware:
+    needs: rules-tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
+      - name: Build update package
+        run: ./fbt COMPACT=1 DEBUG=0 updater_package
+      - uses: actions/upload-artifact@v4
+        with:
+          name: digivice-update-package
+          path: |
+            dist/f7-C/f7-update-*/
+            dist/f7-C/*.tgz
+          if-no-files-found: error
