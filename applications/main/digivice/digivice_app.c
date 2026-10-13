@@ -124,7 +124,8 @@ static void digivice_menu_input(DigiviceApp* app, const InputEvent* event) {
 
 static void digivice_stats_draw(Canvas* canvas, DigiviceApp* app) {
     const DigiviceState* s = &app->state;
-    char line[32];
+    // Worst case "NFC65535 SUB65535 IR65535 USB65535" is 35 bytes with the terminator.
+    char line[40];
     canvas_set_color(canvas, ColorBlack);
     digivice_draw_brackets(canvas, 0, 0, 127, 63, 4);
     digivice_draw_text(canvas, 4, 3, digivice_form_name((DigiviceForm)s->form));
