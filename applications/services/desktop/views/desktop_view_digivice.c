@@ -26,6 +26,8 @@ struct DesktopDigiviceView {
     // The view stays on the GUI under running apps, so the timer must follow both flags.
     volatile bool active;
     volatile bool app_running;
+    // BeforeLoad is published even when the loader is locked; its LoadFailed must not unpause.
+    volatile bool running_before_load;
 };
 
 typedef struct {
@@ -34,6 +36,7 @@ typedef struct {
     uint32_t now;
     uint32_t evo_frame;
     bool sd_ok;
+    bool have_state;
 } DesktopDigiviceViewModel;
 
 static void desktop_digivice_view_draw(Canvas* canvas, void* model) {
@@ -99,6 +102,7 @@ static void desktop_digivice_view_state_callback(const void* message, void* cont
         digivice_view->view, DesktopDigiviceViewModel * m, {
             if(m->state.evo_from != state->evo_from) m->evo_frame = 0;
             m->state = *state;
+            m->have_state = true;
         },
         true);
 }
@@ -119,10 +123,11 @@ static void desktop_digivice_view_loader_callback(const void* message, void* con
     DesktopDigiviceView* digivice_view = context;
     const LoaderEvent* event = message;
     if(event->type == LoaderEventTypeApplicationBeforeLoad) {
+        digivice_view->running_before_load = digivice_view->app_running;
         digivice_view->app_running = true;
-    } else if(
-        event->type == LoaderEventTypeApplicationStopped ||
-        event->type == LoaderEventTypeApplicationLoadFailed) {
+    } else if(event->type == LoaderEventTypeApplicationLoadFailed) {
+        digivice_view->app_running = digivice_view->running_before_load;
+    } else if(event->type == LoaderEventTypeApplicationStopped) {
         digivice_view->app_running = false;
     } else {
         return;
@@ -182,7 +187,7 @@ DesktopDigiviceView* desktop_digivice_view_alloc(void) {
         digivice_view->view,
         DesktopDigiviceViewModel * m,
         {
-            m->state = state;
+            if(!m->have_state) m->state = state;
             m->sd_ok = sd_ok;
             m->now = furi_hal_rtc_get_timestamp();
         },
