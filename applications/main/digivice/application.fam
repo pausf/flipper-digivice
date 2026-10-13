@@ -1,0 +1,11 @@
+App(
+    appid="digivice",
+    name="Digivice",
+    # SYSTEM: built in and started by name, but kept out of the main menu.
+    # The loader cannot start APP-type entries by name, and short Right on the desktop is the way in.
+    apptype=FlipperAppType.SYSTEM,
+    entry_point="digivice_app",
+    requires=["gui", "digivice_srv"],
+    stack_size=2 * 1024,
+    order=1,
+)
