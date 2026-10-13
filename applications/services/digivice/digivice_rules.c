@@ -158,3 +158,129 @@ bool digivice_rules_same_visible(const DigiviceState* a, const DigiviceState* b)
     x.corrupt_acc_s = y.corrupt_acc_s = 0;
     return memcmp(&x, &y, sizeof(DigiviceState)) == 0;
 }
+
+static const uint8_t champion_of[DigiviceTypeCount] = {
+    [DigiviceTypeNfc] = DigiviceFormTagdrake,
+    [DigiviceTypeSubGhz] = DigiviceFormWavedrake,
+    [DigiviceTypeIr] = DigiviceFormBeamdrake,
+    [DigiviceTypeUsb] = DigiviceFormPlugdrake,
+};
+
+DigiviceType digivice_rules_player_type(const DigiviceState* s) {
+    for(uint8_t t = 0; t < DigiviceTypeCount; t++) {
+        if(champion_of[t] == s->form) return (DigiviceType)t;
+    }
+    return DigiviceTypeNone;
+}
+
+DigiviceType digivice_rules_deed_type(DolphinDeed deed) {
+    switch(deed) {
+    case DolphinDeedSubGhzReceiverInfo:
+    case DolphinDeedSubGhzSave:
+    case DolphinDeedSubGhzRawRec:
+    case DolphinDeedSubGhzAddManually:
+    case DolphinDeedSubGhzSend:
+    case DolphinDeedSubGhzFrequencyAnalyzer:
+        return DigiviceTypeSubGhz;
+
+    case DolphinDeedRfidRead:
+    case DolphinDeedRfidReadSuccess:
+    case DolphinDeedRfidSave:
+    case DolphinDeedRfidEmulate:
+    case DolphinDeedRfidAdd:
+    case DolphinDeedNfcRead:
+    case DolphinDeedNfcReadSuccess:
+    case DolphinDeedNfcSave:
+    case DolphinDeedNfcDetectReader:
+    case DolphinDeedNfcEmulate:
+    case DolphinDeedNfcKeyAdd:
+    case DolphinDeedNfcAddSave:
+    case DolphinDeedNfcAddEmulate:
+    case DolphinDeedIbuttonRead:
+    case DolphinDeedIbuttonReadSuccess:
+    case DolphinDeedIbuttonSave:
+    case DolphinDeedIbuttonEmulate:
+    case DolphinDeedIbuttonAdd:
+        return DigiviceTypeNfc;
+
+    case DolphinDeedIrSend:
+    case DolphinDeedIrLearnSuccess:
+    case DolphinDeedIrSave:
+        return DigiviceTypeIr;
+
+    case DolphinDeedBadUsbPlayScript:
+    case DolphinDeedU2fAuthorized:
+    case DolphinDeedGpioUartBridge:
+        return DigiviceTypeUsb;
+
+    default:
+        return DigiviceTypeNone;
+    }
+}
+
+bool digivice_rules_is_spawn_deed(DolphinDeed deed) {
+    return deed == DolphinDeedNfcRead || deed == DolphinDeedRfidRead ||
+           deed == DolphinDeedIbuttonRead || deed == DolphinDeedSubGhzReceiverInfo ||
+           deed == DolphinDeedSubGhzFrequencyAnalyzer;
+}
+
+bool digivice_rules_virux_active(const DigiviceState* s, uint32_t now) {
+    return s->virux_type != DigiviceTypeNone && now < s->virux_expires;
+}
+
+bool digivice_rules_on_deed(
+    DigiviceState* s,
+    DolphinDeed deed,
+    uint8_t weight,
+    uint32_t now,
+    uint8_t rng_pct) {
+    if(deed >= DolphinDeedMAX) return false;
+
+    s->exp += weight;
+    DigiviceType type = digivice_rules_deed_type(deed);
+    if(type == DigiviceTypeNone) return false;
+    add_u16(&s->data[type], 1);
+
+    bool eligible = digivice_rules_is_spawn_deed(deed) &&
+                    digivice_rules_stage(s) >= DigiviceStageRookie &&
+                    !digivice_rules_virux_active(s, now);
+    if(!eligible || rng_pct >= DIGIVICE_SPAWN_PCT) return false;
+
+    s->virux_type = type;
+    s->virux_expires = now + DIGIVICE_VIRUX_TTL_S;
+    return true;
+}
+
+bool digivice_rules_evolve(DigiviceState* s, uint32_t now) {
+    switch(s->form) {
+    case DigiviceFormByteegg:
+        if(now >= s->born_at && now - s->born_at >= DIGIVICE_HATCH_S) {
+            evolve_to(s, DigiviceFormBitling);
+            return true;
+        }
+        return false;
+    case DigiviceFormBitling:
+        if(s->exp >= DIGIVICE_ROOKIE_EXP) {
+            evolve_to(s, DigiviceFormBytemon);
+            return true;
+        }
+        return false;
+    case DigiviceFormBytemon:
+        if(s->exp >= DIGIVICE_CHAMPION_EXP) {
+            // Strict > keeps the first type on ties: NFC, SUBGHZ, IR, USB.
+            uint8_t best = DigiviceTypeNfc;
+            for(uint8_t t = 1; t < DigiviceTypeCount; t++) {
+                if(s->data[t] > s->data[best]) best = t;
+            }
+            evolve_to(s, champion_of[best]);
+            return true;
+        }
+        return false;
+    default:
+        return false;
+    }
+}
+
+void digivice_rules_ack_evolution(DigiviceState* s) {
+    s->evo_from = DigiviceFormNone;
+}

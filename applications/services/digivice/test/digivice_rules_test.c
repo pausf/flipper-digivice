@@ -276,6 +276,144 @@ static void test_same_visible_ignores_bookkeeping(void) {
     CHECK(!digivice_rules_same_visible(&a, &b));
 }
 
+static void test_egg_hatches_after_1h(void) {
+    DigiviceState s = fresh(T0);
+    CHECK(!digivice_rules_evolve(&s, T0 + H(1) - 1));
+    CHECK(s.form == DigiviceFormByteegg);
+    CHECK(digivice_rules_evolve(&s, T0 + H(1)));
+    CHECK(s.form == DigiviceFormBitling);
+    CHECK(s.evo_from == DigiviceFormByteegg);
+    digivice_rules_ack_evolution(&s);
+    CHECK(s.evo_from == DigiviceFormNone);
+}
+
+static void test_baby_to_rookie_at_50_exp(void) {
+    DigiviceState s = fresh(T0);
+    s.form = DigiviceFormBitling;
+    s.exp = 49;
+    CHECK(!digivice_rules_evolve(&s, T0));
+    s.exp = 50;
+    CHECK(digivice_rules_evolve(&s, T0));
+    CHECK(s.form == DigiviceFormBytemon);
+}
+
+static DigiviceForm champion_for(uint16_t nfc, uint16_t subghz, uint16_t ir, uint16_t usb) {
+    DigiviceState s = rookie(T0);
+    s.exp = DIGIVICE_CHAMPION_EXP;
+    s.data[DigiviceTypeNfc] = nfc;
+    s.data[DigiviceTypeSubGhz] = subghz;
+    s.data[DigiviceTypeIr] = ir;
+    s.data[DigiviceTypeUsb] = usb;
+    digivice_rules_evolve(&s, T0);
+    return (DigiviceForm)s.form;
+}
+
+static void test_champion_paths_and_ties(void) {
+    DigiviceState s = rookie(T0);
+    s.exp = DIGIVICE_CHAMPION_EXP - 1;
+    CHECK(!digivice_rules_evolve(&s, T0));
+
+    CHECK(champion_for(9, 1, 1, 1) == DigiviceFormTagdrake);
+    CHECK(champion_for(1, 9, 1, 1) == DigiviceFormWavedrake);
+    CHECK(champion_for(1, 1, 9, 1) == DigiviceFormBeamdrake);
+    CHECK(champion_for(1, 1, 1, 9) == DigiviceFormPlugdrake);
+    CHECK(champion_for(5, 5, 5, 5) == DigiviceFormTagdrake);
+    CHECK(champion_for(1, 5, 5, 5) == DigiviceFormWavedrake);
+    CHECK(champion_for(1, 1, 5, 5) == DigiviceFormBeamdrake);
+    CHECK(champion_for(0, 0, 0, 0) == DigiviceFormTagdrake);
+}
+
+static void test_champion_and_corrupt_do_not_evolve(void) {
+    DigiviceState s = rookie(T0);
+    s.form = DigiviceFormTagdrake;
+    s.exp = 99999;
+    CHECK(!digivice_rules_evolve(&s, T0));
+    s.form = DigiviceFormVirubyte;
+    CHECK(!digivice_rules_evolve(&s, T0));
+}
+
+static void test_deed_types(void) {
+    CHECK(digivice_rules_deed_type(DolphinDeedNfcRead) == DigiviceTypeNfc);
+    CHECK(digivice_rules_deed_type(DolphinDeedNfcAddEmulate) == DigiviceTypeNfc);
+    CHECK(digivice_rules_deed_type(DolphinDeedRfidReadSuccess) == DigiviceTypeNfc);
+    CHECK(digivice_rules_deed_type(DolphinDeedIbuttonEmulate) == DigiviceTypeNfc);
+    CHECK(digivice_rules_deed_type(DolphinDeedSubGhzReceiverInfo) == DigiviceTypeSubGhz);
+    CHECK(digivice_rules_deed_type(DolphinDeedSubGhzFrequencyAnalyzer) == DigiviceTypeSubGhz);
+    CHECK(digivice_rules_deed_type(DolphinDeedIrSend) == DigiviceTypeIr);
+    CHECK(digivice_rules_deed_type(DolphinDeedIrSave) == DigiviceTypeIr);
+    CHECK(digivice_rules_deed_type(DolphinDeedBadUsbPlayScript) == DigiviceTypeUsb);
+    CHECK(digivice_rules_deed_type(DolphinDeedU2fAuthorized) == DigiviceTypeUsb);
+    CHECK(digivice_rules_deed_type(DolphinDeedGpioUartBridge) == DigiviceTypeUsb);
+    CHECK(digivice_rules_deed_type(DolphinDeedPluginStart) == DigiviceTypeNone);
+    CHECK(digivice_rules_deed_type(DolphinDeedPluginGameStart) == DigiviceTypeNone);
+    CHECK(digivice_rules_deed_type(DolphinDeedPluginGameWin) == DigiviceTypeNone);
+    CHECK(digivice_rules_deed_type(DolphinDeedTestLeft) == DigiviceTypeNone);
+}
+
+static void test_deed_grants_exp_and_data(void) {
+    DigiviceState s = fresh(T0);
+    digivice_rules_on_deed(&s, DolphinDeedIrLearnSuccess, 3, T0, 99);
+    CHECK(s.exp == 3);
+    CHECK(s.data[DigiviceTypeIr] == 1);
+    digivice_rules_on_deed(&s, DolphinDeedPluginGameWin, 10, T0, 99);
+    CHECK(s.exp == 13);
+    CHECK(
+        s.data[DigiviceTypeNfc] + s.data[DigiviceTypeSubGhz] + s.data[DigiviceTypeIr] +
+            s.data[DigiviceTypeUsb] ==
+        1);
+    digivice_rules_on_deed(&s, DolphinDeedTestRight, 5, T0, 0);
+    CHECK(s.exp == 13);
+}
+
+static void test_spawn_rules(void) {
+    CHECK(digivice_rules_is_spawn_deed(DolphinDeedNfcRead));
+    CHECK(digivice_rules_is_spawn_deed(DolphinDeedRfidRead));
+    CHECK(digivice_rules_is_spawn_deed(DolphinDeedIbuttonRead));
+    CHECK(digivice_rules_is_spawn_deed(DolphinDeedSubGhzReceiverInfo));
+    CHECK(digivice_rules_is_spawn_deed(DolphinDeedSubGhzFrequencyAnalyzer));
+    CHECK(!digivice_rules_is_spawn_deed(DolphinDeedNfcReadSuccess));
+    CHECK(!digivice_rules_is_spawn_deed(DolphinDeedIrSend));
+
+    DigiviceState baby = fresh(T0);
+    baby.form = DigiviceFormBitling;
+    CHECK(!digivice_rules_on_deed(&baby, DolphinDeedNfcRead, 1, T0, 0));
+
+    DigiviceState s = rookie(T0);
+    CHECK(!digivice_rules_on_deed(&s, DolphinDeedIrSend, 1, T0, 0));
+    CHECK(!digivice_rules_on_deed(&s, DolphinDeedNfcRead, 1, T0, DIGIVICE_SPAWN_PCT));
+    CHECK(digivice_rules_on_deed(&s, DolphinDeedRfidRead, 1, T0, DIGIVICE_SPAWN_PCT - 1));
+    CHECK(s.virux_type == DigiviceTypeNfc);
+    CHECK(s.virux_expires == T0 + DIGIVICE_VIRUX_TTL_S);
+
+    // At most one pending.
+    CHECK(!digivice_rules_on_deed(&s, DolphinDeedSubGhzReceiverInfo, 1, T0 + 60, 0));
+    CHECK(s.virux_type == DigiviceTypeNfc);
+
+    CHECK(digivice_rules_virux_active(&s, T0 + DIGIVICE_VIRUX_TTL_S - 1));
+    CHECK(!digivice_rules_virux_active(&s, T0 + DIGIVICE_VIRUX_TTL_S));
+    digivice_rules_tick(&s, T0 + DIGIVICE_VIRUX_TTL_S);
+    CHECK(s.virux_type == DigiviceTypeNone);
+
+    DigiviceState c = rookie(T0);
+    c.form = DigiviceFormVirubyte;
+    c.prev_form = DigiviceFormBytemon;
+    CHECK(digivice_rules_on_deed(&c, DolphinDeedSubGhzFrequencyAnalyzer, 1, T0, 0));
+    CHECK(c.virux_type == DigiviceTypeSubGhz);
+}
+
+static void test_player_type_by_form(void) {
+    DigiviceState s = rookie(T0);
+    CHECK(digivice_rules_player_type(&s) == DigiviceTypeNone);
+    s.form = DigiviceFormTagdrake;
+    CHECK(digivice_rules_player_type(&s) == DigiviceTypeNfc);
+    s.form = DigiviceFormPlugdrake;
+    CHECK(digivice_rules_player_type(&s) == DigiviceTypeUsb);
+    s.form = DigiviceFormVirubyte;
+    s.prev_form = DigiviceFormPlugdrake;
+    CHECK(digivice_rules_player_type(&s) == DigiviceTypeNone);
+    CHECK(digivice_rules_stage(&s) == DigiviceStageChampion);
+}
+
 int main(void) {
     test_init();
     test_hunger_decays_every_2h();
@@ -295,6 +433,14 @@ int main(void) {
     test_recovery_resets_when_corruption_returns();
     test_timing_zone();
     test_same_visible_ignores_bookkeeping();
+    test_egg_hatches_after_1h();
+    test_baby_to_rookie_at_50_exp();
+    test_champion_paths_and_ties();
+    test_champion_and_corrupt_do_not_evolve();
+    test_deed_types();
+    test_deed_grants_exp_and_data();
+    test_spawn_rules();
+    test_player_type_by_form();
 
     if(failures) {
         printf("%d check(s) failed\n", failures);
