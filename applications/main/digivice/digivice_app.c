@@ -110,7 +110,11 @@ static void digivice_menu_input(DigiviceApp* app, const InputEvent* event) {
             digivice_app_set_screen(app, DigiviceScreenStats);
             break;
         case DigiviceMenuBattle:
-            digivice_app_toast(app, "> NO VIRUX NEARBY");
+            if(digivice_rules_virux_active(&app->state, furi_hal_rtc_get_timestamp())) {
+                digivice_battle_enter(app);
+            } else {
+                digivice_app_toast(app, "> NO VIRUX NEARBY");
+            }
             break;
         default:
             break;
@@ -176,6 +180,7 @@ static void digivice_app_draw_callback(Canvas* canvas, void* context) {
         digivice_train_draw(canvas, app);
         break;
     case DigiviceScreenBattle:
+        digivice_battle_draw(canvas, app);
         break;
     case DigiviceScreenEvolution:
         digivice_draw_evolution(
@@ -211,6 +216,7 @@ static void digivice_app_input(DigiviceApp* app, const InputEvent* event) {
         digivice_train_input(app, event);
         break;
     case DigiviceScreenBattle:
+        digivice_battle_input(app, event);
         break;
     case DigiviceScreenEvolution:
         break;
@@ -234,6 +240,7 @@ static void digivice_app_tick(DigiviceApp* app) {
         digivice_train_tick(app);
         break;
     case DigiviceScreenBattle:
+        digivice_battle_tick(app);
         break;
     case DigiviceScreenEvolution:
         if(app->screen_frame > DIGIVICE_EVO_FRAMES) {
