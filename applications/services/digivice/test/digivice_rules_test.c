@@ -88,12 +88,18 @@ static void test_sleep_window(void) {
 }
 
 static void test_elapsed_clamped_to_48h(void) {
+    // With hunger at 0, corruption accrues on every awake second and its sub-hour remainder
+    // survives saturation. Any 48 h window holds exactly 32 awake hours (remainder 0), while
+    // an unclamped 30-day gap ends 1234 s into an awake hour (remainder 1234).
     DigiviceState a = fresh(T0);
     DigiviceState b = fresh(T0);
+    a.hunger = 0;
+    b.hunger = 0;
     digivice_rules_tick(&a, T0 + H(48));
-    digivice_rules_tick(&b, T0 + DAY(30));
-    CHECK(a.hunger == b.hunger && a.mood == b.mood && a.corruption == b.corruption);
-    CHECK(b.last_tick == T0 + DAY(30));
+    digivice_rules_tick(&b, T0 + DAY(30) + 1234);
+    CHECK(a.corrupt_acc_s == 0);
+    CHECK(b.corrupt_acc_s == a.corrupt_acc_s);
+    CHECK(b.last_tick == T0 + DAY(30) + 1234);
 }
 
 static void test_clock_backwards_is_zero_elapsed(void) {
@@ -228,9 +234,27 @@ static void test_recovery_resets_when_corruption_returns(void) {
     s.last_tick = T0 + H(12);
     digivice_rules_tick(&s, T0 + H(13));
     CHECK(s.corruption == 5 && s.clean_since == 0);
-    s.last_tick = T0 + H(25);
-    digivice_rules_tick(&s, T0 + H(25));
+
+    // Clean again at T1, 14 h after T0: the 24 h clock must restart there.
+    uint32_t t1 = T0 + H(14);
+    CHECK(digivice_rules_feed(&s, t1));
+    CHECK(s.corruption == 0);
+    CHECK(s.clean_since == t1);
+
+    // Owner keeps it fed. At T0 + 24 h the stale clock would have fired, the new one has not.
+    s.hunger = DIGIVICE_HUNGER_MAX;
+    s.mood = DIGIVICE_MOOD_MAX;
+    s.last_tick = T0 + H(24) - 60;
+    digivice_rules_tick(&s, T0 + H(24));
     CHECK(s.form == DigiviceFormVirubyte);
+
+    s.last_tick = t1 + H(24) - 120;
+    digivice_rules_tick(&s, t1 + H(24) - 60);
+    CHECK(s.form == DigiviceFormVirubyte);
+
+    digivice_rules_tick(&s, t1 + H(24));
+    CHECK(s.form == DigiviceFormBytemon);
+    CHECK(s.evo_from == DigiviceFormVirubyte);
 }
 
 static void test_timing_zone(void) {
