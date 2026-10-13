@@ -414,6 +414,109 @@ static void test_player_type_by_form(void) {
     CHECK(digivice_rules_stage(&s) == DigiviceStageChampion);
 }
 
+static void test_lose_can_transform(void) {
+    DigiviceState s = rookie(T0);
+    s.virux_type = DigiviceTypeIr;
+    s.virux_expires = T0 + 60;
+    s.corruption = 90;
+    digivice_rules_battle_result(&s, DigiviceBattleResultLose, T0);
+    CHECK(s.form == DigiviceFormVirubyte);
+    CHECK(s.prev_form == DigiviceFormBytemon);
+}
+
+static void test_type_chart(void) {
+    CHECK(digivice_rules_type_x10(DigiviceTypeNfc, DigiviceTypeUsb) == 15);
+    CHECK(digivice_rules_type_x10(DigiviceTypeUsb, DigiviceTypeIr) == 15);
+    CHECK(digivice_rules_type_x10(DigiviceTypeIr, DigiviceTypeSubGhz) == 15);
+    CHECK(digivice_rules_type_x10(DigiviceTypeSubGhz, DigiviceTypeNfc) == 15);
+    CHECK(digivice_rules_type_x10(DigiviceTypeUsb, DigiviceTypeNfc) == 10);
+    CHECK(digivice_rules_type_x10(DigiviceTypeNfc, DigiviceTypeNfc) == 10);
+    CHECK(digivice_rules_type_x10(DigiviceTypeNone, DigiviceTypeNfc) == 10);
+    CHECK(digivice_rules_type_x10(DigiviceTypeNfc, DigiviceTypeNone) == 10);
+}
+
+static void test_damage_formula(void) {
+    // (base + strength) x timing x type, integer math.
+    CHECK(digivice_rules_damage(4, 0, true, DigiviceTypeNone, DigiviceTypeNfc) == 6);
+    CHECK(digivice_rules_damage(4, 0, false, DigiviceTypeNone, DigiviceTypeNfc) == 2);
+    CHECK(digivice_rules_damage(4, 6, true, DigiviceTypeNfc, DigiviceTypeUsb) == 22);
+    CHECK(digivice_rules_damage(7, 3, false, DigiviceTypeIr, DigiviceTypeSubGhz) == 7);
+    CHECK(digivice_rules_damage(1, 0, false, DigiviceTypeNone, DigiviceTypeNone) == 1);
+}
+
+static void test_battle_flow(void) {
+    DigiviceState s = rookie(T0);
+    s.virux_type = DigiviceTypeIr;
+    s.virux_expires = T0 + 60;
+    DigiviceBattle b;
+    digivice_battle_init(&b, &s);
+    CHECK(b.stage == DigiviceStageRookie);
+    CHECK(b.foe_type == DigiviceTypeIr);
+    CHECK(b.player_hp == b.player_hp_max && b.foe_hp == b.foe_hp_max);
+    CHECK(digivice_battle_outcome(&b) == DigiviceBattleOngoing);
+
+    uint16_t foe_before = b.foe_hp;
+    uint16_t dealt = digivice_battle_player_attack(&b, &s, true, 99);
+    CHECK(dealt == 6);
+    CHECK(b.foe_hp == foe_before - 6);
+
+    uint16_t taken = digivice_battle_foe_attack(&b);
+    digivice_battle_defend(&b);
+    CHECK(b.defending);
+    uint16_t halved = digivice_battle_foe_attack(&b);
+    CHECK(halved == taken / 2);
+    CHECK(!b.defending);
+
+    b.foe_hp = 1;
+    digivice_battle_player_attack(&b, &s, false, 99);
+    CHECK(digivice_battle_outcome(&b) == DigiviceBattleWon);
+
+    b.foe_hp = 5;
+    b.player_hp = 1;
+    digivice_battle_foe_attack(&b);
+    CHECK(digivice_battle_outcome(&b) == DigiviceBattleLost);
+}
+
+static void test_corrupt_attack_can_miss(void) {
+    DigiviceState s = rookie(T0);
+    s.corruption = 60;
+    s.virux_type = DigiviceTypeNfc;
+    DigiviceBattle b;
+    digivice_battle_init(&b, &s);
+    uint16_t hp = b.foe_hp;
+    CHECK(digivice_battle_player_attack(&b, &s, true, 0) == 0);
+    CHECK(b.foe_hp == hp);
+}
+
+static void test_flee(void) {
+    CHECK(digivice_battle_flee(DIGIVICE_FLEE_PCT - 1));
+    CHECK(!digivice_battle_flee(DIGIVICE_FLEE_PCT));
+}
+
+static void test_battle_rewards(void) {
+    DigiviceState s = rookie(T0);
+    s.virux_type = DigiviceTypeUsb;
+    s.virux_expires = T0 + 60;
+    uint32_t exp = s.exp;
+    digivice_rules_battle_result(&s, DigiviceBattleResultWin, T0);
+    CHECK(s.exp == exp + 2 * DIGIVICE_WIN_BASE_EXP);
+    CHECK(s.data[DigiviceTypeUsb] == DIGIVICE_WIN_DATA);
+    CHECK(s.wins == 1);
+    CHECK(s.virux_type == DigiviceTypeNone);
+
+    s.virux_type = DigiviceTypeNfc;
+    digivice_rules_battle_result(&s, DigiviceBattleResultLose, T0);
+    CHECK(s.corruption == DIGIVICE_CORRUPTION_LOSE_GAIN);
+    CHECK(s.losses == 1);
+    CHECK(s.virux_type == DigiviceTypeNone);
+
+    s.virux_type = DigiviceTypeIr;
+    DigiviceState before = s;
+    digivice_rules_battle_result(&s, DigiviceBattleResultFled, T0);
+    CHECK(s.virux_type == DigiviceTypeNone);
+    CHECK(s.exp == before.exp && s.corruption == before.corruption);
+}
+
 int main(void) {
     test_init();
     test_hunger_decays_every_2h();
@@ -441,6 +544,13 @@ int main(void) {
     test_deed_grants_exp_and_data();
     test_spawn_rules();
     test_player_type_by_form();
+    test_lose_can_transform();
+    test_type_chart();
+    test_damage_formula();
+    test_battle_flow();
+    test_corrupt_attack_can_miss();
+    test_flee();
+    test_battle_rewards();
 
     if(failures) {
         printf("%d check(s) failed\n", failures);

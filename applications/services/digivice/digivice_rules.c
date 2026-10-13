@@ -284,3 +284,101 @@ bool digivice_rules_evolve(DigiviceState* s, uint32_t now) {
 void digivice_rules_ack_evolution(DigiviceState* s) {
     s->evo_from = DigiviceFormNone;
 }
+
+static const uint16_t base_damage[DigiviceStageCount] = DIGIVICE_BASE_DAMAGE;
+static const uint16_t player_hp[DigiviceStageCount] = DIGIVICE_PLAYER_HP;
+static const uint16_t virux_hp[DigiviceStageCount] = DIGIVICE_VIRUX_HP;
+static const uint16_t virux_atk[DigiviceStageCount] = DIGIVICE_VIRUX_ATK;
+
+// The type each attacker type is strong against: NFC > USB > IR > SUBGHZ > NFC.
+static const uint8_t beats[DigiviceTypeCount] = {
+    [DigiviceTypeNfc] = DigiviceTypeUsb,
+    [DigiviceTypeUsb] = DigiviceTypeIr,
+    [DigiviceTypeIr] = DigiviceTypeSubGhz,
+    [DigiviceTypeSubGhz] = DigiviceTypeNfc,
+};
+
+void digivice_rules_battle_result(DigiviceState* s, DigiviceBattleResult result, uint32_t now) {
+    if(result == DigiviceBattleResultWin) {
+        s->exp += 2 * DIGIVICE_WIN_BASE_EXP;
+        if(s->virux_type < DigiviceTypeCount) add_u16(&s->data[s->virux_type], DIGIVICE_WIN_DATA);
+        add_u16(&s->wins, 1);
+    } else if(result == DigiviceBattleResultLose) {
+        add_u16(&s->losses, 1);
+        set_corruption(s, (int32_t)s->corruption + DIGIVICE_CORRUPTION_LOSE_GAIN, now);
+    }
+    s->virux_type = DigiviceTypeNone;
+}
+
+uint16_t digivice_rules_type_x10(DigiviceType attacker, DigiviceType defender) {
+    if(attacker >= DigiviceTypeCount || defender >= DigiviceTypeCount) return 10;
+    return beats[attacker] == defender ? DIGIVICE_TYPE_ADV_X10 : 10;
+}
+
+uint16_t digivice_rules_damage(
+    uint16_t base,
+    uint16_t strength,
+    bool in_zone,
+    DigiviceType attacker,
+    DigiviceType defender) {
+    uint32_t timing = in_zone ? DIGIVICE_TIMING_HIT_X10 : DIGIVICE_TIMING_MISS_X10;
+    uint32_t damage =
+        ((uint32_t)base + strength) * timing * digivice_rules_type_x10(attacker, defender) / 100;
+    if(damage == 0) damage = 1;
+    return damage > UINT16_MAX ? UINT16_MAX : (uint16_t)damage;
+}
+
+void digivice_battle_init(DigiviceBattle* b, const DigiviceState* s) {
+    DigiviceStage stage = digivice_rules_stage(s);
+    b->stage = stage;
+    b->player_type = digivice_rules_player_type(s);
+    b->foe_type = s->virux_type;
+    b->player_hp_max = b->player_hp = player_hp[stage];
+    b->foe_hp_max = b->foe_hp = virux_hp[stage];
+    b->defending = false;
+}
+
+static void hurt(uint16_t* hp, uint16_t damage) {
+    *hp = damage >= *hp ? 0 : *hp - damage;
+}
+
+uint16_t digivice_battle_player_attack(
+    DigiviceBattle* b,
+    const DigiviceState* s,
+    bool in_zone,
+    uint8_t rng_pct) {
+    if(digivice_rules_attack_misses(s, rng_pct)) return 0;
+    uint16_t damage = digivice_rules_damage(
+        base_damage[b->stage],
+        s->strength,
+        in_zone,
+        (DigiviceType)b->player_type,
+        (DigiviceType)b->foe_type);
+    hurt(&b->foe_hp, damage);
+    return damage;
+}
+
+void digivice_battle_defend(DigiviceBattle* b) {
+    b->defending = true;
+}
+
+bool digivice_battle_flee(uint8_t rng_pct) {
+    return rng_pct < DIGIVICE_FLEE_PCT;
+}
+
+uint16_t digivice_battle_foe_attack(DigiviceBattle* b) {
+    uint32_t damage =
+        (uint32_t)virux_atk[b->stage] *
+        digivice_rules_type_x10((DigiviceType)b->foe_type, (DigiviceType)b->player_type) / 10;
+    if(b->defending) damage /= 2;
+    if(damage == 0) damage = 1;
+    b->defending = false;
+    hurt(&b->player_hp, (uint16_t)damage);
+    return (uint16_t)damage;
+}
+
+DigiviceBattleOutcome digivice_battle_outcome(const DigiviceBattle* b) {
+    if(b->foe_hp == 0) return DigiviceBattleWon;
+    if(b->player_hp == 0) return DigiviceBattleLost;
+    return DigiviceBattleOngoing;
+}
