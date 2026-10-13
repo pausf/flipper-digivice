@@ -89,9 +89,10 @@ in). The service and the app both call it. All tuning numbers live in
 
 ### Assets
 
-1-bit sprites compiled into firmware (a 32×32 frame is 128 bytes). Each form has
-idle (2 frames), attack, hit and a corrupted variant. The total target is a few
-KB. No SD card required.
+Forms are drawn procedurally with 1-bit canvas primitives (no bitmaps, no assets
+folder). Each form is a drawing function with poses: idle (2-frame breathing plus
+a blink), attack, and hit (the caller blinks the sprite). Corruption uses the
+VIRUBYTE form plus a glitch overlay. No SD card required.
 
 ### Cleanup
 
