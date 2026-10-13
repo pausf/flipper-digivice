@@ -187,7 +187,8 @@ static void digivice_app_draw_callback(Canvas* canvas, void* context) {
             canvas,
             (DigiviceForm)app->state.evo_from,
             (DigiviceForm)app->state.form,
-            app->screen_frame);
+            app->screen_frame,
+            0);
         break;
     case DigiviceScreenError:
         digivice_error_draw(canvas);

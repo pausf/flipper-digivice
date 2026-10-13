@@ -604,7 +604,12 @@ static void dv_sparkle(Canvas* canvas, int32_t x, int32_t y, int32_t size) {
     dv_line(canvas, x, y - size, x, y + size);
 }
 
-void digivice_draw_evolution(Canvas* canvas, DigiviceForm from, DigiviceForm to, uint32_t frame) {
+void digivice_draw_evolution(
+    Canvas* canvas,
+    DigiviceForm from,
+    DigiviceForm to,
+    uint32_t frame,
+    int32_t top) {
     const int32_t cx = 64;
     canvas_set_color(canvas, ColorBlack);
 
@@ -661,11 +666,11 @@ void digivice_draw_evolution(Canvas* canvas, DigiviceForm from, DigiviceForm to,
         // Banner slides in from the right, the name from the left.
         int32_t bx = t < 8 ? 128 - (int32_t)t * 16 : 0;
         canvas_set_color(canvas, ColorWhite);
-        canvas_draw_box(canvas, bx, 0, 128, 11);
+        canvas_draw_box(canvas, bx, top, 128, 11);
         canvas_set_color(canvas, ColorBlack);
-        dv_line(canvas, bx, 0, bx + 127, 0);
-        dv_line(canvas, bx, 10, bx + 127, 10);
-        digivice_draw_text(canvas, bx + 38, 3, "> EVOLUTION!");
+        dv_line(canvas, bx, top, bx + 127, top);
+        dv_line(canvas, bx, top + 10, bx + 127, top + 10);
+        digivice_draw_text(canvas, bx + 38, top + 3, "> EVOLUTION!");
         int32_t nx = t < 8 ? -60 + (int32_t)t * 15 / 2 : 0;
         canvas_set_color(canvas, ColorWhite);
         canvas_draw_box(canvas, nx + 36, 56, 56, 8);

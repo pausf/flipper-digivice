@@ -76,8 +76,13 @@ void digivice_draw_home(
     uint32_t now,
     bool sd_ok);
 
-/** Evolution cutscene; `frame` runs 0..DIGIVICE_EVO_FRAMES. */
-void digivice_draw_evolution(Canvas* canvas, DigiviceForm from, DigiviceForm to, uint32_t frame);
+/** Evolution cutscene; `frame` runs 0..DIGIVICE_EVO_FRAMES, `top` is the banner's first row. */
+void digivice_draw_evolution(
+    Canvas* canvas,
+    DigiviceForm from,
+    DigiviceForm to,
+    uint32_t frame,
+    int32_t top);
 
 #ifdef __cplusplus
 }
