@@ -284,13 +284,13 @@ static void dv_mon(
     bool silhouette,
     DigivicePose pose) {
     int32_t k10 = big ? 14 : 10;
-    int32_t br = wobble[frame % 8];
+    int32_t br = pose == DigivicePoseSleep ? 0 : wobble[frame % 8];
     int32_t rx = 8 * k10 / 10;
     int32_t ry = 7 * k10 / 10 - (br > 0 ? 1 : 0);
     int32_t by = cy - (br > 0 ? 1 : 0);
 
     if(big) {
-        int32_t f = wobble[(frame * 2) % 8] * 2;
+        int32_t f = pose == DigivicePoseSleep ? 0 : wobble[(frame * 2) % 8] * 2;
         for(int32_t sd = -1; sd <= 1; sd += 2) {
             digivice_draw_fill_triangle(
                 canvas,
@@ -631,7 +631,7 @@ void digivice_draw_home(
         canvas_set_color(canvas, ColorBlack);
         digivice_draw_poops(canvas, state->poop, 84, 47, frame);
     }
-    if(state->sick) digivice_draw_skull(canvas, 61, hy - 27 + wobble[(frame / 3) % 8]);
+    if(state->sick) digivice_draw_skull(canvas, 61, hy - 26 + wobble[(frame / 3) % 8]);
     if(asleep) {
         if(!state->light_on) digivice_draw_dark(canvas, 13, 56, 12, frame);
         canvas_set_color(canvas, state->light_on ? ColorBlack : ColorWhite);
