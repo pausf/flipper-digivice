@@ -8,3 +8,6 @@ extern const NotificationSequence digivice_sequence_evolution_silent;
 extern const NotificationSequence digivice_sequence_charge;
 extern const NotificationSequence digivice_sequence_hit;
 extern const NotificationSequence digivice_sequence_win;
+extern const NotificationSequence digivice_sequence_sick;
+extern const NotificationSequence digivice_sequence_sick_silent;
+extern const NotificationSequence digivice_sequence_poop;

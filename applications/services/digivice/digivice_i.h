@@ -14,16 +14,24 @@ typedef enum {
     DigiviceMessageTypeBattle,
     DigiviceMessageTypeAckEvolution,
     DigiviceMessageTypeReload,
+    DigiviceMessageTypeClean,
+    DigiviceMessageTypeCure,
+    DigiviceMessageTypeToggleLight,
+    DigiviceMessageTypeSetLang,
+    DigiviceMessageTypeSetMode,
+    DigiviceMessageTypeReset,
 } DigiviceMessageType;
 
 typedef struct {
     DigiviceMessageType type;
     FuriEventFlag* flag;
     bool* result;
+    DigiviceResult* outcome;
     union {
         DolphinDeed deed;
         bool success;
         DigiviceBattleResult battle;
+        uint8_t value;
     };
 } DigiviceMessage;
 

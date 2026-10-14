@@ -47,9 +47,52 @@ bool digivice_feed(Digivice* digivice) {
     return fed;
 }
 
-void digivice_train(Digivice* digivice, bool success) {
+static DigiviceResult digivice_send_outcome(Digivice* digivice, DigiviceMessage* message) {
+    DigiviceResult outcome = DigiviceResultOk;
+    message->outcome = &outcome;
+    digivice_send_wait(digivice, message);
+    return outcome;
+}
+
+DigiviceResult digivice_train(Digivice* digivice, bool success) {
     furi_check(digivice);
     DigiviceMessage message = {.type = DigiviceMessageTypeTrain, .success = success};
+    return digivice_send_outcome(digivice, &message);
+}
+
+DigiviceResult digivice_clean(Digivice* digivice) {
+    furi_check(digivice);
+    DigiviceMessage message = {.type = DigiviceMessageTypeClean};
+    return digivice_send_outcome(digivice, &message);
+}
+
+DigiviceResult digivice_cure(Digivice* digivice) {
+    furi_check(digivice);
+    DigiviceMessage message = {.type = DigiviceMessageTypeCure};
+    return digivice_send_outcome(digivice, &message);
+}
+
+DigiviceResult digivice_toggle_light(Digivice* digivice) {
+    furi_check(digivice);
+    DigiviceMessage message = {.type = DigiviceMessageTypeToggleLight};
+    return digivice_send_outcome(digivice, &message);
+}
+
+void digivice_set_lang(Digivice* digivice, DigiviceLang lang) {
+    furi_check(digivice);
+    DigiviceMessage message = {.type = DigiviceMessageTypeSetLang, .value = (uint8_t)lang};
+    digivice_send_wait(digivice, &message);
+}
+
+void digivice_set_mode(Digivice* digivice, DigiviceMode mode) {
+    furi_check(digivice);
+    DigiviceMessage message = {.type = DigiviceMessageTypeSetMode, .value = (uint8_t)mode};
+    digivice_send_wait(digivice, &message);
+}
+
+void digivice_reset(Digivice* digivice) {
+    furi_check(digivice);
+    DigiviceMessage message = {.type = DigiviceMessageTypeReset};
     digivice_send_wait(digivice, &message);
 }
 
@@ -157,12 +200,17 @@ static void digivice_changed(Digivice* digivice, const DigiviceState* before) {
     digivice_get_state(digivice, &after);
     if(digivice_rules_same_visible(before, &after)) return;
 
+    bool asleep = digivice_rules_is_asleep(furi_hal_rtc_get_timestamp());
     if(after.evo_from != DigiviceFormNone && after.evo_from != before->evo_from) {
-        uint8_t hour = (uint8_t)((furi_hal_rtc_get_timestamp() % 86400UL) / 3600UL);
-        bool asleep = digivice_rules_is_sleep_hour(hour);
         notification_message(
             digivice->notification,
             asleep ? &digivice_sequence_evolution_silent : &digivice_sequence_evolution);
+    } else if(after.sick && !before->sick) {
+        notification_message(
+            digivice->notification,
+            asleep ? &digivice_sequence_sick_silent : &digivice_sequence_sick);
+    } else if(after.poop > before->poop && !asleep) {
+        notification_message(digivice->notification, &digivice_sequence_poop);
     }
     digivice->dirty = true;
     furi_event_loop_timer_start(digivice->flush_timer, DIGIVICE_FLUSH_S * 1000UL);
@@ -231,7 +279,28 @@ static void digivice_process_message(FuriEventLoopObject* object, void* context)
         *message.result = digivice_rules_feed(state, now);
         break;
     case DigiviceMessageTypeTrain:
-        digivice_rules_train(state, message.success, now);
+        *message.outcome = digivice_rules_train(state, message.success, now);
+        digivice_rules_evolve(state, now);
+        break;
+    case DigiviceMessageTypeClean:
+        *message.outcome = digivice_rules_clean(state, now) ? DigiviceResultOk :
+                                                             DigiviceResultNothingToClean;
+        break;
+    case DigiviceMessageTypeCure:
+        *message.outcome = digivice_rules_cure(state, now) ? DigiviceResultOk :
+                                                            DigiviceResultHealthy;
+        break;
+    case DigiviceMessageTypeToggleLight:
+        *message.outcome = digivice_rules_toggle_light(state, now);
+        break;
+    case DigiviceMessageTypeSetLang:
+        digivice_rules_set_lang(state, message.value);
+        break;
+    case DigiviceMessageTypeSetMode:
+        digivice_rules_set_mode(state, message.value);
+        break;
+    case DigiviceMessageTypeReset:
+        digivice_rules_reset(state, now);
         break;
     case DigiviceMessageTypeBattle:
         digivice_rules_battle_result(state, message.battle, now);

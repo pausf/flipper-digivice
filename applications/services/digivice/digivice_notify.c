@@ -76,3 +76,30 @@ const NotificationSequence digivice_sequence_win = {
     &message_green_0,
     NULL,
 };
+
+// Red blink + short buzz: the pet just got sick.
+const NotificationSequence digivice_sequence_sick = {
+    &message_red_255,
+    &message_vibro_on,
+    &message_delay_100,
+    &message_vibro_off,
+    &message_delay_100,
+    &message_red_0,
+    NULL,
+};
+
+// Sleep-window variant: LED only.
+const NotificationSequence digivice_sequence_sick_silent = {
+    &message_red_255,
+    &message_delay_250,
+    &message_red_0,
+    NULL,
+};
+
+// One soft green blink: a new poop.
+const NotificationSequence digivice_sequence_poop = {
+    &message_green_255,
+    &message_delay_50,
+    &message_green_0,
+    NULL,
+};
