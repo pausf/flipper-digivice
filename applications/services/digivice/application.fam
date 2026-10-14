@@ -15,6 +15,7 @@ App(
         "digivice_rules.c",
         "digivice_notify.c",
         "digivice_draw.c",
+        "digivice_i18n.c",
     ],
     stack_size=int(1.5 * 1024),
     order=110,
