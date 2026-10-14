@@ -28,11 +28,12 @@ typedef enum {
     // Refusal notices.
     DigiviceStrNoticeSick,
     DigiviceStrNoticeAsleep,
-    DigiviceStrNoticeAwake,
+    DigiviceStrNoticeOnlyAtNight,
     DigiviceStrNoticeNothingToClean,
     DigiviceStrNoticeHealthy,
     DigiviceStrNoticeFull,
     DigiviceStrNoticeNoVirux,
+    DigiviceStrNoticeHackerOnly,
 
     DigiviceStrFeedHunger,
     DigiviceStrFeedYum,
@@ -85,6 +86,9 @@ typedef enum {
 
     DigiviceStrEvolution,
     DigiviceStrHomeVirux,
+    DigiviceStrHomeLightsOff,
+    DigiviceStrHomeMeterHunger,
+    DigiviceStrHomeMeterMood,
 
     DigiviceStrCount,
 } DigiviceStr;

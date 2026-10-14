@@ -236,6 +236,10 @@ static void digivice_tick(void* context) {
     furi_mutex_release(digivice->mutex);
 
     digivice_changed(digivice, &before);
+
+    if(digivice_rules_bedtime_started(&digivice->state, before.last_tick, now)) {
+        notification_message(digivice->notification, &digivice_sequence_bedtime);
+    }
 }
 
 static void digivice_flush(void* context) {

@@ -1064,6 +1064,20 @@ static void test_light_refused_while_awake(void) {
     CHECK(s.light_on == 1);
 }
 
+static void test_bedtime_fires_once_when_the_window_opens(void) {
+    DigiviceState s = baby(T0);
+    uint32_t bed = DAY(10) + H(23);
+    CHECK(digivice_rules_bedtime_started(&s, bed - 60, bed));
+    CHECK(!digivice_rules_bedtime_started(&s, bed, bed + 60));
+    CHECK(!digivice_rules_bedtime_started(&s, bed - 120, bed - 60));
+    // A catch-up after the Flipper was off is not a bedtime.
+    CHECK(!digivice_rules_bedtime_started(&s, bed - H(6), bed + H(2)));
+    s.light_on = 0;
+    CHECK(!digivice_rules_bedtime_started(&s, bed - 60, bed));
+    DigiviceState egg = fresh(T0);
+    CHECK(!digivice_rules_bedtime_started(&egg, bed - 60, bed));
+}
+
 static void test_60s_ticks_match_one_tick_with_care(void) {
     // 30 h from 08:00 across a night: poop, starvation, mistakes, sickness and the light.
     DigiviceState a = baby(T0);
@@ -1146,6 +1160,7 @@ int main(void) {
     test_light_resets_at_7();
     test_light_toggled_twice_counts_once();
     test_light_refused_while_awake();
+    test_bedtime_fires_once_when_the_window_opens();
     test_60s_ticks_match_one_tick_with_care();
 
     if(failures) {

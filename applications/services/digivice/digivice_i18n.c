@@ -26,11 +26,12 @@ static const char* const strings_es[DigiviceStrCount] = {
 
     [DigiviceStrNoticeSick] = EXCL_INV "EST" A_ACUTE " ENFERMO!",
     [DigiviceStrNoticeAsleep] = "EST" A_ACUTE " DURMIENDO",
-    [DigiviceStrNoticeAwake] = "EST" A_ACUTE " DESPIERTO",
+    [DigiviceStrNoticeOnlyAtNight] = "SOLO DE NOCHE",
     [DigiviceStrNoticeNothingToClean] = "NO HAY NADA QUE LIMPIAR",
     [DigiviceStrNoticeHealthy] = "EST" A_ACUTE " SANO",
     [DigiviceStrNoticeFull] = EXCL_INV "EST" A_ACUTE " LLENO!",
     [DigiviceStrNoticeNoVirux] = "NING" U_ACUTE "N VIRUX CERCA",
+    [DigiviceStrNoticeHackerOnly] = "SOLO EN MODO HACKER",
 
     [DigiviceStrFeedHunger] = "HAMBRE",
     [DigiviceStrFeedYum] = EXCL_INV N_TILDE "AM!",
@@ -83,6 +84,9 @@ static const char* const strings_es[DigiviceStrCount] = {
 
     [DigiviceStrEvolution] = "> " EXCL_INV "EVOLUCI" O_ACUTE "N!",
     [DigiviceStrHomeVirux] = "!VIRUX",
+    [DigiviceStrHomeLightsOff] = "APAGA LA LUZ",
+    [DigiviceStrHomeMeterHunger] = "H",
+    [DigiviceStrHomeMeterMood] = "A",
 };
 
 static const char* const strings_en[DigiviceStrCount] = {
@@ -97,11 +101,12 @@ static const char* const strings_en[DigiviceStrCount] = {
 
     [DigiviceStrNoticeSick] = "IT'S SICK!",
     [DigiviceStrNoticeAsleep] = "IT'S ASLEEP",
-    [DigiviceStrNoticeAwake] = "IT'S AWAKE",
+    [DigiviceStrNoticeOnlyAtNight] = "ONLY AT NIGHT",
     [DigiviceStrNoticeNothingToClean] = "NOTHING TO CLEAN",
     [DigiviceStrNoticeHealthy] = "IT'S HEALTHY",
     [DigiviceStrNoticeFull] = "IT'S FULL!",
     [DigiviceStrNoticeNoVirux] = "NO VIRUX NEARBY",
+    [DigiviceStrNoticeHackerOnly] = "HACKER MODE ONLY",
 
     [DigiviceStrFeedHunger] = "HUNGER",
     [DigiviceStrFeedYum] = "YUM!",
@@ -154,6 +159,9 @@ static const char* const strings_en[DigiviceStrCount] = {
 
     [DigiviceStrEvolution] = "> EVOLUTION!",
     [DigiviceStrHomeVirux] = "!VIRUX",
+    [DigiviceStrHomeLightsOff] = "LIGHTS OFF?",
+    [DigiviceStrHomeMeterHunger] = "H",
+    [DigiviceStrHomeMeterMood] = "M",
 };
 
 // Slot widths in pixels, from the layouts in digivice_draw.c and the app screens.
@@ -177,11 +185,12 @@ static const uint8_t budgets[DigiviceStrCount] = {
 
     [DigiviceStrNoticeSick] = SLOT_LABEL,
     [DigiviceStrNoticeAsleep] = SLOT_LABEL,
-    [DigiviceStrNoticeAwake] = SLOT_LABEL,
+    [DigiviceStrNoticeOnlyAtNight] = SLOT_LABEL,
     [DigiviceStrNoticeNothingToClean] = SLOT_LABEL,
     [DigiviceStrNoticeHealthy] = SLOT_LABEL,
     [DigiviceStrNoticeFull] = SLOT_LABEL,
     [DigiviceStrNoticeNoVirux] = SLOT_LABEL,
+    [DigiviceStrNoticeHackerOnly] = SLOT_LABEL,
 
     [DigiviceStrFeedHunger] = SLOT_SHORT,
     [DigiviceStrFeedYum] = SLOT_SHORT,
@@ -236,6 +245,11 @@ static const uint8_t budgets[DigiviceStrCount] = {
     [DigiviceStrEvolution] = SLOT_BANNER,
     // "%s %lum" with a 2-digit minute count must fit the 46 px alert box.
     [DigiviceStrHomeVirux] = 23,
+    // Hint box between the name tag (x 40) and the meter box (x 106), under the status bar.
+    [DigiviceStrHomeLightsOff] = 60,
+    // One glyph above a 3 px meter column.
+    [DigiviceStrHomeMeterHunger] = 3,
+    [DigiviceStrHomeMeterMood] = 3,
 };
 
 const char* digivice_str(DigiviceLang lang, DigiviceStr id) {

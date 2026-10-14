@@ -24,7 +24,7 @@ void digivice_app_refusal(DigiviceApp* app, DigiviceResult result) {
     static const DigiviceStr refusal_str[] = {
         [DigiviceResultSick] = DigiviceStrNoticeSick,
         [DigiviceResultAsleep] = DigiviceStrNoticeAsleep,
-        [DigiviceResultAwake] = DigiviceStrNoticeAwake,
+        [DigiviceResultAwake] = DigiviceStrNoticeOnlyAtNight,
         [DigiviceResultHealthy] = DigiviceStrNoticeHealthy,
         [DigiviceResultNothingToClean] = DigiviceStrNoticeNothingToClean,
     };
@@ -158,7 +158,10 @@ static void digivice_main_open(DigiviceApp* app) {
         } else if(digivice_rules_virux_active(&app->state, now)) {
             digivice_battle_enter(app);
         } else {
-            digivice_app_notice(app, DigiviceStrNoticeNoVirux);
+            digivice_app_notice(
+                app,
+                app->state.mode == DigiviceModeNormal ? DigiviceStrNoticeHackerOnly :
+                                                        DigiviceStrNoticeNoVirux);
         }
         break;
     case DigiviceIconClean: {

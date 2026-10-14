@@ -164,6 +164,10 @@ bool digivice_rules_is_sleep_hour(uint8_t hour);
 bool digivice_rules_is_asleep(uint32_t now);
 uint32_t digivice_rules_awake_seconds(uint32_t from, uint32_t to);
 
+/** True once per night: a tick (prev -> now, normal tick spacing) crossed into the sleep window
+ * while the light is still on and the pet is past Egg. Call with the state after the tick. */
+bool digivice_rules_bedtime_started(const DigiviceState* s, uint32_t prev, uint32_t now);
+
 /** Applies time-based rules from s->last_tick to now. */
 void digivice_rules_tick(DigiviceState* s, uint32_t now);
 

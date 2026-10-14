@@ -125,6 +125,13 @@ bool digivice_rules_is_asleep(uint32_t now) {
     return digivice_rules_is_sleep_hour((uint8_t)((now % 86400UL) / 3600UL));
 }
 
+bool digivice_rules_bedtime_started(const DigiviceState* s, uint32_t prev, uint32_t now) {
+    // A long gap is a catch-up after the Flipper was off, not a bedtime the user was around for.
+    if(now <= prev || now - prev > 5UL * DIGIVICE_TICK_S) return false;
+    return digivice_rules_is_asleep(now) && !digivice_rules_is_asleep(prev) && s->light_on &&
+           digivice_rules_stage(s) != DigiviceStageEgg;
+}
+
 uint32_t digivice_rules_awake_seconds(uint32_t from, uint32_t to) {
     uint32_t awake = 0;
     uint32_t t = from;

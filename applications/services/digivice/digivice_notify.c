@@ -96,6 +96,14 @@ const NotificationSequence digivice_sequence_sick_silent = {
     NULL,
 };
 
+// Bedtime reminder, LED only: one soft blue blink while the light is still on.
+const NotificationSequence digivice_sequence_bedtime = {
+    &message_blue_255,
+    &message_delay_100,
+    &message_blue_0,
+    NULL,
+};
+
 // One soft green blink: a new poop.
 const NotificationSequence digivice_sequence_poop = {
     &message_green_255,

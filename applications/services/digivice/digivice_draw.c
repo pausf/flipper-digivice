@@ -637,6 +637,12 @@ void digivice_draw_home(
         canvas_set_color(canvas, state->light_on ? ColorBlack : ColorWhite);
         digivice_draw_zzz(canvas, 74, hy - 12, frame);
         canvas_set_color(canvas, ColorBlack);
+        if(state->light_on) {
+            canvas_set_color(canvas, ColorWhite);
+            canvas_draw_box(canvas, 43, 13, 62, 9);
+            canvas_set_color(canvas, ColorBlack);
+            digivice_draw_text(canvas, 45, 14, digivice_str(lang, DigiviceStrHomeLightsOff));
+        }
     }
 
     canvas_set_color(canvas, ColorWhite);
@@ -648,8 +654,20 @@ void digivice_draw_home(
     canvas_set_color(canvas, ColorWhite);
     canvas_draw_box(canvas, 106, 13, 22, 24);
     canvas_set_color(canvas, ColorBlack);
-    dv_vertical_meter(canvas, 109, 36, "H", state->hunger, DIGIVICE_HUNGER_MAX);
-    dv_vertical_meter(canvas, 119, 36, "M", state->mood, DIGIVICE_MOOD_MAX);
+    dv_vertical_meter(
+        canvas,
+        109,
+        36,
+        digivice_str(lang, DigiviceStrHomeMeterHunger),
+        state->hunger,
+        DIGIVICE_HUNGER_MAX);
+    dv_vertical_meter(
+        canvas,
+        119,
+        36,
+        digivice_str(lang, DigiviceStrHomeMeterMood),
+        state->mood,
+        DIGIVICE_MOOD_MAX);
 
     // Fits a 6-glyph UTF-8 label (12 bytes), a space, a 32-bit count and "m".
     char text[32];
