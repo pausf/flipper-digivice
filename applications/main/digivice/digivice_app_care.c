@@ -16,6 +16,7 @@ void digivice_care_start(DigiviceApp* app, DigiviceCare care) {
 
 void digivice_care_tick(DigiviceApp* app) {
     app->care_frame++;
+    if(app->care == DigiviceCareClean && app->care_frame >= CLEAN_SWEEP_END) app->care_poop = 0;
     if(app->care_frame >= DIGIVICE_CARE_FRAMES) {
         app->care = DigiviceCareNone;
         digivice_app_refresh(app);
@@ -56,7 +57,7 @@ static void digivice_care_light(Canvas* canvas, DigiviceApp* app, int32_t pet_x)
     uint32_t f = app->care_frame;
     bool off = app->care == DigiviceCareLightOff;
     uint8_t level = digivice_care_dark_level(app);
-    if(level) digivice_draw_dark(canvas, 12, 52, level, app->frame);
+    if(level) digivice_draw_dark(canvas, BAND_TOP, BAND_BOTTOM, level, app->frame);
 
     canvas_set_color(canvas, level >= 12 ? ColorWhite : ColorBlack);
     digivice_draw_zzz(canvas, pet_x + 12, 26, app->frame);

@@ -13,6 +13,10 @@
 #define DIGIVICE_APP_AIM_FRAMES 50
 #define DIGIVICE_APP_HIT_FRAMES 10
 
+// Middle band between the two icon bars.
+#define BAND_TOP    12
+#define BAND_BOTTOM 52
+
 typedef enum {
     DigiviceScreenMain,
     DigiviceScreenFeed,

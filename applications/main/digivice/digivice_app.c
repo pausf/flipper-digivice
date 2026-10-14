@@ -5,10 +5,7 @@
 
 #define TAG "DigiviceApp"
 
-// Middle band between the two icon bars.
-#define BAND_TOP    12
-#define BAND_BOTTOM 52
-#define FLOOR_Y     47
+#define FLOOR_Y 47
 
 uint8_t digivice_app_rng_pct(void) {
     return (uint8_t)(furi_hal_random_get() % 100);
