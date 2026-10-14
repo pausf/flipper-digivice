@@ -50,7 +50,8 @@ static void desktop_digivice_view_draw(Canvas* canvas, void* model) {
             (DigiviceForm)m->state.form,
             m->evo_frame,
             // Below the desktop status bar.
-            13);
+            13,
+            (DigiviceLang)m->state.lang);
     } else {
         digivice_draw_home(canvas, &m->state, m->frame, m->now, m->sd_ok);
     }

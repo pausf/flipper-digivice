@@ -73,13 +73,58 @@ static void dv_line(Canvas* canvas, int32_t x0, int32_t y0, int32_t x1, int32_t 
     if(dv_clip_line(&x0, &y0, &x1, &y1)) canvas_draw_line(canvas, x0, y0, x1, y1);
 }
 
+// Bitmaps from the approved mockup (v2-classic.html), one row per entry, leftmost pixel in the
+// highest of the `w` bits.
+static const uint16_t icons[DigiviceIconCount][9] = {
+    [DigiviceIconFeed] = {0x070, 0x0F8, 0x1FC, 0x1FC, 0x0F8, 0x074, 0x006, 0x009, 0x006},
+    [DigiviceIconTrain] = {0x000, 0x101, 0x183, 0x183, 0x1FF, 0x183, 0x183, 0x101, 0x000},
+    [DigiviceIconBattle] = {0x101, 0x082, 0x044, 0x028, 0x010, 0x028, 0x145, 0x082, 0x145},
+    [DigiviceIconClean] = {0x000, 0x010, 0x038, 0x07C, 0x07C, 0x038, 0x000, 0x155, 0x0AA},
+    [DigiviceIconLight] = {0x038, 0x044, 0x082, 0x082, 0x044, 0x028, 0x038, 0x038, 0x010},
+    [DigiviceIconCure] = {0x038, 0x028, 0x1EF, 0x101, 0x1EF, 0x028, 0x038, 0x000, 0x000},
+    [DigiviceIconProfile] = {0x000, 0x004, 0x004, 0x024, 0x024, 0x124, 0x124, 0x1FF, 0x000},
+    [DigiviceIconSettings] = {0x010, 0x0BA, 0x044, 0x082, 0x1C7, 0x082, 0x044, 0x0BA, 0x010},
+};
+static const uint16_t poop_rows[6] = {0x08, 0x18, 0x3C, 0x1C, 0x7E, 0x7F};
+static const uint16_t skull_rows[6] = {0x3E, 0x7F, 0x55, 0x7F, 0x3E, 0x2A};
+static const uint16_t heart_rows[5] = {0x0A, 0x1F, 0x1F, 0x0E, 0x04};
+static const uint8_t bayer4[4][4] = {{0, 8, 2, 10}, {12, 4, 14, 6}, {3, 11, 1, 9}, {15, 7, 13, 5}};
+
+static void dv_dot(Canvas* canvas, int32_t x, int32_t y) {
+    if(x >= 0 && x < 128 && y >= 0 && y < 64) canvas_draw_dot(canvas, x, y);
+}
+
+// canvas_draw_box takes unsigned sizes and wraps negative origins, so every box is clipped here.
+static void dv_box(Canvas* canvas, int32_t x, int32_t y, int32_t w, int32_t h) {
+    if(x < 0) {
+        w += x;
+        x = 0;
+    }
+    if(y < 0) {
+        h += y;
+        y = 0;
+    }
+    if(x + w > 128) w = 128 - x;
+    if(y + h > 64) h = 64 - y;
+    if(w > 0 && h > 0) canvas_draw_box(canvas, x, y, (size_t)w, (size_t)h);
+}
+
+static void
+    dv_bitmap(Canvas* canvas, int32_t x, int32_t y, const uint16_t* rows, int32_t w, int32_t h) {
+    for(int32_t j = 0; j < h; j++) {
+        for(int32_t i = 0; i < w; i++) {
+            if(rows[j] & (1U << (w - 1 - i))) dv_dot(canvas, x + i, y + j);
+        }
+    }
+}
+
 void digivice_draw_text(Canvas* canvas, int32_t x, int32_t y, const char* text) {
-    canvas_set_custom_u8g2_font(canvas, u8g2_font_4x6_tr);
+    canvas_set_custom_u8g2_font(canvas, u8g2_font_4x6_tf);
     canvas_draw_str(canvas, x, y + 5, text);
 }
 
 uint16_t digivice_draw_text_width(Canvas* canvas, const char* text) {
-    canvas_set_custom_u8g2_font(canvas, u8g2_font_4x6_tr);
+    canvas_set_custom_u8g2_font(canvas, u8g2_font_4x6_tf);
     return canvas_string_width(canvas, text);
 }
 
@@ -202,7 +247,7 @@ static void dv_eyes_and_mouth(
     int32_t k10,
     uint32_t frame,
     DigivicePose pose) {
-    bool blink = (frame % 32) == 0;
+    bool blink = (frame % 32) == 0 || pose == DigivicePoseSleep;
     for(int32_t sd = -1; sd <= 1; sd += 2) {
         int32_t ex = cx + 2 + sd * 3 * k10 / 10;
         int32_t ey = by - 1;
@@ -215,6 +260,7 @@ static void dv_eyes_and_mouth(
             canvas_set_color(canvas, ColorBlack);
         }
     }
+    if(pose == DigivicePoseSleep) return;
     int32_t mx = cx + 1;
     int32_t my = by + 3;
     if(pose == DigivicePoseAttack) {
@@ -322,8 +368,15 @@ static void dv_egg(Canvas* canvas, int32_t cx, int32_t cy, uint32_t frame, bool 
     canvas_draw_box(canvas, cx + 2, cy + 4, 3, 2);
 }
 
-static void dv_bitling(Canvas* canvas, int32_t cx, int32_t cy, uint32_t frame, bool silhouette) {
-    int32_t hop = (frame % 8) < 4 ? 0 : 1;
+static void dv_bitling(
+    Canvas* canvas,
+    int32_t cx,
+    int32_t cy,
+    uint32_t frame,
+    bool silhouette,
+    DigivicePose pose) {
+    bool asleep = pose == DigivicePoseSleep;
+    int32_t hop = (asleep || (frame % 8) < 4) ? 0 : 1;
     cy -= hop;
     digivice_draw_fill_triangle(canvas, cx - 5, cy - 3, cx - 2, cy - 4, cx - 6, cy - 8);
     digivice_draw_fill_triangle(canvas, cx + 5, cy - 3, cx + 2, cy - 4, cx + 6, cy - 8);
@@ -332,7 +385,7 @@ static void dv_bitling(Canvas* canvas, int32_t cx, int32_t cy, uint32_t frame, b
     canvas_set_color(canvas, ColorWhite);
     digivice_draw_fill_ellipse(canvas, cx, cy, 6, 4);
     canvas_set_color(canvas, ColorBlack);
-    bool blink = (frame % 32) == 0;
+    bool blink = asleep || (frame % 32) == 0;
     canvas_draw_box(canvas, cx - 3, cy - 1, 2, blink ? 1 : 2);
     canvas_draw_box(canvas, cx + 2, cy - 1, 2, blink ? 1 : 2);
     dv_line(canvas, cx - 1, cy + 2, cx + 1, cy + 2);
@@ -417,7 +470,7 @@ void digivice_draw_form(
         dv_egg(canvas, cx, cy, frame, silhouette);
         break;
     case DigiviceFormBitling:
-        dv_bitling(canvas, cx, cy, frame, silhouette);
+        dv_bitling(canvas, cx, cy, frame, silhouette, pose);
         break;
     case DigiviceFormBytemon:
         dv_mon(canvas, cx, cy, frame, false, silhouette, pose);
@@ -557,11 +610,34 @@ void digivice_draw_home(
         if(y - 3 >= 13) canvas_draw_dot(canvas, x, y - 3);
     }
 
+    DigiviceLang lang = (DigiviceLang)state->lang;
+    bool asleep = digivice_rules_is_asleep(now);
     int32_t hy = 41 + wobble[(frame / 2) % 8];
     digivice_draw_ring(canvas, 64, 55, 15 + wobble[frame % 8], 3);
     digivice_draw_ring(canvas, 64, 55, 9, 2);
-    digivice_draw_form(canvas, (DigiviceForm)state->form, 64, hy, frame, DigivicePoseIdle, false);
+    digivice_draw_form(
+        canvas,
+        (DigiviceForm)state->form,
+        64,
+        hy,
+        frame,
+        asleep ? DigivicePoseSleep : DigivicePoseIdle,
+        false);
     digivice_draw_brackets(canvas, 46, hy - 17, 82, hy + 10, 4);
+
+    if(state->poop) {
+        canvas_set_color(canvas, ColorWhite);
+        dv_box(canvas, 83, 46, state->poop * 8 + 1, 8);
+        canvas_set_color(canvas, ColorBlack);
+        digivice_draw_poops(canvas, state->poop, 84, 47, frame);
+    }
+    if(state->sick) digivice_draw_skull(canvas, 61, hy - 27 + wobble[(frame / 3) % 8]);
+    if(asleep) {
+        if(!state->light_on) digivice_draw_dark(canvas, 13, 56, 12, frame);
+        canvas_set_color(canvas, state->light_on ? ColorBlack : ColorWhite);
+        digivice_draw_zzz(canvas, 74, hy - 12, frame);
+        canvas_set_color(canvas, ColorBlack);
+    }
 
     canvas_set_color(canvas, ColorWhite);
     canvas_draw_box(canvas, 0, 13, 40, 9);
@@ -575,12 +651,17 @@ void digivice_draw_home(
     dv_vertical_meter(canvas, 109, 36, "H", state->hunger, DIGIVICE_HUNGER_MAX);
     dv_vertical_meter(canvas, 119, 36, "M", state->mood, DIGIVICE_MOOD_MAX);
 
-    // Fits "!VIRUX " plus a full 32-bit minute count.
-    char text[20];
+    // Fits a 6-glyph UTF-8 label (12 bytes), a space, a 32-bit count and "m".
+    char text[32];
     canvas_set_color(canvas, ColorWhite);
     canvas_draw_box(canvas, 0, 56, 128, 8);
     canvas_set_color(canvas, ColorBlack);
-    snprintf(text, sizeof(text), "EXP %lu", (unsigned long)state->exp);
+    snprintf(
+        text,
+        sizeof(text),
+        "%s %lu",
+        digivice_str(lang, DigiviceStrExp),
+        (unsigned long)state->exp);
     digivice_draw_text(canvas, 2, 57, text);
     if(state->corruption > 0) {
         snprintf(text, sizeof(text), "C%u%%", (unsigned)state->corruption);
@@ -590,7 +671,12 @@ void digivice_draw_home(
 
     if(digivice_rules_virux_active(state, now) && (frame % 10) < 6) {
         uint32_t left_min = (state->virux_expires - now + 59) / 60;
-        snprintf(text, sizeof(text), "!VIRUX %lum", (unsigned long)left_min);
+        snprintf(
+            text,
+            sizeof(text),
+            "%s %lum",
+            digivice_str(lang, DigiviceStrHomeVirux),
+            (unsigned long)left_min);
         canvas_draw_box(canvas, 44, 56, 46, 8);
         canvas_set_color(canvas, ColorWhite);
         digivice_draw_text(canvas, 46, 57, text);
@@ -611,7 +697,8 @@ void digivice_draw_evolution(
     DigiviceForm from,
     DigiviceForm to,
     uint32_t frame,
-    int32_t top) {
+    int32_t top,
+    DigiviceLang lang) {
     const int32_t cx = 64;
     canvas_set_color(canvas, ColorBlack);
 
@@ -672,12 +759,170 @@ void digivice_draw_evolution(
         canvas_set_color(canvas, ColorBlack);
         dv_line(canvas, bx, top, bx + 127, top);
         dv_line(canvas, bx, top + 10, bx + 127, top + 10);
-        digivice_draw_text(canvas, bx + 38, top + 3, "> EVOLUTION!");
+        digivice_draw_text(canvas, bx + 38, top + 3, digivice_str(lang, DigiviceStrEvolution));
         int32_t nx = t < 8 ? -60 + (int32_t)t * 15 / 2 : 0;
         canvas_set_color(canvas, ColorWhite);
         canvas_draw_box(canvas, nx + 36, 56, 56, 8);
         canvas_set_color(canvas, ColorBlack);
         digivice_draw_text(canvas, nx + 42, 57, digivice_form_name(to));
         if(t < 2) digivice_draw_glitch(canvas, frame, 3);
+    }
+}
+
+void digivice_draw_icon(Canvas* canvas, DigiviceIcon icon, int32_t x, int32_t y, bool selected) {
+    if(icon >= DigiviceIconCount) return;
+    canvas_set_color(canvas, ColorBlack);
+    if(selected) {
+        dv_box(canvas, x - 2, y - 1, 13, 11);
+        canvas_set_color(canvas, ColorWhite);
+    }
+    dv_bitmap(canvas, x, y, icons[icon], 9, 9);
+    canvas_set_color(canvas, ColorBlack);
+}
+
+void digivice_draw_poops(Canvas* canvas, uint8_t count, int32_t x, int32_t y, uint32_t frame) {
+    for(uint8_t i = 0; i < count; i++) {
+        int32_t px = x + i * 8;
+        dv_bitmap(canvas, px, y, poop_rows, 7, 6);
+        // Two stink dots rising and resetting every 8 frames.
+        int32_t q = (int32_t)((frame + i * 3) % 8);
+        dv_dot(canvas, px + 1 + (q & 1), y - 1 - q);
+        dv_dot(canvas, px + 5 - (q & 1), y - 1 - (q + 4) % 8);
+    }
+}
+
+void digivice_draw_skull(Canvas* canvas, int32_t x, int32_t y) {
+    dv_bitmap(canvas, x, y, skull_rows, 7, 6);
+}
+
+void digivice_draw_heart(Canvas* canvas, int32_t x, int32_t y) {
+    dv_bitmap(canvas, x, y, heart_rows, 5, 5);
+}
+
+void digivice_draw_dither(
+    Canvas* canvas,
+    int32_t x,
+    int32_t y,
+    int32_t w,
+    int32_t h,
+    uint8_t level) {
+    for(int32_t j = y; j < y + h; j++) {
+        for(int32_t i = x; i < x + w; i++) {
+            if(bayer4[j & 3][i & 3] < level) dv_dot(canvas, i, j);
+        }
+    }
+}
+
+void digivice_draw_zzz(Canvas* canvas, int32_t x, int32_t y, uint32_t frame) {
+    for(int32_t i = 0; i < 3; i++) {
+        // Each Z climbs 16 px over 20 frames, a third of a cycle behind the previous one.
+        int32_t q = (int32_t)((frame + (uint32_t)i * 7) % 20);
+        digivice_draw_text(canvas, x + q * 14 / 20 + i * 2, y - q * 16 / 20, "Z");
+    }
+}
+
+void digivice_draw_night_sky(Canvas* canvas, int32_t top, int32_t bottom, uint32_t frame) {
+    // x = 92 keeps the moon clear of the home screen's meter box at x >= 106.
+    canvas_set_color(canvas, ColorWhite);
+    digivice_draw_fill_ellipse(canvas, 92, top + 10, 5, 5);
+    canvas_set_color(canvas, ColorBlack);
+    digivice_draw_fill_ellipse(canvas, 94, top + 9, 4, 4);
+    canvas_set_color(canvas, ColorWhite);
+    for(int32_t i = 0; i < 6; i++) {
+        if(dv_sin(frame / 2 + (uint32_t)i * 5) > 20) {
+            int32_t sy = top + 3 + (i * 5) % 12;
+            if(sy < bottom) dv_dot(canvas, (i * 23 + 7) % 120, sy);
+        }
+    }
+    canvas_set_color(canvas, ColorBlack);
+}
+
+void digivice_draw_dark(
+    Canvas* canvas,
+    int32_t top,
+    int32_t bottom,
+    uint8_t level,
+    uint32_t frame) {
+    canvas_set_color(canvas, ColorBlack);
+    digivice_draw_dither(canvas, 0, top, 128, bottom - top, level);
+    if(level >= 12) digivice_draw_night_sky(canvas, top, bottom, frame);
+}
+
+void digivice_draw_label(Canvas* canvas, int32_t y, const char* text) {
+    int32_t w = digivice_draw_text_width(canvas, text);
+    int32_t x = 64 - w / 2;
+    canvas_set_color(canvas, ColorWhite);
+    dv_box(canvas, x - 3, y, w + 6, 8);
+    canvas_set_color(canvas, ColorBlack);
+    canvas_draw_frame(canvas, x - 3, y, w + 6, 8);
+    digivice_draw_text(canvas, x, y + 1, text);
+}
+
+void digivice_draw_sweep(Canvas* canvas, int32_t x, int32_t top, int32_t bottom, uint32_t frame) {
+    for(int32_t y = top; y < bottom; y++) {
+        int32_t off = wobble[((uint32_t)y + frame * 2) % 8] * 2;
+        canvas_set_color(canvas, ColorBlack);
+        dv_box(canvas, x + off, y, 3, 1);
+        canvas_set_color(canvas, ColorWhite);
+        dv_box(canvas, x + off + 5, y, 128, 1);
+    }
+    canvas_set_color(canvas, ColorBlack);
+    for(int32_t i = 0; i < 6; i++) {
+        int32_t sy = top + 3 + (i * 7) % (bottom - top - 6);
+        dv_sparkle(canvas, x + 8 + (i * 13) % 30, sy, 1);
+    }
+}
+
+void digivice_draw_syringe(Canvas* canvas, int32_t x, int32_t y, int32_t push) {
+    canvas_set_color(canvas, ColorBlack);
+    dv_line(canvas, x, y, x + 6, y);
+    canvas_draw_frame(canvas, x + 6, y - 3, 22, 6);
+    dv_box(canvas, x + 8, y - 1, 14 - push, 2);
+    dv_box(canvas, x + 28, y - 4, 2, 8);
+    dv_box(canvas, x + 30 - push, y - 1, 6, 2);
+}
+
+void digivice_draw_food(Canvas* canvas, int32_t cx, int32_t cy, uint8_t bites) {
+    if(bites >= 3) return;
+    int32_t w = 10 - bites * 3;
+    int32_t x = cx - w / 2;
+    canvas_set_color(canvas, ColorBlack);
+    dv_box(canvas, x, cy - 4, w, 8);
+    canvas_set_color(canvas, ColorWhite);
+    dv_box(canvas, x + 2, cy - 2, w - 4, 4);
+    canvas_set_color(canvas, ColorBlack);
+    // Chip pins above and below.
+    for(int32_t p = 0; p < w; p += 3) {
+        dv_box(canvas, x + p, cy - 6, 1, 2);
+        dv_box(canvas, x + p, cy + 4, 1, 2);
+    }
+}
+
+void digivice_draw_sparkle(Canvas* canvas, int32_t x, int32_t y, int32_t size) {
+    dv_sparkle(canvas, x, y, size);
+}
+
+void digivice_draw_sparkle_ring(
+    Canvas* canvas,
+    int32_t cx,
+    int32_t cy,
+    int32_t rx,
+    int32_t ry,
+    uint32_t phase) {
+    for(uint32_t i = 0; i < 8; i++) {
+        uint32_t a = i * 2 + phase;
+        dv_sparkle(canvas, cx + dv_cos(a) * rx / 64, cy + dv_sin(a) * ry / 64, 1);
+    }
+}
+
+void digivice_draw_dash_ring(Canvas* canvas, int32_t cx, int32_t cy, int32_t r, uint32_t phase) {
+    for(uint32_t i = 0; i < 16; i += 2) {
+        uint32_t a = i + phase;
+        dv_line(
+            canvas,
+            cx + dv_cos(a) * r / 64,
+            cy + dv_sin(a) * r * 8 / 640,
+            cx + dv_cos(a + 1) * r / 64,
+            cy + dv_sin(a + 1) * r * 8 / 640);
     }
 }
