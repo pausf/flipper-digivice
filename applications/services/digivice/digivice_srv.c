@@ -155,6 +155,9 @@ static void digivice_load(Digivice* digivice) {
 
     furi_check(furi_mutex_acquire(digivice->mutex, FuriWaitForever) == FuriStatusOk);
     if(ok) {
+        // v1 time was never played under the v2 care rules: restart the clock so the first tick
+        // sees ~0 s elapsed instead of charging mistakes, poop and sickness for it.
+        if(migrated) loaded.last_tick = furi_hal_rtc_get_timestamp();
         digivice->state = loaded;
         // A migrated pet is written back as v2 on the next flush.
         digivice->dirty = migrated;
