@@ -137,36 +137,157 @@ uint32_t digivice_rules_awake_seconds(uint32_t from, uint32_t to) {
     return awake;
 }
 
+static uint32_t until(uint32_t t, uint32_t deadline) {
+    return deadline > t ? deadline - t : 0;
+}
+
+static void add_mistake(DigiviceState* s) {
+    if(s->care_mistakes < UINT8_MAX) s->care_mistakes++;
+}
+
+static void set_hunger(DigiviceState* s, uint8_t hunger, uint32_t now) {
+    if(hunger == 0 && s->hunger > 0) s->starving_since = now;
+    if(hunger > 0) s->starving_since = 0;
+    s->hunger = hunger;
+}
+
+static bool corrupting(const DigiviceState* s) {
+    return s->hunger == 0 || s->mood == 0 || s->sick;
+}
+
+static bool pooping(const DigiviceState* s) {
+    return s->poop < DIGIVICE_POOP_MAX && digivice_rules_stage(s) >= DigiviceStageBaby;
+}
+
+static uint32_t mood_rate(const DigiviceState* s) {
+    return (s->sick || s->poop >= DIGIVICE_POOP_MOOD_FAST) ? DIGIVICE_MOOD_FAST_X : 1;
+}
+
+// Wall-clock rules: they fire at the exact second, awake or asleep.
+static void apply_due(DigiviceState* s, uint32_t t) {
+    if(s->poop > 0 && t >= s->poop_dirty_since &&
+       t - s->poop_dirty_since >= DIGIVICE_POOP_MISTAKE_S) {
+        add_mistake(s);
+        s->poop_dirty_since = t;
+    }
+    bool starved = s->starving_since != 0 && t >= s->starving_since &&
+                   t - s->starving_since >= DIGIVICE_STARVE_SICK_S;
+    if(!s->sick && (s->care_mistakes >= DIGIVICE_SICK_MISTAKES || starved)) {
+        s->sick = 1;
+        s->doses_needed = 1;
+        s->sick_since = t;
+    }
+}
+
+static uint32_t next_due(const DigiviceState* s, uint32_t t) {
+    uint32_t step = UINT32_MAX;
+    if(s->poop > 0) step = until(t, s->poop_dirty_since + DIGIVICE_POOP_MISTAKE_S);
+    if(!s->sick && s->starving_since != 0) {
+        step = min_u32(step, until(t, s->starving_since + DIGIVICE_STARVE_SICK_S));
+    }
+    return step;
+}
+
+static uint32_t awake_step(const DigiviceState* s, uint32_t step) {
+    uint32_t rate = mood_rate(s);
+    if(s->hunger > 0) step = min_u32(step, DIGIVICE_HUNGER_DECAY_S - s->hunger_acc_s);
+    // Rounded up, so a doubled decay lands on or just past its boundary, never short of it.
+    if(s->mood > 0) {
+        step = min_u32(step, (DIGIVICE_MOOD_DECAY_S - s->mood_acc_s + rate - 1) / rate);
+    }
+    if(corrupting(s)) step = min_u32(step, 3600UL - s->corrupt_acc_s);
+    if(pooping(s)) step = min_u32(step, DIGIVICE_POOP_EVERY_S - s->poop_acc_s);
+    return step;
+}
+
+static void awake_advance(DigiviceState* s, uint32_t step, uint32_t t_end) {
+    bool poops = pooping(s);
+    if(s->hunger > 0) s->hunger_acc_s += step;
+    // Doubled decay can overshoot by under `rate` seconds; the remainder is carried, not lost.
+    if(s->mood > 0) s->mood_acc_s += step * mood_rate(s);
+    if(corrupting(s)) s->corrupt_acc_s += step;
+    if(poops) s->poop_acc_s += step;
+
+    if(s->hunger_acc_s >= DIGIVICE_HUNGER_DECAY_S) {
+        s->hunger_acc_s = 0;
+        set_hunger(s, s->hunger - 1, t_end);
+    }
+    if(s->mood_acc_s >= DIGIVICE_MOOD_DECAY_S) {
+        s->mood_acc_s -= DIGIVICE_MOOD_DECAY_S;
+        s->mood--;
+    }
+    if(s->corrupt_acc_s >= 3600UL) {
+        s->corrupt_acc_s -= 3600UL;
+        set_corruption(s, (int32_t)s->corruption + DIGIVICE_CORRUPTION_PER_HOUR, t_end);
+    }
+    if(s->poop_acc_s >= DIGIVICE_POOP_EVERY_S) {
+        s->poop_acc_s = 0;
+        if(s->poop == 0) s->poop_dirty_since = t_end;
+        s->poop++;
+    }
+}
+
+static void asleep_advance(DigiviceState* s, uint32_t step) {
+    // An egg has no care rules: it never poops and the light cannot bother it.
+    if(!s->light_on || digivice_rules_stage(s) == DigiviceStageEgg) return;
+    uint32_t before = s->light_on_asleep_s;
+    s->light_on_asleep_s += step;
+    // Crossing the threshold, not being past it, makes this once per sleep window.
+    if(before < DIGIVICE_LIGHT_MISTAKE_S && s->light_on_asleep_s >= DIGIVICE_LIGHT_MISTAKE_S) {
+        add_mistake(s);
+        if(s->mood > 0) s->mood--;
+    }
+}
+
+// One clock hour (or less) that is entirely awake or entirely asleep.
+static void run_segment(DigiviceState* s, uint32_t t, uint32_t to, bool asleep) {
+    if(!asleep) {
+        // The light comes back on when the sleep window ends.
+        s->light_on = 1;
+        s->light_on_asleep_s = 0;
+    }
+    while(t < to) {
+        apply_due(s, t);
+        uint32_t step = min_u32(to - t, next_due(s, t));
+        if(asleep) {
+            if(s->light_on && s->light_on_asleep_s < DIGIVICE_LIGHT_MISTAKE_S) {
+                step = min_u32(step, DIGIVICE_LIGHT_MISTAKE_S - s->light_on_asleep_s);
+            }
+        } else {
+            step = awake_step(s, step);
+        }
+        if(step == 0) step = 1; // a clock jump can leave a deadline behind t; never stall
+        if(asleep) {
+            asleep_advance(s, step);
+        } else {
+            awake_advance(s, step, t + step);
+        }
+        t += step;
+    }
+}
+
 void digivice_rules_tick(DigiviceState* s, uint32_t now) {
-    uint32_t elapsed = now > s->last_tick ? now - s->last_tick : 0;
+    uint32_t prev = s->last_tick;
+    uint32_t elapsed = now > prev ? now - prev : 0;
     elapsed = min_u32(elapsed, DIGIVICE_ELAPSED_MAX_S);
-    uint32_t awake = digivice_rules_awake_seconds(now - elapsed, now);
+    uint32_t t = now - elapsed;
 
-    // Advance event by event so corruption only accrues while hunger or mood is really zero.
-    while(awake > 0) {
-        uint32_t step = awake;
-        if(s->hunger > 0) step = min_u32(step, DIGIVICE_HUNGER_DECAY_S - s->hunger_acc_s);
-        if(s->mood > 0) step = min_u32(step, DIGIVICE_MOOD_DECAY_S - s->mood_acc_s);
+    // A migrated or hand-edited state can be at 0 hunger without a start time.
+    if(s->hunger == 0 && s->starving_since == 0) s->starving_since = t;
 
-        if(s->hunger > 0) s->hunger_acc_s += step;
-        if(s->mood > 0) s->mood_acc_s += step;
-        if(s->hunger == 0 || s->mood == 0) s->corrupt_acc_s += step;
-        awake -= step;
+    // Advance hour by hour, then event by event inside each hour, so 60 s ticks and one long
+    // catch-up tick end in the same state.
+    while(t < now) {
+        uint32_t next = min_u32((t / 3600UL + 1UL) * 3600UL, now);
+        run_segment(s, t, next, digivice_rules_is_asleep(t));
+        t = next;
+    }
+    apply_due(s, now);
 
-        if(s->hunger_acc_s >= DIGIVICE_HUNGER_DECAY_S) {
-            s->hunger_acc_s = 0;
-            s->hunger--;
-        }
-        if(s->mood_acc_s >= DIGIVICE_MOOD_DECAY_S) {
-            s->mood_acc_s = 0;
-            s->mood--;
-        }
-        if(s->corrupt_acc_s >= 3600UL) {
-            uint32_t hours = s->corrupt_acc_s / 3600UL;
-            s->corrupt_acc_s %= 3600UL;
-            set_corruption(
-                s, (int32_t)s->corruption + (int32_t)(hours * DIGIVICE_CORRUPTION_PER_HOUR), now);
-        }
+    // The second dose is due once, when this tick's window crosses sick_since + 12 h.
+    uint32_t two_doses_at = s->sick_since + DIGIVICE_SICK_TWO_DOSES_S;
+    if(s->sick && s->doses_needed == 1 && two_doses_at > prev && two_doses_at <= now) {
+        s->doses_needed = 2;
     }
 
     if(s->virux_type != DigiviceTypeNone && now >= s->virux_expires) {
@@ -183,7 +304,7 @@ void digivice_rules_tick(DigiviceState* s, uint32_t now) {
 
 bool digivice_rules_feed(DigiviceState* s, uint32_t now) {
     if(s->hunger >= DIGIVICE_HUNGER_MAX) return false;
-    s->hunger++;
+    set_hunger(s, s->hunger + 1, now);
     set_corruption(s, (int32_t)s->corruption - DIGIVICE_CORRUPTION_FEED_DROP, now);
     return true;
 }
@@ -201,12 +322,40 @@ DigiviceResult digivice_rules_can_battle(const DigiviceState* s) {
 DigiviceResult digivice_rules_train(DigiviceState* s, bool success, uint32_t now) {
     DigiviceResult result = digivice_rules_can_train(s, now);
     if(result != DigiviceResultOk) return result;
-    if(s->hunger > 0) s->hunger--;
+    if(s->hunger > 0) set_hunger(s, s->hunger - 1, now);
     s->exp += success ? DIGIVICE_TRAIN_EXP_OK : DIGIVICE_TRAIN_EXP_FAIL;
     if(!success) return DigiviceResultOk;
     add_u16(&s->strength, 1);
     if(s->mood < DIGIVICE_MOOD_MAX) s->mood++;
     set_corruption(s, (int32_t)s->corruption - DIGIVICE_CORRUPTION_TRAIN_DROP, now);
+    return DigiviceResultOk;
+}
+
+bool digivice_rules_clean(DigiviceState* s, uint32_t now) {
+    (void)now;
+    if(s->poop == 0) return false;
+    s->poop = 0;
+    s->poop_dirty_since = 0;
+    if(s->mood < DIGIVICE_MOOD_MAX) s->mood++;
+    return true;
+}
+
+bool digivice_rules_cure(DigiviceState* s, uint32_t now) {
+    if(!s->sick) return false;
+    if(s->doses_needed > 0) s->doses_needed--;
+    if(s->doses_needed == 0) {
+        s->sick = 0;
+        s->care_mistakes = 0;
+        s->sick_since = 0;
+        // Still starving: the 24 h clock restarts, or the pet would relapse on the next tick.
+        if(s->starving_since != 0) s->starving_since = now;
+    }
+    return true;
+}
+
+DigiviceResult digivice_rules_toggle_light(DigiviceState* s, uint32_t now) {
+    if(!digivice_rules_is_asleep(now)) return DigiviceResultAwake;
+    s->light_on = !s->light_on;
     return DigiviceResultOk;
 }
 

@@ -185,6 +185,12 @@ DigiviceResult digivice_rules_can_train(const DigiviceState* s, uint32_t now);
 DigiviceResult digivice_rules_can_battle(const DigiviceState* s);
 /** Refused while sick or asleep; otherwise v1 effects plus training EXP. */
 DigiviceResult digivice_rules_train(DigiviceState* s, bool success, uint32_t now);
+/** Returns false when there is nothing to clean. */
+bool digivice_rules_clean(DigiviceState* s, uint32_t now);
+/** Uses one dose. Returns false (a refusal) on a healthy pet. */
+bool digivice_rules_cure(DigiviceState* s, uint32_t now);
+/** Toggles the light while asleep; refused while awake, where the light always stays on. */
+DigiviceResult digivice_rules_toggle_light(DigiviceState* s, uint32_t now);
 void digivice_rules_battle_result(DigiviceState* s, DigiviceBattleResult result, uint32_t now);
 void digivice_rules_ack_evolution(DigiviceState* s);
 

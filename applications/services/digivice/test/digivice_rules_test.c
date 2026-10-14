@@ -813,6 +813,269 @@ static void test_same_visible_ignores_care_bookkeeping(void) {
     CHECK(!digivice_rules_same_visible(&a, &b));
 }
 
+static DigiviceState baby(uint32_t now) {
+    DigiviceState s = fresh(now);
+    s.form = DigiviceFormBitling;
+    return s;
+}
+
+static void test_poop_every_3h_awake(void) {
+    DigiviceState s = baby(T0);
+    digivice_rules_tick(&s, T0 + H(3) - 1);
+    CHECK(s.poop == 0);
+    digivice_rules_tick(&s, T0 + H(3));
+    CHECK(s.poop == 1);
+    CHECK(s.poop_dirty_since == T0 + H(3));
+    digivice_rules_tick(&s, T0 + H(6));
+    CHECK(s.poop == 2);
+    // The oldest poop keeps the timestamp.
+    CHECK(s.poop_dirty_since == T0 + H(3));
+}
+
+static void test_poop_pauses_while_asleep(void) {
+    // 22:00 -> 09:00: one awake hour before 23:00 and two after 07:00.
+    uint32_t start = DAY(10) + H(22);
+    DigiviceState s = baby(start);
+    digivice_rules_tick(&s, DAY(11) + H(9) - 1);
+    CHECK(s.poop == 0);
+    digivice_rules_tick(&s, DAY(11) + H(9));
+    CHECK(s.poop == 1);
+    CHECK(s.poop_dirty_since == DAY(11) + H(9));
+}
+
+static void test_poop_is_capped(void) {
+    DigiviceState s = baby(T0);
+    s.poop = DIGIVICE_POOP_MAX;
+    s.poop_dirty_since = T0;
+    digivice_rules_tick(&s, T0 + H(3));
+    CHECK(s.poop == DIGIVICE_POOP_MAX);
+    CHECK(s.poop_acc_s == 0);
+}
+
+static void test_egg_never_poops(void) {
+    DigiviceState s = fresh(T0);
+    digivice_rules_tick(&s, T0 + H(9));
+    CHECK(s.poop == 0);
+    CHECK(s.poop_acc_s == 0);
+}
+
+static void test_mood_decays_twice_as_fast_with_3_poops(void) {
+    DigiviceState s = baby(T0);
+    s.poop = DIGIVICE_POOP_MOOD_FAST;
+    s.poop_dirty_since = T0;
+    digivice_rules_tick(&s, T0 + DIGIVICE_MOOD_DECAY_S / 2 - 1);
+    CHECK(s.mood == DIGIVICE_MOOD_MAX);
+    digivice_rules_tick(&s, T0 + DIGIVICE_MOOD_DECAY_S / 2);
+    CHECK(s.mood == DIGIVICE_MOOD_MAX - 1);
+
+    // Two poops are still the normal rate.
+    DigiviceState n = baby(T0);
+    n.poop = DIGIVICE_POOP_MOOD_FAST - 1;
+    n.poop_dirty_since = T0;
+    digivice_rules_tick(&n, T0 + DIGIVICE_MOOD_DECAY_S - 1);
+    CHECK(n.mood == DIGIVICE_MOOD_MAX);
+}
+
+static void test_dirty_poop_is_one_mistake_per_6h(void) {
+    DigiviceState s = baby(T0);
+    s.poop = 1;
+    s.poop_dirty_since = T0;
+    digivice_rules_tick(&s, T0 + H(6) - 1);
+    CHECK(s.care_mistakes == 0);
+    digivice_rules_tick(&s, T0 + H(6));
+    CHECK(s.care_mistakes == 1);
+    CHECK(s.poop_dirty_since == T0 + H(6));
+    digivice_rules_tick(&s, T0 + H(12) - 1);
+    CHECK(s.care_mistakes == 1);
+}
+
+static void test_clean(void) {
+    DigiviceState s = baby(T0);
+    s.poop = 3;
+    s.poop_dirty_since = T0 - H(1);
+    s.mood = 2;
+    CHECK(digivice_rules_clean(&s, T0));
+    CHECK(s.poop == 0 && s.poop_dirty_since == 0 && s.mood == 3);
+
+    DigiviceState before = s;
+    CHECK(!digivice_rules_clean(&s, T0));
+    CHECK(memcmp(&s, &before, sizeof(s)) == 0);
+
+    s.poop = 1;
+    s.mood = DIGIVICE_MOOD_MAX;
+    CHECK(digivice_rules_clean(&s, T0));
+    CHECK(s.mood == DIGIVICE_MOOD_MAX);
+}
+
+static void test_60s_ticks_lose_no_poop(void) {
+    // 08:00 -> 20:00, all awake: four poops land on the same seconds either way.
+    DigiviceState a = baby(T0);
+    DigiviceState b = a;
+    for(uint32_t t = T0 + 60; t <= T0 + H(12); t += 60)
+        digivice_rules_tick(&a, t);
+    digivice_rules_tick(&b, T0 + H(12));
+    CHECK(a.poop == 4);
+    CHECK(memcmp(&a, &b, sizeof(a)) == 0);
+}
+
+#define NIGHT(day) (DAY(day) + H(23))
+
+static void test_sick_from_two_mistakes(void) {
+    DigiviceState s = baby(T0);
+    s.care_mistakes = 1;
+    s.poop = 1;
+    s.poop_dirty_since = T0;
+    digivice_rules_tick(&s, T0 + H(6) - 1);
+    CHECK(!s.sick);
+    digivice_rules_tick(&s, T0 + H(6));
+    CHECK(s.care_mistakes == DIGIVICE_SICK_MISTAKES);
+    CHECK(s.sick == 1 && s.doses_needed == 1 && s.sick_since == T0 + H(6));
+}
+
+static void test_sick_from_24h_of_starvation(void) {
+    // An egg has no poop or light mistakes, so only starvation can make it sick.
+    DigiviceState s = fresh(T0);
+    s.hunger = 1;
+    digivice_rules_tick(&s, T0 + H(2));
+    CHECK(s.hunger == 0 && s.starving_since == T0 + H(2));
+    // Wall time: the night in between counts.
+    digivice_rules_tick(&s, T0 + H(26) - 1);
+    CHECK(!s.sick);
+    digivice_rules_tick(&s, T0 + H(26));
+    CHECK(s.sick == 1 && s.sick_since == T0 + H(26));
+}
+
+static void test_feeding_stops_the_starvation_clock(void) {
+    DigiviceState s = fresh(T0);
+    s.hunger = 0;
+    digivice_rules_tick(&s, T0 + 60);
+    CHECK(s.starving_since == T0);
+    CHECK(digivice_rules_feed(&s, T0 + 120));
+    CHECK(s.starving_since == 0);
+
+    // Training can starve it again.
+    digivice_rules_train(&s, false, T0 + 180);
+    CHECK(s.hunger == 0 && s.starving_since == T0 + 180);
+}
+
+static void test_sickness_doubles_mood_decay_and_corrupts(void) {
+    DigiviceState s = fresh(T0);
+    s.sick = 1;
+    s.doses_needed = 1;
+    s.sick_since = T0;
+    digivice_rules_tick(&s, T0 + H(1));
+    CHECK(s.corruption == DIGIVICE_CORRUPTION_PER_HOUR);
+    CHECK(s.hunger > 0 && s.mood > 0);
+    digivice_rules_tick(&s, T0 + DIGIVICE_MOOD_DECAY_S / 2);
+    CHECK(s.mood == DIGIVICE_MOOD_MAX - 1);
+}
+
+static void test_second_dose_after_12h(void) {
+    DigiviceState s = fresh(T0);
+    s.sick = 1;
+    s.doses_needed = 1;
+    s.sick_since = T0;
+    for(uint32_t t = T0 + 60; t < T0 + H(12); t += 60)
+        digivice_rules_tick(&s, t);
+    CHECK(s.doses_needed == 1);
+    digivice_rules_tick(&s, T0 + H(12));
+    CHECK(s.doses_needed == 2);
+
+    CHECK(digivice_rules_cure(&s, T0 + H(13)));
+    CHECK(s.sick == 1 && s.doses_needed == 1);
+    // The 12 h mark is behind us: one remaining dose stays one.
+    digivice_rules_tick(&s, T0 + H(14));
+    CHECK(s.doses_needed == 1);
+    CHECK(digivice_rules_cure(&s, T0 + H(14)));
+    CHECK(s.sick == 0 && s.doses_needed == 0);
+}
+
+static void test_cure_resets_mistakes(void) {
+    DigiviceState s = baby(T0);
+    s.sick = 1;
+    s.doses_needed = 1;
+    s.sick_since = T0 - H(1);
+    s.care_mistakes = 3;
+    CHECK(digivice_rules_cure(&s, T0));
+    CHECK(s.sick == 0 && s.care_mistakes == 0 && s.sick_since == 0 && s.doses_needed == 0);
+}
+
+static void test_cure_refused_when_healthy(void) {
+    DigiviceState s = baby(T0);
+    s.care_mistakes = 1;
+    DigiviceState before = s;
+    CHECK(!digivice_rules_cure(&s, T0));
+    CHECK(memcmp(&s, &before, sizeof(s)) == 0);
+}
+
+static void test_cure_restarts_the_starvation_clock(void) {
+    DigiviceState s = fresh(T0);
+    s.hunger = 0;
+    s.starving_since = T0 - H(30);
+    s.sick = 1;
+    s.doses_needed = 1;
+    s.sick_since = T0 - H(6);
+    CHECK(digivice_rules_cure(&s, T0));
+    CHECK(s.starving_since == T0);
+    s.last_tick = T0;
+    digivice_rules_tick(&s, T0 + 60);
+    CHECK(!s.sick);
+}
+
+static void test_light_on_asleep_is_one_mistake_per_window(void) {
+    DigiviceState s = baby(NIGHT(10));
+    digivice_rules_tick(&s, NIGHT(10) + H(1) - 1);
+    CHECK(s.care_mistakes == 0 && s.mood == DIGIVICE_MOOD_MAX);
+    digivice_rules_tick(&s, NIGHT(10) + H(1));
+    CHECK(s.care_mistakes == 1 && s.mood == DIGIVICE_MOOD_MAX - 1);
+    digivice_rules_tick(&s, DAY(11) + H(7) - 1);
+    CHECK(s.care_mistakes == 1);
+}
+
+static void test_light_resets_at_7(void) {
+    DigiviceState s = baby(NIGHT(10));
+    CHECK(digivice_rules_toggle_light(&s, NIGHT(10)) == DigiviceResultOk);
+    CHECK(s.light_on == 0);
+    digivice_rules_tick(&s, DAY(11) + H(7) - 1);
+    CHECK(s.light_on == 0 && s.care_mistakes == 0);
+    digivice_rules_tick(&s, DAY(11) + H(7) + 60);
+    CHECK(s.light_on == 1 && s.light_on_asleep_s == 0);
+}
+
+static void test_light_toggled_twice_counts_once(void) {
+    DigiviceState s = baby(NIGHT(10));
+    digivice_rules_tick(&s, NIGHT(10) + 1800);
+    CHECK(digivice_rules_toggle_light(&s, NIGHT(10) + 1800) == DigiviceResultOk);
+    digivice_rules_tick(&s, NIGHT(10) + 3600);
+    CHECK(digivice_rules_toggle_light(&s, NIGHT(10) + 3600) == DigiviceResultOk);
+    digivice_rules_tick(&s, NIGHT(10) + 5400 - 1);
+    CHECK(s.care_mistakes == 0);
+    digivice_rules_tick(&s, NIGHT(10) + 5400);
+    CHECK(s.care_mistakes == 1);
+    digivice_rules_tick(&s, DAY(11) + H(6));
+    CHECK(s.care_mistakes == 1);
+}
+
+static void test_light_refused_while_awake(void) {
+    DigiviceState s = baby(T0);
+    DigiviceState before = s;
+    CHECK(digivice_rules_toggle_light(&s, T0) == DigiviceResultAwake);
+    CHECK(memcmp(&s, &before, sizeof(s)) == 0);
+    CHECK(s.light_on == 1);
+}
+
+static void test_60s_ticks_match_one_tick_with_care(void) {
+    // 30 h from 08:00 across a night: poop, starvation, mistakes, sickness and the light.
+    DigiviceState a = baby(T0);
+    a.hunger = 1;
+    DigiviceState b = a;
+    for(uint32_t t = T0 + 60; t <= T0 + H(30); t += 60)
+        digivice_rules_tick(&a, t);
+    digivice_rules_tick(&b, T0 + H(30));
+    CHECK(a.sick == 1 && a.care_mistakes >= DIGIVICE_SICK_MISTAKES);
+    CHECK(memcmp(&a, &b, sizeof(a)) == 0);
+}
+
 int main(void) {
     test_init();
     test_hunger_decays_every_2h();
@@ -863,6 +1126,27 @@ int main(void) {
     test_lang_and_mode_are_range_checked();
     test_reset_keeps_lang_and_mode();
     test_same_visible_ignores_care_bookkeeping();
+    test_poop_every_3h_awake();
+    test_poop_pauses_while_asleep();
+    test_poop_is_capped();
+    test_egg_never_poops();
+    test_mood_decays_twice_as_fast_with_3_poops();
+    test_dirty_poop_is_one_mistake_per_6h();
+    test_clean();
+    test_60s_ticks_lose_no_poop();
+    test_sick_from_two_mistakes();
+    test_sick_from_24h_of_starvation();
+    test_feeding_stops_the_starvation_clock();
+    test_sickness_doubles_mood_decay_and_corrupts();
+    test_second_dose_after_12h();
+    test_cure_resets_mistakes();
+    test_cure_refused_when_healthy();
+    test_cure_restarts_the_starvation_clock();
+    test_light_on_asleep_is_one_mistake_per_window();
+    test_light_resets_at_7();
+    test_light_toggled_twice_counts_once();
+    test_light_refused_while_awake();
+    test_60s_ticks_match_one_tick_with_care();
 
     if(failures) {
         printf("%d check(s) failed\n", failures);

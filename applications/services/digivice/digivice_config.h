@@ -37,6 +37,18 @@
 #define DIGIVICE_TRAIN_EXP_OK   3
 #define DIGIVICE_TRAIN_EXP_FAIL 1
 
+// Care: poop, sickness and light. Mood decays DIGIVICE_MOOD_FAST_X times faster while sick or
+// with at least DIGIVICE_POOP_MOOD_FAST piles (not stacked).
+#define DIGIVICE_POOP_EVERY_S     (3UL * 3600UL)
+#define DIGIVICE_POOP_MAX         4
+#define DIGIVICE_POOP_MOOD_FAST   3
+#define DIGIVICE_POOP_MISTAKE_S   (6UL * 3600UL)
+#define DIGIVICE_MOOD_FAST_X      2
+#define DIGIVICE_SICK_MISTAKES    2
+#define DIGIVICE_STARVE_SICK_S    (24UL * 3600UL)
+#define DIGIVICE_SICK_TWO_DOSES_S (12UL * 3600UL)
+#define DIGIVICE_LIGHT_MISTAKE_S  3600UL
+
 // Multipliers are stored x10 so the rules stay in integer math.
 #define DIGIVICE_TIMING_HIT_X10  15
 #define DIGIVICE_TIMING_MISS_X10 5
