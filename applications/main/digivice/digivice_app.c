@@ -72,7 +72,8 @@ void digivice_app_refresh(DigiviceApp* app) {
 
 /** Pet x on the main screen: a slow walk back and forth across the band. */
 static int32_t digivice_main_pet_x(const DigiviceApp* app) {
-    if(app->care != DigiviceCareNone) return 50;
+    if(app->care != DigiviceCareNone || digivice_rules_is_asleep(furi_hal_rtc_get_timestamp()))
+        return 50;
     int32_t walk = (int32_t)((app->frame / 2) % 40);
     return 34 + (walk < 20 ? walk : 40 - walk);
 }
