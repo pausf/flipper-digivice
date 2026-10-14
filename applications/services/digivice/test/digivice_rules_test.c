@@ -2,6 +2,7 @@
 #include "../digivice_rules.h"
 #include "../digivice_config.h"
 
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -32,6 +33,12 @@ static DigiviceState rookie(uint32_t now) {
     DigiviceState s = fresh(now);
     s.form = DigiviceFormBytemon;
     s.exp = DIGIVICE_ROOKIE_EXP;
+    return s;
+}
+
+// Deeds only count in Hacker mode; the v1 deed tests run there.
+static DigiviceState hacker(DigiviceState s) {
+    s.mode = DigiviceModeHacker;
     return s;
 }
 
@@ -277,11 +284,11 @@ static void test_same_visible_ignores_bookkeeping(void) {
     CHECK(!digivice_rules_same_visible(&a, &b));
 }
 
-static void test_egg_hatches_after_1h(void) {
+static void test_egg_hatches_after_300s(void) {
     DigiviceState s = fresh(T0);
-    CHECK(!digivice_rules_evolve(&s, T0 + H(1) - 1));
+    CHECK(!digivice_rules_evolve(&s, T0 + 299));
     CHECK(s.form == DigiviceFormByteegg);
-    CHECK(digivice_rules_evolve(&s, T0 + H(1)));
+    CHECK(digivice_rules_evolve(&s, T0 + 300));
     CHECK(s.form == DigiviceFormBitling);
     CHECK(s.evo_from == DigiviceFormByteegg);
     digivice_rules_ack_evolution(&s);
@@ -367,7 +374,7 @@ static void test_deed_types(void) {
 }
 
 static void test_deed_grants_exp_and_data(void) {
-    DigiviceState s = fresh(T0);
+    DigiviceState s = hacker(fresh(T0));
     digivice_rules_on_deed(&s, DolphinDeedIrLearnSuccess, 3, T0, 99);
     CHECK(s.exp == 3);
     CHECK(s.data[DigiviceTypeIr] == 1);
@@ -390,11 +397,11 @@ static void test_spawn_rules(void) {
     CHECK(!digivice_rules_is_spawn_deed(DolphinDeedNfcReadSuccess));
     CHECK(!digivice_rules_is_spawn_deed(DolphinDeedIrSend));
 
-    DigiviceState baby = fresh(T0);
+    DigiviceState baby = hacker(fresh(T0));
     baby.form = DigiviceFormBitling;
     CHECK(!digivice_rules_on_deed(&baby, DolphinDeedNfcRead, 1, T0, 0));
 
-    DigiviceState s = rookie(T0);
+    DigiviceState s = hacker(rookie(T0));
     CHECK(!digivice_rules_on_deed(&s, DolphinDeedIrSend, 1, T0, 0));
     CHECK(!digivice_rules_on_deed(&s, DolphinDeedNfcRead, 1, T0, DIGIVICE_SPAWN_PCT));
     CHECK(digivice_rules_on_deed(&s, DolphinDeedRfidRead, 1, T0, DIGIVICE_SPAWN_PCT - 1));
@@ -410,7 +417,7 @@ static void test_spawn_rules(void) {
     digivice_rules_tick(&s, T0 + DIGIVICE_VIRUX_TTL_S);
     CHECK(s.virux_type == DigiviceTypeNone);
 
-    DigiviceState c = rookie(T0);
+    DigiviceState c = hacker(rookie(T0));
     c.form = DigiviceFormVirubyte;
     c.prev_form = DigiviceFormBytemon;
     CHECK(digivice_rules_on_deed(&c, DolphinDeedSubGhzFrequencyAnalyzer, 1, T0, 0));
@@ -637,7 +644,7 @@ static void test_win_without_virux_type_grants_exp_only(void) {
 }
 
 static void test_deed_out_of_range_is_ignored(void) {
-    DigiviceState s = rookie(T0);
+    DigiviceState s = hacker(rookie(T0));
     DigiviceState before = s;
     CHECK(!digivice_rules_on_deed(&s, DolphinDeedMAX, 5, T0, 0));
     CHECK(!digivice_rules_on_deed(&s, (DolphinDeed)(DolphinDeedMAX + 1), 5, T0, 0));
@@ -647,7 +654,7 @@ static void test_deed_out_of_range_is_ignored(void) {
 
 static void test_spawn_deed_when_ineligible_still_rewards(void) {
     // Baby: eligible deed, wrong stage.
-    DigiviceState baby = fresh(T0);
+    DigiviceState baby = hacker(fresh(T0));
     baby.form = DigiviceFormBitling;
     CHECK(!digivice_rules_on_deed(&baby, DolphinDeedNfcRead, 2, T0, 0));
     CHECK(baby.exp == 2);
@@ -655,7 +662,7 @@ static void test_spawn_deed_when_ineligible_still_rewards(void) {
     CHECK(baby.virux_type == DigiviceTypeNone);
 
     // Rookie with a VIRUX already pending: neither type nor timer may be overwritten.
-    DigiviceState s = rookie(T0);
+    DigiviceState s = hacker(rookie(T0));
     s.virux_type = DigiviceTypeIr;
     s.virux_expires = T0 + 100;
     uint32_t exp = s.exp;
@@ -664,6 +671,146 @@ static void test_spawn_deed_when_ineligible_still_rewards(void) {
     CHECK(s.data[DigiviceTypeNfc] == 1);
     CHECK(s.virux_type == DigiviceTypeIr);
     CHECK(s.virux_expires == T0 + 100);
+}
+
+static void test_v2_defaults_and_layout(void) {
+    DigiviceState s = fresh(T0);
+    CHECK(s.lang == DigiviceLangEs);
+    CHECK(s.mode == DigiviceModeNormal);
+    CHECK(s.light_on == 1);
+    CHECK(s.poop == 0 && s.sick == 0 && s.care_mistakes == 0 && s.doses_needed == 0);
+    CHECK(s.poop_acc_s == 0 && s.poop_dirty_since == 0 && s.starving_since == 0);
+    CHECK(s.sick_since == 0 && s.light_on_asleep_s == 0);
+    // The v1 file is 56 bytes; v2 appends 28 and keeps every v1 offset.
+    CHECK(sizeof(DigiviceStateV1) == 56);
+    CHECK(sizeof(DigiviceState) == 84);
+    CHECK(offsetof(DigiviceState, corrupt_acc_s) == offsetof(DigiviceStateV1, corrupt_acc_s));
+}
+
+static void test_normal_mode_ignores_deeds(void) {
+    DigiviceState s = rookie(T0);
+    CHECK(s.mode == DigiviceModeNormal);
+    DigiviceState before = s;
+    CHECK(!digivice_rules_on_deed(&s, DolphinDeedNfcRead, 5, T0, 0));
+    CHECK(!digivice_rules_on_deed(&s, DolphinDeedIrSend, 5, T0, 0));
+    CHECK(memcmp(&s, &before, sizeof(s)) == 0);
+}
+
+static void test_train_grants_exp_in_both_modes(void) {
+    for(uint8_t mode = 0; mode < DigiviceModeCount; mode++) {
+        DigiviceState s = rookie(T0);
+        s.mode = mode;
+        uint32_t exp = s.exp;
+        CHECK(digivice_rules_train(&s, true, T0) == DigiviceResultOk);
+        CHECK(s.exp == exp + DIGIVICE_TRAIN_EXP_OK);
+        CHECK(digivice_rules_train(&s, false, T0) == DigiviceResultOk);
+        CHECK(s.exp == exp + DIGIVICE_TRAIN_EXP_OK + DIGIVICE_TRAIN_EXP_FAIL);
+    }
+}
+
+static void test_train_refused_while_sick_or_asleep(void) {
+    DigiviceState s = rookie(T0);
+    s.sick = 1;
+    DigiviceState before = s;
+    CHECK(digivice_rules_can_train(&s, T0) == DigiviceResultSick);
+    CHECK(digivice_rules_train(&s, true, T0) == DigiviceResultSick);
+    CHECK(memcmp(&s, &before, sizeof(s)) == 0);
+
+    // 23:30 is inside the sleep window; sickness wins when both apply.
+    uint32_t night = DAY(10) + H(23) + 1800;
+    CHECK(digivice_rules_can_train(&s, night) == DigiviceResultSick);
+    s.sick = 0;
+    before = s;
+    CHECK(digivice_rules_train(&s, true, night) == DigiviceResultAsleep);
+    CHECK(memcmp(&s, &before, sizeof(s)) == 0);
+    CHECK(digivice_rules_can_train(&s, T0) == DigiviceResultOk);
+}
+
+static void test_battle_refused_while_sick(void) {
+    DigiviceState s = rookie(T0);
+    CHECK(digivice_rules_can_battle(&s) == DigiviceResultOk);
+    s.sick = 1;
+    CHECK(digivice_rules_can_battle(&s) == DigiviceResultSick);
+}
+
+static void test_migrate_v1_field_by_field(void) {
+    DigiviceStateV1 v1 = {
+        .form = DigiviceFormWavedrake,
+        .prev_form = DigiviceFormBytemon,
+        .evo_from = DigiviceFormBytemon,
+        .hunger = 3,
+        .mood = 2,
+        .corruption = 40,
+        .virux_type = DigiviceTypeIr,
+        .reserved = 0,
+        .strength = 11,
+        .wins = 12,
+        .losses = 13,
+        .data = {21, 22, 23, 24},
+        .exp = 345,
+        .virux_expires = T0 + 100,
+        .last_tick = T0 + 200,
+        .born_at = T0 - DAY(5),
+        .clean_since = T0 - H(3),
+        .hunger_acc_s = 1001,
+        .mood_acc_s = 1002,
+        .corrupt_acc_s = 1003,
+    };
+    DigiviceState s;
+    memset(&s, 0xAA, sizeof(s));
+    digivice_rules_migrate_v1(&v1, &s);
+    CHECK(s.form == DigiviceFormWavedrake);
+    CHECK(s.prev_form == DigiviceFormBytemon);
+    CHECK(s.evo_from == DigiviceFormBytemon);
+    CHECK(s.hunger == 3 && s.mood == 2 && s.corruption == 40);
+    CHECK(s.virux_type == DigiviceTypeIr && s.reserved == 0);
+    CHECK(s.strength == 11 && s.wins == 12 && s.losses == 13);
+    CHECK(s.data[0] == 21 && s.data[1] == 22 && s.data[2] == 23 && s.data[3] == 24);
+    CHECK(s.exp == 345);
+    CHECK(s.virux_expires == T0 + 100 && s.last_tick == T0 + 200);
+    CHECK(s.born_at == T0 - DAY(5) && s.clean_since == T0 - H(3));
+    CHECK(s.hunger_acc_s == 1001 && s.mood_acc_s == 1002 && s.corrupt_acc_s == 1003);
+    CHECK(s.lang == DigiviceLangEs && s.mode == DigiviceModeNormal && s.light_on == 1);
+    CHECK(s.poop == 0 && s.sick == 0 && s.care_mistakes == 0 && s.doses_needed == 0);
+    CHECK(s.reserved2 == 0 && s.poop_acc_s == 0 && s.poop_dirty_since == 0);
+    CHECK(s.starving_since == 0 && s.sick_since == 0 && s.light_on_asleep_s == 0);
+}
+
+static void test_lang_and_mode_are_range_checked(void) {
+    DigiviceState s = fresh(T0);
+    CHECK(digivice_rules_set_lang(&s, DigiviceLangEn) && s.lang == DigiviceLangEn);
+    CHECK(!digivice_rules_set_lang(&s, DigiviceLangCount) && s.lang == DigiviceLangEn);
+    CHECK(digivice_rules_set_mode(&s, DigiviceModeHacker) && s.mode == DigiviceModeHacker);
+    CHECK(!digivice_rules_set_mode(&s, 0xFF) && s.mode == DigiviceModeHacker);
+
+    s.lang = 9;
+    s.mode = 9;
+    digivice_rules_sanitize(&s);
+    CHECK(s.lang == DigiviceLangEs && s.mode == DigiviceModeNormal);
+    s.lang = DigiviceLangEn;
+    s.mode = DigiviceModeHacker;
+    digivice_rules_sanitize(&s);
+    CHECK(s.lang == DigiviceLangEn && s.mode == DigiviceModeHacker);
+}
+
+static void test_reset_keeps_lang_and_mode(void) {
+    DigiviceState s = rookie(T0);
+    s.lang = DigiviceLangEn;
+    s.mode = DigiviceModeHacker;
+    s.exp = 999;
+    digivice_rules_reset(&s, T0 + 50);
+    CHECK(s.form == DigiviceFormByteegg && s.exp == 0 && s.born_at == T0 + 50);
+    CHECK(s.lang == DigiviceLangEn && s.mode == DigiviceModeHacker);
+}
+
+static void test_same_visible_ignores_care_bookkeeping(void) {
+    DigiviceState a = fresh(T0);
+    DigiviceState b = a;
+    b.poop_acc_s += 60;
+    b.light_on_asleep_s += 60;
+    CHECK(digivice_rules_same_visible(&a, &b));
+    b.poop++;
+    CHECK(!digivice_rules_same_visible(&a, &b));
 }
 
 int main(void) {
@@ -685,7 +832,7 @@ int main(void) {
     test_recovery_resets_when_corruption_returns();
     test_timing_zone();
     test_same_visible_ignores_bookkeeping();
-    test_egg_hatches_after_1h();
+    test_egg_hatches_after_300s();
     test_baby_to_rookie_at_50_exp();
     test_champion_paths_and_ties();
     test_evolution_waits_for_ack();
@@ -707,6 +854,15 @@ int main(void) {
     test_win_without_virux_type_grants_exp_only();
     test_deed_out_of_range_is_ignored();
     test_spawn_deed_when_ineligible_still_rewards();
+    test_v2_defaults_and_layout();
+    test_normal_mode_ignores_deeds();
+    test_train_grants_exp_in_both_modes();
+    test_train_refused_while_sick_or_asleep();
+    test_battle_refused_while_sick();
+    test_migrate_v1_field_by_field();
+    test_lang_and_mode_are_range_checked();
+    test_reset_keeps_lang_and_mode();
+    test_same_visible_ignores_care_bookkeeping();
 
     if(failures) {
         printf("%d check(s) failed\n", failures);

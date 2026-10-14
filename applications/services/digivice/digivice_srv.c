@@ -8,8 +8,9 @@
 #define TAG "Digivice"
 
 #define DIGIVICE_STATE_PATH    INT_PATH(".digivice.state")
-#define DIGIVICE_STATE_MAGIC   0xD1
-#define DIGIVICE_STATE_VERSION 0x01
+#define DIGIVICE_STATE_MAGIC      0xD1
+#define DIGIVICE_STATE_VERSION    0x02
+#define DIGIVICE_STATE_VERSION_V1 0x01
 
 #define DIGIVICE_QUEUE_SIZE 16
 #define DIGIVICE_DONE_FLAG  (0x1)
@@ -66,22 +67,55 @@ void digivice_ack_evolution(Digivice* digivice) {
 
 // Private
 
+/** Reads a v2 file, or a v1 file migrated to v2 (`migrated` is then set). */
+static bool digivice_load_file(DigiviceState* loaded, bool* migrated) {
+    uint8_t magic = 0;
+    uint8_t version = 0;
+    size_t size = 0;
+    *migrated = false;
+    if(!saved_struct_get_metadata(DIGIVICE_STATE_PATH, &magic, &version, &size)) return false;
+    if(magic != DIGIVICE_STATE_MAGIC) return false;
+
+    if(version == DIGIVICE_STATE_VERSION && size == sizeof(DigiviceState)) {
+        return saved_struct_load(
+            DIGIVICE_STATE_PATH,
+            loaded,
+            sizeof(DigiviceState),
+            DIGIVICE_STATE_MAGIC,
+            DIGIVICE_STATE_VERSION);
+    }
+    if(version == DIGIVICE_STATE_VERSION_V1 && size == sizeof(DigiviceStateV1)) {
+        DigiviceStateV1 v1;
+        if(!saved_struct_load(
+               DIGIVICE_STATE_PATH,
+               &v1,
+               sizeof(DigiviceStateV1),
+               DIGIVICE_STATE_MAGIC,
+               DIGIVICE_STATE_VERSION_V1)) {
+            return false;
+        }
+        digivice_rules_migrate_v1(&v1, loaded);
+        *migrated = true;
+        return true;
+    }
+    return false;
+}
+
 static void digivice_load(Digivice* digivice) {
     DigiviceState loaded;
-    bool ok = saved_struct_load(
-        DIGIVICE_STATE_PATH,
-        &loaded,
-        sizeof(DigiviceState),
-        DIGIVICE_STATE_MAGIC,
-        DIGIVICE_STATE_VERSION);
+    bool migrated = false;
+    bool ok = digivice_load_file(&loaded, &migrated);
     if(ok && (loaded.form >= DigiviceFormCount || loaded.prev_form >= DigiviceFormCount)) {
         ok = false;
     }
+    if(ok) digivice_rules_sanitize(&loaded);
 
     furi_check(furi_mutex_acquire(digivice->mutex, FuriWaitForever) == FuriStatusOk);
     if(ok) {
         digivice->state = loaded;
-        digivice->dirty = false;
+        // A migrated pet is written back as v2 on the next flush.
+        digivice->dirty = migrated;
+        if(migrated) FURI_LOG_I(TAG, "Migrated the v1 state to v2");
     } else {
         FURI_LOG_W(TAG, "No valid state, hatching a new egg");
         digivice_rules_init(&digivice->state, furi_hal_rtc_get_timestamp());

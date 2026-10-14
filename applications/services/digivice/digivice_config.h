@@ -22,7 +22,7 @@
 #define DIGIVICE_CORRUPTION_MISS_PCT   25
 #define DIGIVICE_CORRUPTION_RECOVERY_S (24UL * 3600UL)
 
-#define DIGIVICE_HATCH_S      3600UL
+#define DIGIVICE_HATCH_S      300UL
 #define DIGIVICE_ROOKIE_EXP   50
 #define DIGIVICE_CHAMPION_EXP 300
 
@@ -32,6 +32,10 @@
 #define DIGIVICE_WIN_BASE_EXP 10
 #define DIGIVICE_WIN_DATA     3
 #define DIGIVICE_FLEE_PCT     50
+
+// Training EXP, granted in both modes.
+#define DIGIVICE_TRAIN_EXP_OK   3
+#define DIGIVICE_TRAIN_EXP_FAIL 1
 
 // Multipliers are stored x10 so the rules stay in integer math.
 #define DIGIVICE_TIMING_HIT_X10  15

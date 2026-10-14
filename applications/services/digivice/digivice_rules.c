@@ -46,6 +46,61 @@ void digivice_rules_init(DigiviceState* s, uint32_t now) {
     s->last_tick = now;
     s->born_at = now;
     s->clean_since = now;
+    s->lang = DigiviceLangEs;
+    s->mode = DigiviceModeNormal;
+    s->light_on = 1;
+}
+
+void digivice_rules_reset(DigiviceState* s, uint32_t now) {
+    uint8_t lang = s->lang;
+    uint8_t mode = s->mode;
+    digivice_rules_init(s, now);
+    s->lang = lang;
+    s->mode = mode;
+}
+
+void digivice_rules_migrate_v1(const DigiviceStateV1* v1, DigiviceState* s) {
+    memset(s, 0, sizeof(DigiviceState));
+    s->form = v1->form;
+    s->prev_form = v1->prev_form;
+    s->evo_from = v1->evo_from;
+    s->hunger = v1->hunger;
+    s->mood = v1->mood;
+    s->corruption = v1->corruption;
+    s->virux_type = v1->virux_type;
+    s->reserved = v1->reserved;
+    s->strength = v1->strength;
+    s->wins = v1->wins;
+    s->losses = v1->losses;
+    memcpy(s->data, v1->data, sizeof(s->data));
+    s->exp = v1->exp;
+    s->virux_expires = v1->virux_expires;
+    s->last_tick = v1->last_tick;
+    s->born_at = v1->born_at;
+    s->clean_since = v1->clean_since;
+    s->hunger_acc_s = v1->hunger_acc_s;
+    s->mood_acc_s = v1->mood_acc_s;
+    s->corrupt_acc_s = v1->corrupt_acc_s;
+    s->lang = DigiviceLangEs;
+    s->mode = DigiviceModeNormal;
+    s->light_on = 1;
+}
+
+void digivice_rules_sanitize(DigiviceState* s) {
+    if(s->lang >= DigiviceLangCount) s->lang = DigiviceLangEs;
+    if(s->mode >= DigiviceModeCount) s->mode = DigiviceModeNormal;
+}
+
+bool digivice_rules_set_lang(DigiviceState* s, uint8_t lang) {
+    if(lang >= DigiviceLangCount) return false;
+    s->lang = lang;
+    return true;
+}
+
+bool digivice_rules_set_mode(DigiviceState* s, uint8_t mode) {
+    if(mode >= DigiviceModeCount) return false;
+    s->mode = mode;
+    return true;
 }
 
 DigiviceStage digivice_rules_stage(const DigiviceState* s) {
@@ -64,6 +119,10 @@ DigiviceStage digivice_rules_stage(const DigiviceState* s) {
 
 bool digivice_rules_is_sleep_hour(uint8_t hour) {
     return hour >= DIGIVICE_SLEEP_START_HOUR || hour < DIGIVICE_SLEEP_END_HOUR;
+}
+
+bool digivice_rules_is_asleep(uint32_t now) {
+    return digivice_rules_is_sleep_hour((uint8_t)((now % 86400UL) / 3600UL));
 }
 
 uint32_t digivice_rules_awake_seconds(uint32_t from, uint32_t to) {
@@ -129,12 +188,26 @@ bool digivice_rules_feed(DigiviceState* s, uint32_t now) {
     return true;
 }
 
-void digivice_rules_train(DigiviceState* s, bool success, uint32_t now) {
+DigiviceResult digivice_rules_can_train(const DigiviceState* s, uint32_t now) {
+    if(s->sick) return DigiviceResultSick;
+    if(digivice_rules_is_asleep(now)) return DigiviceResultAsleep;
+    return DigiviceResultOk;
+}
+
+DigiviceResult digivice_rules_can_battle(const DigiviceState* s) {
+    return s->sick ? DigiviceResultSick : DigiviceResultOk;
+}
+
+DigiviceResult digivice_rules_train(DigiviceState* s, bool success, uint32_t now) {
+    DigiviceResult result = digivice_rules_can_train(s, now);
+    if(result != DigiviceResultOk) return result;
     if(s->hunger > 0) s->hunger--;
-    if(!success) return;
+    s->exp += success ? DIGIVICE_TRAIN_EXP_OK : DIGIVICE_TRAIN_EXP_FAIL;
+    if(!success) return DigiviceResultOk;
     add_u16(&s->strength, 1);
     if(s->mood < DIGIVICE_MOOD_MAX) s->mood++;
     set_corruption(s, (int32_t)s->corruption - DIGIVICE_CORRUPTION_TRAIN_DROP, now);
+    return DigiviceResultOk;
 }
 
 bool digivice_rules_glitchy(const DigiviceState* s) {
@@ -156,6 +229,8 @@ bool digivice_rules_same_visible(const DigiviceState* a, const DigiviceState* b)
     x.hunger_acc_s = y.hunger_acc_s = 0;
     x.mood_acc_s = y.mood_acc_s = 0;
     x.corrupt_acc_s = y.corrupt_acc_s = 0;
+    x.poop_acc_s = y.poop_acc_s = 0;
+    x.light_on_asleep_s = y.light_on_asleep_s = 0;
     return memcmp(&x, &y, sizeof(DigiviceState)) == 0;
 }
 
@@ -234,7 +309,7 @@ bool digivice_rules_on_deed(
     uint8_t weight,
     uint32_t now,
     uint8_t rng_pct) {
-    if(deed >= DolphinDeedMAX) return false;
+    if(deed >= DolphinDeedMAX || s->mode != DigiviceModeHacker) return false;
 
     s->exp += weight;
     DigiviceType type = digivice_rules_deed_type(deed);
