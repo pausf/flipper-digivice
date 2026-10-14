@@ -73,6 +73,8 @@
 
 // App animation lengths in frames of the 100 ms clock.
 #define DIGIVICE_NOTICE_FRAMES 15
+#define DIGIVICE_CARE_FRAMES   30
+#define DIGIVICE_FEED_FRAMES   50
 
 // Cutscene length in frames of the 100 ms animation clock.
 #define DIGIVICE_EVO_FRAMES 50

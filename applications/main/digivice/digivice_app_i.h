@@ -15,6 +15,7 @@
 
 typedef enum {
     DigiviceScreenMain,
+    DigiviceScreenFeed,
     DigiviceScreenTrain,
     DigiviceScreenBattle,
     DigiviceScreenProfile,
@@ -22,6 +23,15 @@ typedef enum {
     DigiviceScreenEvolution,
     DigiviceScreenError,
 } DigiviceScreen;
+
+/** Care animation playing over the main screen. */
+typedef enum {
+    DigiviceCareNone,
+    DigiviceCareClean,
+    DigiviceCareLightOff,
+    DigiviceCareLightOn,
+    DigiviceCareCure,
+} DigiviceCare;
 
 typedef enum {
     DigiviceSettingLanguage,
@@ -71,6 +81,12 @@ typedef struct {
     DigiviceStr notice;
     uint32_t notice_frames;
 
+    DigiviceCare care;
+    uint32_t care_frame;
+    uint8_t care_poop; /**< piles on screen before the clean wave wipes them */
+
+    uint8_t feed_from; /**< hunger before the meal, so the hearts can fill up */
+
     uint8_t setting;
     uint8_t confirm; /**< 0 = none, 1 = "SURE?", 2 = "REALLY?" */
 
@@ -102,6 +118,16 @@ void digivice_app_draw_title(Canvas* canvas, const char* title);
 void digivice_meter_start(DigiviceMeter* meter);
 void digivice_meter_step(DigiviceMeter* meter);
 bool digivice_meter_hit(const DigiviceMeter* meter);
+
+void digivice_feed_enter(DigiviceApp* app);
+void digivice_feed_input(DigiviceApp* app, const InputEvent* event);
+void digivice_feed_tick(DigiviceApp* app);
+void digivice_feed_draw(Canvas* canvas, DigiviceApp* app);
+
+void digivice_care_start(DigiviceApp* app, DigiviceCare care);
+void digivice_care_tick(DigiviceApp* app);
+/** Draws the running care animation over the main screen's middle band. */
+void digivice_care_draw(Canvas* canvas, DigiviceApp* app, int32_t pet_x);
 
 void digivice_profile_draw(Canvas* canvas, DigiviceApp* app);
 

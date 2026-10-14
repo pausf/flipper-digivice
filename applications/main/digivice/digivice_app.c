@@ -66,7 +66,8 @@ void digivice_app_set_screen(DigiviceApp* app, DigiviceScreen screen) {
 void digivice_app_refresh(DigiviceApp* app) {
     digivice_get_state(app->digivice, &app->state);
     bool busy = app->screen == DigiviceScreenBattle || app->screen == DigiviceScreenTrain ||
-                app->screen == DigiviceScreenEvolution;
+                app->screen == DigiviceScreenFeed || app->screen == DigiviceScreenEvolution ||
+                app->care != DigiviceCareNone;
     if(app->state.evo_from != DigiviceFormNone && !busy) {
         digivice_app_set_screen(app, DigiviceScreenEvolution);
     }
@@ -74,6 +75,7 @@ void digivice_app_refresh(DigiviceApp* app) {
 
 /** Pet x on the main screen: a slow walk back and forth across the band. */
 static int32_t digivice_main_pet_x(const DigiviceApp* app) {
+    if(app->care != DigiviceCareNone) return 50;
     int32_t walk = (int32_t)((app->frame / 2) % 40);
     return 34 + (walk < 20 ? walk : 40 - walk);
 }
@@ -99,15 +101,19 @@ static void digivice_main_draw(Canvas* canvas, DigiviceApp* app) {
         asleep ? DigivicePoseSleep : DigivicePoseIdle,
         false);
 
-    digivice_draw_poops(canvas, s->poop, 96, 39, app->frame);
+    bool cleaning = app->care == DigiviceCareClean;
+    digivice_draw_poops(canvas, cleaning ? app->care_poop : s->poop, 96, 39, app->frame);
     if(s->sick) digivice_draw_skull(canvas, pet_x - 3, 18 + (int32_t)((app->frame / 3) % 3));
 
-    if(asleep) {
+    bool lights_anim = app->care == DigiviceCareLightOff || app->care == DigiviceCareLightOn;
+    if(asleep && !lights_anim) {
         if(!s->light_on) digivice_draw_dark(canvas, BAND_TOP, BAND_BOTTOM, 12, app->frame);
         canvas_set_color(canvas, s->light_on ? ColorBlack : ColorWhite);
         digivice_draw_zzz(canvas, pet_x + 12, 26, app->frame);
         canvas_set_color(canvas, ColorBlack);
     }
+
+    if(app->care != DigiviceCareNone) digivice_care_draw(canvas, app, pet_x);
 
     // Icon bars: white boxes over anything the band drew, then the two divider lines.
     canvas_set_color(canvas, ColorWhite);
@@ -138,9 +144,7 @@ static void digivice_main_open(DigiviceApp* app) {
     DigiviceResult result;
     switch(app->menu_index) {
     case DigiviceIconFeed:
-        digivice_app_notice(
-            app, digivice_feed(app->digivice) ? DigiviceStrFeedYum : DigiviceStrNoticeFull);
-        digivice_app_refresh(app);
+        digivice_feed_enter(app);
         break;
     case DigiviceIconTrain:
         result = digivice_rules_can_train(&app->state, now);
@@ -160,21 +164,24 @@ static void digivice_main_open(DigiviceApp* app) {
             digivice_app_notice(app, DigiviceStrNoticeNoVirux);
         }
         break;
-    case DigiviceIconClean:
+    case DigiviceIconClean: {
+        uint8_t poop = app->state.poop;
         result = digivice_clean(app->digivice);
         digivice_app_refresh(app);
         if(result == DigiviceResultOk) {
-            digivice_app_notice(app, DigiviceStrCleanDone);
+            app->care_poop = poop;
+            digivice_care_start(app, DigiviceCareClean);
         } else {
             digivice_app_refusal(app, result);
         }
         break;
+    }
     case DigiviceIconLight:
         result = digivice_toggle_light(app->digivice);
         digivice_app_refresh(app);
         if(result == DigiviceResultOk) {
-            digivice_app_notice(
-                app, app->state.light_on ? DigiviceStrLightOn : DigiviceStrLightNight);
+            digivice_care_start(
+                app, app->state.light_on ? DigiviceCareLightOn : DigiviceCareLightOff);
         } else {
             digivice_app_refusal(app, result);
         }
@@ -183,8 +190,7 @@ static void digivice_main_open(DigiviceApp* app) {
         result = digivice_cure(app->digivice);
         digivice_app_refresh(app);
         if(result == DigiviceResultOk) {
-            digivice_app_notice(
-                app, app->state.sick ? DigiviceStrCureMoreDose : DigiviceStrCureDone);
+            digivice_care_start(app, DigiviceCareCure);
         } else {
             digivice_app_refusal(app, result);
         }
@@ -201,6 +207,7 @@ static void digivice_main_open(DigiviceApp* app) {
 }
 
 static void digivice_main_input(DigiviceApp* app, const InputEvent* event) {
+    if(app->care != DigiviceCareNone) return;
     if(event->type != InputTypeShort && event->type != InputTypeRepeat) return;
 
     uint8_t index = app->menu_index;
@@ -237,6 +244,9 @@ static void digivice_app_draw_callback(Canvas* canvas, void* context) {
     switch(app->screen) {
     case DigiviceScreenMain:
         digivice_main_draw(canvas, app);
+        break;
+    case DigiviceScreenFeed:
+        digivice_feed_draw(canvas, app);
         break;
     case DigiviceScreenTrain:
         digivice_train_draw(canvas, app);
@@ -276,6 +286,9 @@ static void digivice_app_input(DigiviceApp* app, const InputEvent* event) {
     case DigiviceScreenMain:
         digivice_main_input(app, event);
         break;
+    case DigiviceScreenFeed:
+        digivice_feed_input(app, event);
+        break;
     case DigiviceScreenTrain:
         digivice_train_input(app, event);
         break;
@@ -306,9 +319,18 @@ static void digivice_app_tick(DigiviceApp* app) {
 
     switch(app->screen) {
     case DigiviceScreenMain:
+        if(app->care != DigiviceCareNone) {
+            digivice_care_tick(app);
+        } else if(app->frame % 10 == 0) {
+            digivice_app_refresh(app);
+        }
+        break;
     case DigiviceScreenProfile:
     case DigiviceScreenSettings:
         if(app->frame % 10 == 0) digivice_app_refresh(app);
+        break;
+    case DigiviceScreenFeed:
+        digivice_feed_tick(app);
         break;
     case DigiviceScreenTrain:
         digivice_train_tick(app);
