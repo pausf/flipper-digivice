@@ -2,7 +2,7 @@ name: digivice
 
 on:
   push:
-    branches: [main]
+    branches: [main, "digivice-*"]
   pull_request:
     branches: [main]
   workflow_dispatch:
