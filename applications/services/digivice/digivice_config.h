@@ -68,5 +68,11 @@
 #define DIGIVICE_TICK_S  60
 #define DIGIVICE_FLUSH_S 30
 
+// Profile screen: strength that fills the FUERZA bar.
+#define DIGIVICE_STRENGTH_BAR_MAX 24
+
+// App animation lengths in frames of the 100 ms clock.
+#define DIGIVICE_NOTICE_FRAMES 15
+
 // Cutscene length in frames of the 100 ms animation clock.
 #define DIGIVICE_EVO_FRAMES 50

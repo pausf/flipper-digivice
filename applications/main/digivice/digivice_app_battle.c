@@ -4,7 +4,11 @@
 
 #include <stdio.h>
 
-static const char* const choice_labels[DigiviceBattleChoiceCount] = {"ATTACK", "DEFEND", "FLEE"};
+static const DigiviceStr choice_labels[DigiviceBattleChoiceCount] = {
+    DigiviceStrBattleAttack,
+    DigiviceStrBattleDefend,
+    DigiviceStrBattleFlee,
+};
 
 static void digivice_battle_set_phase(DigiviceApp* app, DigiviceBattlePhase phase) {
     app->phase = phase;
@@ -14,12 +18,12 @@ static void digivice_battle_set_phase(DigiviceApp* app, DigiviceBattlePhase phas
     case DigiviceBattlePhaseAim:
         digivice_meter_start(&app->meter);
         notification_message(app->notification, &digivice_sequence_charge);
-        app->message = "TIME IT! PRESS OK";
+        app->message = digivice_app_str(app, DigiviceStrBattleAim);
         break;
     case DigiviceBattlePhaseFoeHit:
         app->last_damage = digivice_battle_foe_attack(&app->battle);
         notification_message(app->notification, &digivice_sequence_hit);
-        app->message = "VIRUX STRIKES!";
+        app->message = digivice_app_str(app, DigiviceStrBattleFoeStrikes);
         break;
     case DigiviceBattlePhaseChoose:
         app->message = NULL;
@@ -30,9 +34,9 @@ static void digivice_battle_set_phase(DigiviceApp* app, DigiviceBattlePhase phas
 }
 
 static void
-    digivice_battle_end(DigiviceApp* app, DigiviceBattleResult result, const char* message) {
+    digivice_battle_end(DigiviceApp* app, DigiviceBattleResult result, DigiviceStr message) {
     app->result = result;
-    app->message = message;
+    app->message = digivice_app_str(app, message);
     if(result == DigiviceBattleResultWin) {
         notification_message(app->notification, &digivice_sequence_win);
     }
@@ -44,10 +48,11 @@ static void digivice_battle_fire(DigiviceApp* app, bool in_zone) {
         digivice_battle_player_attack(&app->battle, &app->state, in_zone, digivice_app_rng_pct());
     if(app->last_damage) {
         notification_message(app->notification, &digivice_sequence_hit);
-        app->message = in_zone ? "CRITICAL BYTE!" : "GLANCING HIT";
+        app->message =
+            digivice_app_str(app, in_zone ? DigiviceStrBattleCrit : DigiviceStrBattleGlancing);
     } else {
         notification_message(app->notification, &sequence_reset_rgb);
-        app->message = "CORRUPTED... MISS!";
+        app->message = digivice_app_str(app, DigiviceStrBattleMiss);
     }
     digivice_battle_set_phase(app, DigiviceBattlePhasePlayerHit);
 }
@@ -55,7 +60,7 @@ static void digivice_battle_fire(DigiviceApp* app, bool in_zone) {
 void digivice_battle_enter(DigiviceApp* app) {
     digivice_battle_init(&app->battle, &app->state);
     app->choice = DigiviceBattleChoiceAttack;
-    app->message = "A VIRUX APPEARED!";
+    app->message = digivice_app_str(app, DigiviceStrBattleAppeared);
     digivice_app_set_screen(app, DigiviceScreenBattle);
     digivice_battle_set_phase(app, DigiviceBattlePhaseIntro);
 }
@@ -80,7 +85,7 @@ void digivice_battle_input(DigiviceApp* app, const InputEvent* event) {
                 digivice_battle_defend(&app->battle);
                 digivice_battle_set_phase(app, DigiviceBattlePhaseFoeHit);
             } else if(digivice_battle_flee(digivice_app_rng_pct())) {
-                digivice_battle_end(app, DigiviceBattleResultFled, "GOT AWAY SAFELY");
+                digivice_battle_end(app, DigiviceBattleResultFled, DigiviceStrBattleFled);
             } else {
                 digivice_battle_set_phase(app, DigiviceBattlePhaseFoeHit);
             }
@@ -92,7 +97,7 @@ void digivice_battle_input(DigiviceApp* app, const InputEvent* event) {
     case DigiviceBattlePhaseEnd:
         if(event->key == InputKeyOk || event->key == InputKeyBack) {
             digivice_battle_finish(app->digivice, app->result);
-            digivice_app_set_screen(app, DigiviceScreenMenu);
+            digivice_app_set_screen(app, DigiviceScreenMain);
             digivice_app_refresh(app);
         }
         break;
@@ -113,7 +118,7 @@ void digivice_battle_tick(DigiviceApp* app) {
     case DigiviceBattlePhasePlayerHit:
         if(app->screen_frame < DIGIVICE_APP_HIT_FRAMES) break;
         if(digivice_battle_outcome(&app->battle) == DigiviceBattleWon) {
-            digivice_battle_end(app, DigiviceBattleResultWin, "VIRUX DELETED! EXP UP");
+            digivice_battle_end(app, DigiviceBattleResultWin, DigiviceStrBattleWon);
         } else {
             digivice_battle_set_phase(app, DigiviceBattlePhaseFoeHit);
         }
@@ -121,7 +126,7 @@ void digivice_battle_tick(DigiviceApp* app) {
     case DigiviceBattlePhaseFoeHit:
         if(app->screen_frame < DIGIVICE_APP_HIT_FRAMES) break;
         if(digivice_battle_outcome(&app->battle) == DigiviceBattleLost) {
-            digivice_battle_end(app, DigiviceBattleResultLose, "SYSTEM CORRUPTED...");
+            digivice_battle_end(app, DigiviceBattleResultLose, DigiviceStrBattleLost);
         } else {
             digivice_battle_set_phase(app, DigiviceBattlePhaseChoose);
         }
@@ -142,8 +147,9 @@ static void digivice_battle_draw_textbox(Canvas* canvas, DigiviceApp* app) {
     if(app->phase == DigiviceBattlePhaseChoose) {
         for(uint8_t i = 0; i < DigiviceBattleChoiceCount; i++) {
             int32_t x = 6 + i * 42;
-            digivice_draw_text(canvas, x, 55, choice_labels[i]);
-            if(i == app->choice) digivice_draw_brackets(canvas, x - 3, 53, x + 30, 62, 2);
+            digivice_draw_text(canvas, x, 55, digivice_app_str(app, choice_labels[i]));
+            // 31 px of text (DEFENDER) plus a 2 px gap on each side.
+            if(i == app->choice) digivice_draw_brackets(canvas, x - 3, 53, x + 33, 62, 2);
         }
     } else if(app->phase == DigiviceBattlePhaseAim) {
         digivice_draw_meter(canvas, 14, 56, app->meter.zone_start, app->meter.cursor);

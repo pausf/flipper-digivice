@@ -7,27 +7,28 @@
 #include <digivice/digivice.h>
 #include <digivice/digivice_config.h>
 #include <digivice/digivice_draw.h>
+#include <digivice/digivice_i18n.h>
 
 #define DIGIVICE_APP_FRAME_MS   100
 #define DIGIVICE_APP_AIM_FRAMES 50
 #define DIGIVICE_APP_HIT_FRAMES 10
 
 typedef enum {
-    DigiviceScreenMenu,
-    DigiviceScreenStats,
+    DigiviceScreenMain,
     DigiviceScreenTrain,
     DigiviceScreenBattle,
+    DigiviceScreenProfile,
+    DigiviceScreenSettings,
     DigiviceScreenEvolution,
     DigiviceScreenError,
 } DigiviceScreen;
 
 typedef enum {
-    DigiviceMenuFeed,
-    DigiviceMenuTrain,
-    DigiviceMenuStats,
-    DigiviceMenuBattle,
-    DigiviceMenuCount,
-} DigiviceMenuItem;
+    DigiviceSettingLanguage,
+    DigiviceSettingMode,
+    DigiviceSettingReset,
+    DigiviceSettingCount,
+} DigiviceSetting;
 
 typedef enum {
     DigiviceBattlePhaseIntro,
@@ -66,9 +67,12 @@ typedef struct {
     uint32_t screen_frame;
     bool running;
 
-    uint8_t menu_index;
-    const char* toast;
-    uint32_t toast_frames;
+    uint8_t menu_index; /**< DigiviceIcon */
+    DigiviceStr notice;
+    uint32_t notice_frames;
+
+    uint8_t setting;
+    uint8_t confirm; /**< 0 = none, 1 = "SURE?", 2 = "REALLY?" */
 
     DigiviceMeter meter;
     bool train_done;
@@ -86,10 +90,24 @@ void digivice_app_set_screen(DigiviceApp* app, DigiviceScreen screen);
 /** Re-reads the service state and jumps to the cutscene when an evolution is pending. */
 void digivice_app_refresh(DigiviceApp* app);
 uint8_t digivice_app_rng_pct(void);
+/** A string in the pet's language. */
+const char* digivice_app_str(const DigiviceApp* app, DigiviceStr id);
+/** Shows `id` in the notice box for DIGIVICE_NOTICE_FRAMES. */
+void digivice_app_notice(DigiviceApp* app, DigiviceStr id);
+/** Notice for a refused action; DigiviceResultOk shows nothing. */
+void digivice_app_refusal(DigiviceApp* app, DigiviceResult result);
+/** Title in the top-left corner with the HUD underline. */
+void digivice_app_draw_title(Canvas* canvas, const char* title);
 
 void digivice_meter_start(DigiviceMeter* meter);
 void digivice_meter_step(DigiviceMeter* meter);
 bool digivice_meter_hit(const DigiviceMeter* meter);
+
+void digivice_profile_draw(Canvas* canvas, DigiviceApp* app);
+
+void digivice_settings_enter(DigiviceApp* app);
+void digivice_settings_input(DigiviceApp* app, const InputEvent* event);
+void digivice_settings_draw(Canvas* canvas, DigiviceApp* app);
 
 void digivice_train_enter(DigiviceApp* app);
 void digivice_train_input(DigiviceApp* app, const InputEvent* event);

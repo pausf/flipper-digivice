@@ -2,14 +2,43 @@
 
 #include <furi_hal.h>
 #include <notification/notification_messages.h>
-#include <stdio.h>
 
 #define TAG "DigiviceApp"
 
-static const char* const menu_labels[DigiviceMenuCount] = {"FEED", "TRAIN", "STATS", "BATTLE"};
+// Middle band between the two icon bars.
+#define BAND_TOP    12
+#define BAND_BOTTOM 52
+#define FLOOR_Y     47
 
 uint8_t digivice_app_rng_pct(void) {
     return (uint8_t)(furi_hal_random_get() % 100);
+}
+
+const char* digivice_app_str(const DigiviceApp* app, DigiviceStr id) {
+    return digivice_str((DigiviceLang)app->state.lang, id);
+}
+
+void digivice_app_notice(DigiviceApp* app, DigiviceStr id) {
+    app->notice = id;
+    app->notice_frames = DIGIVICE_NOTICE_FRAMES;
+}
+
+void digivice_app_refusal(DigiviceApp* app, DigiviceResult result) {
+    static const DigiviceStr refusal_str[] = {
+        [DigiviceResultSick] = DigiviceStrNoticeSick,
+        [DigiviceResultAsleep] = DigiviceStrNoticeAsleep,
+        [DigiviceResultAwake] = DigiviceStrNoticeAwake,
+        [DigiviceResultHealthy] = DigiviceStrNoticeHealthy,
+        [DigiviceResultNothingToClean] = DigiviceStrNoticeNothingToClean,
+    };
+    if(result == DigiviceResultOk || result > DigiviceResultNothingToClean) return;
+    digivice_app_notice(app, refusal_str[result]);
+}
+
+void digivice_app_draw_title(Canvas* canvas, const char* title) {
+    canvas_set_color(canvas, ColorBlack);
+    digivice_draw_text(canvas, 3, 2, title);
+    canvas_draw_line(canvas, 3, 9, 3 + digivice_draw_text_width(canvas, title), 9);
 }
 
 void digivice_meter_start(DigiviceMeter* meter) {
@@ -43,127 +72,162 @@ void digivice_app_refresh(DigiviceApp* app) {
     }
 }
 
-static void digivice_app_toast(DigiviceApp* app, const char* text) {
-    app->toast = text;
-    app->toast_frames = 15;
+/** Pet x on the main screen: a slow walk back and forth across the band. */
+static int32_t digivice_main_pet_x(const DigiviceApp* app) {
+    int32_t walk = (int32_t)((app->frame / 2) % 40);
+    return 34 + (walk < 20 ? walk : 40 - walk);
 }
 
-static void digivice_menu_draw(Canvas* canvas, DigiviceApp* app) {
+static void digivice_main_draw(Canvas* canvas, DigiviceApp* app) {
+    const DigiviceState* s = &app->state;
     uint32_t now = furi_hal_rtc_get_timestamp();
+    bool asleep = digivice_rules_is_asleep(now);
+    int32_t pet_x = digivice_main_pet_x(app);
+
     canvas_set_color(canvas, ColorBlack);
-    digivice_draw_text(canvas, 3, 2, "DIGIVICE");
-    canvas_draw_line(canvas, 3, 9, 34, 9);
-    digivice_draw_text(canvas, 66, 2, digivice_form_name((DigiviceForm)app->state.form));
+    for(int32_t x = 0; x < 128; x += 4)
+        canvas_draw_dot(canvas, x, FLOOR_Y);
 
-    digivice_draw_ring(canvas, 30, 50, 15, 3);
+    // The sick pet shivers.
+    int32_t shake = (s->sick && (app->frame % 2)) ? 1 : 0;
     digivice_draw_form(
-        canvas, (DigiviceForm)app->state.form, 30, 38, app->frame, DigivicePoseIdle, false);
-    digivice_draw_brackets(canvas, 12, 20, 48, 52, 4);
+        canvas,
+        (DigiviceForm)s->form,
+        pet_x + shake,
+        38,
+        app->frame,
+        asleep ? DigivicePoseSleep : DigivicePoseIdle,
+        false);
 
-    bool virux = digivice_rules_virux_active(&app->state, now);
-    for(uint8_t i = 0; i < DigiviceMenuCount; i++) {
-        int32_t y = 14 + i * 11;
-        const char* label = menu_labels[i];
-        if(i == DigiviceMenuBattle && !virux) label = "------";
-        digivice_draw_text(canvas, 72, y, label);
-        if(i == app->menu_index) {
-            digivice_draw_brackets(canvas, 66, y - 2, 120, y + 7, 3);
-            if(i == DigiviceMenuBattle && virux && (app->frame % 10) < 5) {
-                digivice_draw_text(canvas, 104, y, "!");
-            }
-        }
-    }
+    digivice_draw_poops(canvas, s->poop, 96, 39, app->frame);
+    if(s->sick) digivice_draw_skull(canvas, pet_x - 3, 18 + (int32_t)((app->frame / 3) % 3));
 
-    if(app->toast_frames) {
-        canvas_set_color(canvas, ColorWhite);
-        canvas_draw_box(canvas, 0, 56, 128, 8);
+    if(asleep) {
+        if(!s->light_on) digivice_draw_dark(canvas, BAND_TOP, BAND_BOTTOM, 12, app->frame);
+        canvas_set_color(canvas, s->light_on ? ColorBlack : ColorWhite);
+        digivice_draw_zzz(canvas, pet_x + 12, 26, app->frame);
         canvas_set_color(canvas, ColorBlack);
-        canvas_draw_line(canvas, 0, 56, 127, 56);
-        digivice_draw_text(canvas, 3, 57, app->toast);
     }
+
+    // Icon bars: white boxes over anything the band drew, then the two divider lines.
+    canvas_set_color(canvas, ColorWhite);
+    canvas_draw_box(canvas, 0, 0, 128, 11);
+    canvas_draw_box(canvas, 0, 53, 128, 11);
+    canvas_set_color(canvas, ColorBlack);
+    canvas_draw_line(canvas, 0, 11, 127, 11);
+    canvas_draw_line(canvas, 0, 52, 127, 52);
+    for(uint8_t i = 0; i < DigiviceIconCount; i++) {
+        int32_t x = 8 + (i % 4) * 31;
+        int32_t y = i < 4 ? 1 : 54;
+        digivice_draw_icon(canvas, (DigiviceIcon)i, x, y, i == app->menu_index);
+    }
+    if(digivice_rules_virux_active(s, now) && (app->frame % 10) < 5) {
+        digivice_draw_text(canvas, 8 + 2 * 31 + 11, 2, "!");
+    }
+
+    if(app->notice_frames) digivice_draw_label(canvas, 14, digivice_app_str(app, app->notice));
 
     digivice_draw_scanline(canvas, app->frame);
-    if(digivice_rules_glitchy(&app->state) && (app->frame % 12) < 2) {
+    if(digivice_rules_glitchy(s) && (app->frame % 12) < 2) {
         digivice_draw_glitch(canvas, app->frame, 3);
     }
 }
 
-static void digivice_menu_input(DigiviceApp* app, const InputEvent* event) {
-    if(event->type != InputTypeShort && event->type != InputTypeRepeat) return;
-
-    if(event->key == InputKeyUp) {
-        app->menu_index = (app->menu_index + DigiviceMenuCount - 1) % DigiviceMenuCount;
-    } else if(event->key == InputKeyDown) {
-        app->menu_index = (app->menu_index + 1) % DigiviceMenuCount;
-    } else if(event->key == InputKeyBack && event->type == InputTypeShort) {
-        app->running = false;
-    } else if(event->key == InputKeyOk && event->type == InputTypeShort) {
-        switch(app->menu_index) {
-        case DigiviceMenuFeed:
-            digivice_app_toast(app, digivice_feed(app->digivice) ? "> HUNGER +1" : "> NOT HUNGRY");
-            digivice_app_refresh(app);
-            break;
-        case DigiviceMenuTrain:
+static void digivice_main_open(DigiviceApp* app) {
+    uint32_t now = furi_hal_rtc_get_timestamp();
+    DigiviceResult result;
+    switch(app->menu_index) {
+    case DigiviceIconFeed:
+        digivice_app_notice(
+            app, digivice_feed(app->digivice) ? DigiviceStrFeedYum : DigiviceStrNoticeFull);
+        digivice_app_refresh(app);
+        break;
+    case DigiviceIconTrain:
+        result = digivice_rules_can_train(&app->state, now);
+        if(result == DigiviceResultOk) {
             digivice_train_enter(app);
-            break;
-        case DigiviceMenuStats:
-            digivice_app_set_screen(app, DigiviceScreenStats);
-            break;
-        case DigiviceMenuBattle:
-            if(digivice_rules_virux_active(&app->state, furi_hal_rtc_get_timestamp())) {
-                digivice_battle_enter(app);
-            } else {
-                digivice_app_toast(app, "> NO VIRUX NEARBY");
-            }
-            break;
-        default:
-            break;
+        } else {
+            digivice_app_refusal(app, result);
         }
+        break;
+    case DigiviceIconBattle:
+        result = digivice_rules_can_battle(&app->state);
+        if(result != DigiviceResultOk) {
+            digivice_app_refusal(app, result);
+        } else if(digivice_rules_virux_active(&app->state, now)) {
+            digivice_battle_enter(app);
+        } else {
+            digivice_app_notice(app, DigiviceStrNoticeNoVirux);
+        }
+        break;
+    case DigiviceIconClean:
+        result = digivice_clean(app->digivice);
+        digivice_app_refresh(app);
+        if(result == DigiviceResultOk) {
+            digivice_app_notice(app, DigiviceStrCleanDone);
+        } else {
+            digivice_app_refusal(app, result);
+        }
+        break;
+    case DigiviceIconLight:
+        result = digivice_toggle_light(app->digivice);
+        digivice_app_refresh(app);
+        if(result == DigiviceResultOk) {
+            digivice_app_notice(
+                app, app->state.light_on ? DigiviceStrLightOn : DigiviceStrLightNight);
+        } else {
+            digivice_app_refusal(app, result);
+        }
+        break;
+    case DigiviceIconCure:
+        result = digivice_cure(app->digivice);
+        digivice_app_refresh(app);
+        if(result == DigiviceResultOk) {
+            digivice_app_notice(
+                app, app->state.sick ? DigiviceStrCureMoreDose : DigiviceStrCureDone);
+        } else {
+            digivice_app_refusal(app, result);
+        }
+        break;
+    case DigiviceIconProfile:
+        digivice_app_set_screen(app, DigiviceScreenProfile);
+        break;
+    case DigiviceIconSettings:
+        digivice_settings_enter(app);
+        break;
+    default:
+        break;
     }
 }
 
-static void digivice_stats_draw(Canvas* canvas, DigiviceApp* app) {
-    const DigiviceState* s = &app->state;
-    // Worst case "NFC65535 SUB65535 IR65535 USB65535" is 35 bytes with the terminator.
-    char line[40];
-    canvas_set_color(canvas, ColorBlack);
-    digivice_draw_brackets(canvas, 0, 0, 127, 63, 4);
-    digivice_draw_text(canvas, 4, 3, digivice_form_name((DigiviceForm)s->form));
-    digivice_draw_text(canvas, 70, 3, digivice_type_name(digivice_rules_player_type(s)));
-    canvas_draw_line(canvas, 4, 10, 123, 10);
+static void digivice_main_input(DigiviceApp* app, const InputEvent* event) {
+    if(event->type != InputTypeShort && event->type != InputTypeRepeat) return;
 
-    snprintf(line, sizeof(line), "EXP %lu  STR %u", (unsigned long)s->exp, (unsigned)s->strength);
-    digivice_draw_text(canvas, 4, 13, line);
-    snprintf(line, sizeof(line), "WIN %u  LOSE %u", (unsigned)s->wins, (unsigned)s->losses);
-    digivice_draw_text(canvas, 4, 21, line);
-    snprintf(
-        line,
-        sizeof(line),
-        "HUNGER %u/%u  MOOD %u/%u",
-        (unsigned)s->hunger,
-        (unsigned)DIGIVICE_HUNGER_MAX,
-        (unsigned)s->mood,
-        (unsigned)DIGIVICE_MOOD_MAX);
-    digivice_draw_text(canvas, 4, 29, line);
-    snprintf(line, sizeof(line), "CORRUPTION %u%%", (unsigned)s->corruption);
-    digivice_draw_text(canvas, 4, 37, line);
-    snprintf(
-        line,
-        sizeof(line),
-        "NFC%u SUB%u IR%u USB%u",
-        (unsigned)s->data[DigiviceTypeNfc],
-        (unsigned)s->data[DigiviceTypeSubGhz],
-        (unsigned)s->data[DigiviceTypeIr],
-        (unsigned)s->data[DigiviceTypeUsb]);
-    digivice_draw_text(canvas, 4, 47, line);
+    uint8_t index = app->menu_index;
+    if(event->key == InputKeyLeft) {
+        index = (index + DigiviceIconCount - 1) % DigiviceIconCount;
+    } else if(event->key == InputKeyRight) {
+        index = (index + 1) % DigiviceIconCount;
+    } else if(event->key == InputKeyUp || event->key == InputKeyDown) {
+        index = (index + DigiviceIconCount / 2) % DigiviceIconCount;
+    } else if(event->type == InputTypeShort && event->key == InputKeyBack) {
+        app->running = false;
+    } else if(event->type == InputTypeShort && event->key == InputKeyOk) {
+        digivice_main_open(app);
+    }
+    if(index != app->menu_index) {
+        app->menu_index = index;
+        // The icon's name shows briefly, so every icon explains itself.
+        digivice_app_notice(app, (DigiviceStr)(DigiviceStrMenuFeed + index));
+    }
 }
 
-static void digivice_error_draw(Canvas* canvas) {
+static void digivice_error_draw(Canvas* canvas, DigiviceApp* app) {
     canvas_set_color(canvas, ColorBlack);
     digivice_draw_brackets(canvas, 8, 16, 119, 47, 4);
-    digivice_draw_text(canvas, 18, 24, "DIGIVICE SERVICE");
-    digivice_draw_text(canvas, 18, 32, "NOT RUNNING");
-    digivice_draw_text(canvas, 18, 40, "> BACK TO EXIT");
+    digivice_draw_text(canvas, 18, 24, digivice_app_str(app, DigiviceStrErrorService));
+    digivice_draw_text(canvas, 18, 32, digivice_app_str(app, DigiviceStrErrorNotRunning));
+    digivice_draw_text(canvas, 18, 40, digivice_app_str(app, DigiviceStrErrorBack));
 }
 
 static void digivice_app_draw_callback(Canvas* canvas, void* context) {
@@ -171,17 +235,20 @@ static void digivice_app_draw_callback(Canvas* canvas, void* context) {
     furi_check(furi_mutex_acquire(app->mutex, FuriWaitForever) == FuriStatusOk);
     canvas_clear(canvas);
     switch(app->screen) {
-    case DigiviceScreenMenu:
-        digivice_menu_draw(canvas, app);
-        break;
-    case DigiviceScreenStats:
-        digivice_stats_draw(canvas, app);
+    case DigiviceScreenMain:
+        digivice_main_draw(canvas, app);
         break;
     case DigiviceScreenTrain:
         digivice_train_draw(canvas, app);
         break;
     case DigiviceScreenBattle:
         digivice_battle_draw(canvas, app);
+        break;
+    case DigiviceScreenProfile:
+        digivice_profile_draw(canvas, app);
+        break;
+    case DigiviceScreenSettings:
+        digivice_settings_draw(canvas, app);
         break;
     case DigiviceScreenEvolution:
         digivice_draw_evolution(
@@ -193,7 +260,7 @@ static void digivice_app_draw_callback(Canvas* canvas, void* context) {
             (DigiviceLang)app->state.lang);
         break;
     case DigiviceScreenError:
-        digivice_error_draw(canvas);
+        digivice_error_draw(canvas, app);
         break;
     }
     furi_mutex_release(app->mutex);
@@ -206,20 +273,23 @@ static void digivice_app_input_callback(InputEvent* event, void* context) {
 
 static void digivice_app_input(DigiviceApp* app, const InputEvent* event) {
     switch(app->screen) {
-    case DigiviceScreenMenu:
-        digivice_menu_input(app, event);
-        break;
-    case DigiviceScreenStats:
-        if(event->type == InputTypeShort &&
-           (event->key == InputKeyBack || event->key == InputKeyOk)) {
-            digivice_app_set_screen(app, DigiviceScreenMenu);
-        }
+    case DigiviceScreenMain:
+        digivice_main_input(app, event);
         break;
     case DigiviceScreenTrain:
         digivice_train_input(app, event);
         break;
     case DigiviceScreenBattle:
         digivice_battle_input(app, event);
+        break;
+    case DigiviceScreenProfile:
+        if(event->type == InputTypeShort &&
+           (event->key == InputKeyBack || event->key == InputKeyOk)) {
+            digivice_app_set_screen(app, DigiviceScreenMain);
+        }
+        break;
+    case DigiviceScreenSettings:
+        digivice_settings_input(app, event);
         break;
     case DigiviceScreenEvolution:
         break;
@@ -232,11 +302,12 @@ static void digivice_app_input(DigiviceApp* app, const InputEvent* event) {
 static void digivice_app_tick(DigiviceApp* app) {
     app->frame++;
     app->screen_frame++;
-    if(app->toast_frames) app->toast_frames--;
+    if(app->notice_frames) app->notice_frames--;
 
     switch(app->screen) {
-    case DigiviceScreenMenu:
-    case DigiviceScreenStats:
+    case DigiviceScreenMain:
+    case DigiviceScreenProfile:
+    case DigiviceScreenSettings:
         if(app->frame % 10 == 0) digivice_app_refresh(app);
         break;
     case DigiviceScreenTrain:
@@ -249,7 +320,7 @@ static void digivice_app_tick(DigiviceApp* app) {
         if(app->screen_frame > DIGIVICE_EVO_FRAMES) {
             digivice_ack_evolution(app->digivice);
             app->state.evo_from = DigiviceFormNone;
-            digivice_app_set_screen(app, DigiviceScreenMenu);
+            digivice_app_set_screen(app, DigiviceScreenMain);
         }
         break;
     case DigiviceScreenError:
@@ -268,8 +339,9 @@ int32_t digivice_app(void* p) {
 
     if(furi_record_exists(RECORD_DIGIVICE)) {
         app->digivice = furi_record_open(RECORD_DIGIVICE);
-        digivice_app_set_screen(app, DigiviceScreenMenu);
+        digivice_app_set_screen(app, DigiviceScreenMain);
         digivice_app_refresh(app);
+        digivice_app_notice(app, DigiviceStrMenuFeed);
     } else {
         FURI_LOG_E(TAG, "Digivice service is not running");
         digivice_app_set_screen(app, DigiviceScreenError);
