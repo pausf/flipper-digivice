@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Combate V3</title>
+<style>
+  :root { --bg:#14100c; --card:#1f1913; --ink:#f3e9dc; --mute:#b3a594; --accent:#ff8c1e; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 system-ui,-apple-system,sans-serif; padding:28px 16px 60px; }
+  .wrap { max-width:1180px; margin:0 auto; }
+  h1 { font-size:24px; margin:0 0 6px; }
+  h2 { font-size:15px; letter-spacing:.14em; text-transform:uppercase; color:var(--accent); margin:26px 0 10px; }
+  .sub { color:var(--mute); margin:0 0 22px; max-width:860px; }
+  .option { background:var(--card); border:2px solid #2e261d; border-radius:14px; padding:16px; margin:0 0 16px; cursor:pointer; transition:border-color .15s; }
+  .option:hover { border-color:#5a4632; }
+  .option.selected { border-color:var(--accent); box-shadow:0 0 0 3px rgba(255,140,30,.18); }
+  .head { display:flex; gap:12px; align-items:baseline; margin-bottom:12px; flex-wrap:wrap; }
+  .letter { background:var(--accent); color:#1a0f02; font-weight:800; border-radius:8px; padding:2px 10px; }
+  .head h3 { margin:0; font-size:18px; }
+  .head p { margin:0; color:var(--mute); font-size:14px; flex-basis:100%; }
+  .row { display:flex; gap:16px; flex-wrap:wrap; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(348px,1fr)); gap:14px; }
+  .grid .option { margin:0; padding:12px; }
+  .device { background:#202020; border-radius:14px; padding:12px 12px 8px; box-shadow:inset 0 0 0 2px #2c2c2c; width:max-content; max-width:100%; }
+  .device canvas { width:320px; height:160px; max-width:calc(100vw - 90px); image-rendering:pixelated; display:block; border-radius:3px; }
+  .device .lbl { font-size:11px; letter-spacing:.12em; color:#8d8d8d; margin-top:6px; display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  .led { width:10px; height:10px; border-radius:50%; background:#333; flex:none; }
+  .look { color:var(--mute); font-size:13px; margin:8px 2px 0; }
+  .hint { color:var(--mute); font-size:13px; margin-top:10px; }
+  .tree { background:#1a140f; border-radius:10px; padding:8px; overflow-x:auto; }
+  .tree svg { display:block; min-width:1060px; width:100%; height:auto; }
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Combate nuevo: timing, puntería y atributos</h1>
+<p class="sub">Unos 20 segundos por pelea con el d-pad: frenás la barra con OK, apuntás alto o bajo, y el triángulo de atributos inclina la balanza. Marcá lo que te guste.</p>
+<div class="options" data-multiselect>
+<div class="option" data-choice="encuentro" onclick="toggleSelect(this)">
+  <div class="head"><span class="letter">1</span><h3>Transición de encuentro</h3><p>Caminando por el sendero salta el "!", persianas negras con glitch, la franja VS se cruza y los dos entran desde los bordes. El LED toma el color del atributo rival.</p></div>
+  <div class="row"><div class="device "><canvas width="128" height="64" data-scene="enc"></canvas><div class="lbl">ENCUENTRO<span class="led"></span></div></div></div>
+</div>
+<div class="option" data-choice="triangulo" onclick="toggleSelect(this)">
+  <div class="head"><span class="letter">2</span><h3>Triángulo de atributos</h3><p>Portador vence a Ruido, Ruido a Cifrado, Cifrado a Portador; Nulo es neutro. Antes de cada pelea se ve quién tiene ventaja y cuánto mueve el acierto (±6%).</p></div>
+  <div class="row"><div class="device "><canvas width="128" height="64" data-scene="tri"></canvas><div class="lbl">VENTAJA · DESVENTAJA · NEUTRO<span class="led"></span></div></div></div>
+</div>
+<div class="option" data-choice="turno" onclick="toggleSelect(this)">
+  <div class="head"><span class="letter">3</span><h3>Tu turno: cargar y apuntar</h3><p>Primero la barra barre y frenás con OK: fuera de zona = tiro pequeño, en zona = grande, centro = doble (la zona crece con los corazones de fuerza). Después elegís alto o bajo contra la guardia del rival: si adivina, el daño baja a la mitad.</p></div>
+  <div class="row"><div class="device "><canvas width="128" height="64" data-scene="charge"></canvas><div class="lbl">CARGA CON OK<span class="led"></span></div></div><div class="device "><canvas width="128" height="64" data-scene="aim"></canvas><div class="lbl">APUNTAR ALTO / BAJO<span class="led"></span></div></div></div>
+</div>
+<div class="option" data-choice="proyectil" onclick="toggleSelect(this)">
+  <div class="head"><span class="letter">4</span><h3>El disparo crece con la etapa</h3><p>Cada línea con su estilo: Portador = anillos de onda, Ruido = rayo dentado, Cifrado = paquete cuadrado. 3×3 en Novato, 5×5 en Campeón, 7×7 en Supremo y rayo 9×5 en Mega.</p></div>
+  <div class="row"><div class="device "><canvas width="128" height="64" data-scene="shotsP"></canvas><div class="lbl">PORTADOR<span class="led"></span></div></div><div class="device "><canvas width="128" height="64" data-scene="shotsR"></canvas><div class="lbl">RUIDO<span class="led"></span></div></div><div class="device "><canvas width="128" height="64" data-scene="shotsC"></canvas><div class="lbl">CIFRADO<span class="led"></span></div></div></div>
+</div>
+<div class="option" data-choice="impacto" onclick="toggleSelect(this)">
+  <div class="head"><span class="letter">5</span><h3>Golpe, fallo y turno rival</h3><p>Golpe: el sprite se invierte 2 cuadros, estrella, temblor, vibración y "-1". Fallo: el rival salta y el tiro se pierde por el borde. Luego dispara el rival automáticamente.</p></div>
+  <div class="row"><div class="device "><canvas width="128" height="64" data-scene="hit"></canvas><div class="lbl">GOLPE<span class="led"></span></div></div><div class="device "><canvas width="128" height="64" data-scene="miss"></canvas><div class="lbl">FALLO<span class="led"></span></div></div><div class="device "><canvas width="128" height="64" data-scene="foe"></canvas><div class="lbl">TURNO RIVAL<span class="led"></span></div></div></div>
+</div>
+<div class="option" data-choice="contador" onclick="toggleSelect(this)">
+  <div class="head"><span class="letter">6</span><h3>A 3 golpes</h3><p>Pelea completa en bucle: el primero en acertar 3 gana. Los cuadraditos del HUD y los corazones cuentan; el golpe final es K.O. con temblor fuerte.</p></div>
+  <div class="row"><div class="device "><canvas width="128" height="64" data-scene="count"></canvas><div class="lbl">PELEA COMPLETA<span class="led"></span></div></div></div>
+</div>
+<div class="option" data-choice="final" onclick="toggleSelect(this)">
+  <div class="head"><span class="letter">7</span><h3>Victoria y derrota</h3><p>Victoria: el rival se desvanece en trama, cae el cartel, sube la EXP y cae un objeto. Derrota: cae triste, se hunde 2 px y aparece la venda de herida.</p></div>
+  <div class="row"><div class="device "><canvas width="128" height="64" data-scene="win"></canvas><div class="lbl">VICTORIA<span class="led"></span></div></div><div class="device "><canvas width="128" height="64" data-scene="lose"></canvas><div class="lbl">DERROTA<span class="led"></span></div></div></div>
+</div>
+</div>
+</div>
+<script>
+'use strict';
+// ================= ENGINE =================
+const B4 = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]];
+const F = {
+  A: [2, 5, 7, 5, 5], B: [6, 5, 6, 5, 6], C: [3, 4, 4, 4, 3], D: [6, 5, 5, 5, 6], E: [7, 4, 6, 4, 7], F: [7, 4, 6, 4, 4], G: [3, 4, 5, 5, 3],
+  H: [5, 5, 7, 5, 5], I: [7, 2, 2, 2, 7], J: [1, 1, 1, 5, 2], K: [5, 5, 6, 5, 5], L: [4, 4, 4, 4, 7], M: [5, 7, 7, 5, 5], N: [6, 5, 5, 5, 5],
+  O: [2, 5, 5, 5, 2], P: [6, 5, 6, 4, 4], Q: [2, 5, 5, 6, 3], R: [6, 5, 6, 5, 5], S: [3, 4, 2, 1, 6], T: [7, 2, 2, 2, 2], U: [5, 5, 5, 5, 7],
+  V: [5, 5, 5, 5, 2], W: [5, 5, 7, 7, 5], X: [5, 5, 2, 5, 5], Y: [5, 5, 2, 2, 2], Z: [7, 1, 2, 4, 7],
+  '0': [7, 5, 5, 5, 7], '1': [2, 6, 2, 2, 7], '2': [6, 1, 2, 4, 7], '3': [6, 1, 2, 1, 6], '4': [5, 5, 7, 1, 1], '5': [7, 4, 6, 1, 6],
+  '6': [3, 4, 7, 5, 7], '7': [7, 1, 2, 2, 2], '8': [7, 5, 7, 5, 7], '9': [7, 5, 7, 1, 6],
+  ':': [0, 2, 0, 2, 0], '!': [2, 2, 2, 0, 2], '.': [0, 0, 0, 0, 2], '-': [0, 0, 7, 0, 0], '/': [1, 1, 2, 4, 4], '%': [5, 1, 2, 4, 5],
+  '>': [4, 2, 1, 2, 4], '<': [1, 2, 4, 2, 1], '+': [0, 2, 7, 2, 0], '?': [6, 1, 2, 0, 2], 'x': [0, 5, 2, 5, 0], ' ': [0, 0, 0, 0, 0],
+  '^': [2, 5, 0, 0, 0], '=': [0, 7, 0, 7, 0], '#': [5, 7, 5, 7, 5], '(': [1, 2, 2, 2, 1], ')': [4, 2, 2, 2, 4], ',': [0, 0, 0, 2, 4],
+  "'": [2, 2, 0, 0, 0], '_': [0, 0, 0, 0, 7], '*': [0, 5, 2, 5, 0], 'v': [0, 0, 5, 2, 0]
+};
+const HEART = ['.#.#.', '#####', '#####', '.###.', '..#..'];
+const ease = p => p < 0 ? 0 : p > 1 ? 1 : 1 - Math.pow(1 - p, 3);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const seg = (T, a, b) => clamp((T - a) / (b - a), 0, 1);
+const tw = (s, k = 1) => s.length * 4 * k - k;
+function hash(x, y, z = 0) {
+  let h = (Math.imul(x | 0, 374761393) + Math.imul(y | 0, 668265263) + Math.imul(z | 0, 1442695041)) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+// seeded PRNG (mulberry32)
+function rng(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+
+class R {
+  constructor(w, h) { this.w = w; this.h = h; this.b = new Uint8Array(w * h); this.ox = 0; this.oy = 0; }
+  clr(v = 0) { this.b.fill(v); }
+  put(i, v) { this.b[i] = v === 2 ? 1 - this.b[i] : v; }
+  px(x, y, v = 1) { x = Math.round(x + this.ox); y = Math.round(y + this.oy); if (x < 0 || y < 0 || x >= this.w || y >= this.h) return; this.put(y * this.w + x, v); }
+  rect(x, y, w, h, v = 1) {
+    x = Math.round(x) + Math.round(this.ox); y = Math.round(y) + Math.round(this.oy); w = Math.round(w); h = Math.round(h);
+    const x0 = Math.max(0, x), y0 = Math.max(0, y), x1 = Math.min(this.w, x + w), y1 = Math.min(this.h, y + h);
+    const B = this.b;
+    if (this.raw && v !== 2) { for (let j = y0; j < y1; j++) B.fill(v, j * this.w + x0, j * this.w + x1); return; }
+    for (let j = y0; j < y1; j++) { const r = j * this.w; for (let i = x0; i < x1; i++) this.put(r + i, v); }
+  }
+  box(x, y, w, h, v = 1) { this.rect(x, y, w, 1, v); this.rect(x, y + h - 1, w, 1, v); this.rect(x, y + 1, 1, h - 2, v); this.rect(x + w - 1, y + 1, 1, h - 2, v); }
+  line(x0, y0, x1, y1, v = 1) { const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0), 1); for (let i = 0; i <= n; i++) this.px(x0 + (x1 - x0) * i / n, y0 + (y1 - y0) * i / n, v); }
+  dith(x, y, w, h, l, v = 1) {
+    if (l <= 0) return; x = Math.round(x); y = Math.round(y); w = Math.round(w); h = Math.round(h);
+    const ox = Math.round(this.ox), oy = Math.round(this.oy);
+    for (let j = Math.max(y, -oy); j < Math.min(y + h, this.h - oy); j++) { const row = B4[j & 3], r = (j + oy) * this.w; for (let i = Math.max(x, -ox); i < Math.min(x + w, this.w - ox); i++) if (row[i & 3] < l) { if (this.raw) this.b[r + i + ox] = v === 2 ? 1 - this.b[r + i + ox] : v; else this.put(r + i + ox, v); } }
+  }
+  ell(cx, cy, rx, ry, v = 1) {
+    const rr = Math.round(ry); if (ry <= 0) return;
+    for (let y = -rr; y <= rr; y++) { const hw = rx * Math.sqrt(Math.max(0, 1 - (y * y) / (ry * ry))); this.rect(Math.round(cx - hw), Math.round(cy + y), Math.round(hw * 2) + 1, 1, v); }
+  }
+  ring(cx, cy, rx, ry) { this.ell(cx, cy, rx, ry, 1); this.ell(cx, cy, rx - 1, ry - 1, 0); }
+  arc(cx, cy, rx, ry, a0, a1, v = 1) { const n = Math.max(8, Math.round((a1 - a0) * Math.max(rx, ry) * 1.5)); for (let i = 0; i <= n; i++) { const a = a0 + (a1 - a0) * i / n; this.px(cx + Math.cos(a) * rx, cy + Math.sin(a) * ry, v); } }
+  dashRing(cx, cy, r, t, n = 16) { for (let i = 0; i < n; i += 2) { const a0 = i * 2 * Math.PI / n + t, a1 = a0 + Math.PI / n * 0.8; this.line(cx + Math.cos(a0) * r, cy + Math.sin(a0) * r * 0.8, cx + Math.cos(a1) * r, cy + Math.sin(a1) * r * 0.8); } }
+  tri(ax, ay, bx, by, cx, cy, v = 1) {
+    const e = (px, py, qx, qy, x, y) => (qx - px) * (y - py) - (qy - py) * (x - px);
+    for (let y = Math.floor(Math.min(ay, by, cy)); y <= Math.ceil(Math.max(ay, by, cy)); y++)
+      for (let x = Math.floor(Math.min(ax, bx, cx)); x <= Math.ceil(Math.max(ax, bx, cx)); x++) {
+        const w0 = e(bx, by, cx, cy, x, y), w1 = e(cx, cy, ax, ay, x, y), w2 = e(ax, ay, bx, by, x, y);
+        if ((w0 >= 0 && w1 >= 0 && w2 >= 0) || (w0 <= 0 && w1 <= 0 && w2 <= 0)) this.px(x, y, v);
+      }
+  }
+  txt(s, x, y, v = 1, k = 1) {
+    let cx = Math.round(x); y = Math.round(y);
+    for (const ch of s) { const g = F[ch] || F[' ']; for (let r = 0; r < 5; r++) for (let c = 0; c < 3; c++) if ((g[r] >> (2 - c)) & 1) { if (k === 1) this.px(cx + c, y + r, v); else this.rect(cx + c * k, y + r * k, k, k, v); } cx += 4 * k; }
+  }
+  ctxt(s, cx, y, v = 1, k = 1) { this.txt(s, Math.round(cx - tw(s, k) / 2), y, v, k); }
+}
+
+class Scr extends R {
+  constructor(cv) { super(128, 64); this.raw = true; this.ctx = cv.getContext('2d'); this.img = this.ctx.createImageData(128, 64); }
+  glitch(n) {
+    for (let k = 0; k < n; k++) {
+      const y = Math.random() * 60 | 0, h = 1 + (Math.random() * 4 | 0), dx = (Math.random() * 16 - 8) | 0;
+      for (let j = y; j < Math.min(64, y + h); j++) { const row = this.b.slice(j * 128, j * 128 + 128); for (let x = 0; x < 128; x++) this.b[j * 128 + x] = row[((x - dx) % 128 + 128) % 128]; }
+    }
+  }
+  inv(x = 0, y = 0, w = 128, h = 64) { for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) if (i >= 0 && j >= 0 && i < 128 && j < 64) this.b[j * 128 + i] ^= 1; }
+  flush() {
+    const d = this.img.data;
+    for (let i = 0; i < 8192; i++) { const on = this.b[i]; d[i * 4] = on ? 46 : 255; d[i * 4 + 1] = on ? 24 : 142; d[i * 4 + 2] = on ? 6 : 34; d[i * 4 + 3] = 255; }
+    this.ctx.putImageData(this.img, 0, 0);
+  }
+}
+
+// Sprite buffer: 0 transparent, 1 ink, 2 paper.
+class Spr extends R {
+  put(i, v) { if (v === 2) { if (this.b[i]) this.b[i] = this.b[i] === 1 ? 2 : 1; } else this.b[i] = v ? 1 : 2; }
+  dot(x, y) { x = Math.round(x); y = Math.round(y); if (x < 0 || y < 0 || x >= this.w || y >= this.h) return; const i = y * this.w + x; if (this.b[i] === 2) this.b[i] = 1; }
+  shade(x, y, w, h, l) { for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const X = Math.round(x + i), Y = Math.round(y + j); if (B4[Y & 3][X & 3] < l) this.dot(X, Y); } }
+  erase(x, y, w, h) { for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const X = Math.round(x + i), Y = Math.round(y + j); if (X >= 0 && Y >= 0 && X < this.w && Y < this.h) this.b[Y * this.w + X] = 0; } }
+  rowShift(y, h, dx) { for (let j = y; j < Math.min(this.h, y + h); j++) { const row = this.b.slice(j * this.w, (j + 1) * this.w); for (let x = 0; x < this.w; x++) { const sx = x - dx; this.b[j * this.w + x] = sx >= 0 && sx < this.w ? row[sx] : 0; } } }
+  bbox() { let x0 = this.w, y0 = this.h, x1 = -1, y1 = -1; for (let j = 0; j < this.h; j++) for (let i = 0; i < this.w; i++) if (this.b[j * this.w + i]) { if (i < x0) x0 = i; if (i > x1) x1 = i; if (j < y0) y0 = j; if (j > y1) y1 = j; } return { x0, y0, x1, y1 }; }
+  blit(s, x, y, o = {}) {
+    const sc = o.sc || 1; x = Math.round(x); y = Math.round(y);
+    for (let j = 0; j < this.h; j++) for (let i = 0; i < this.w; i++) {
+      const v = this.b[j * this.w + i]; if (!v) continue;
+      if (o.fade !== undefined && B4[j & 3][i & 3] >= o.fade) continue;
+      let on = v === 1; if (o.sil) on = true; if (o.inv) on = !on;
+      const sx = o.flip ? this.w - 1 - i : i;
+      if (sc === 1) s.px(x + sx, y + j, on ? 1 : 0); else s.rect(x + sx * sc, y + j * sc, sc, sc, on ? 1 : 0);
+    }
+  }
+}
+// draw parts with a shared 1px ink outline, then fill them with paper
+function solid(g, parts) {
+  for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) { g.ox = dx; g.oy = dy; for (const p of parts) p(1); }
+  g.ox = 0; g.oy = 0; for (const p of parts) p(0);
+}
+
+// ================= SHARED UI BITS =================
+function heart(s, x, y, v = 1) { HEART.forEach((r, j) => [...r].forEach((c, i) => c === '#' && s.px(x + i, y + j, v))); }
+function heartO(s, x, y) { heart(s, x, y, 1); s.rect(x + 1, y + 1, 3, 2, 0); s.px(x + 2, y + 3, 0); s.px(x + 2, y + 1, 1); }
+function sparkle(s, x, y, n, v = 1) { s.px(x, y, v); for (let i = 1; i <= n; i++) { s.px(x + i, y, v); s.px(x - i, y, v); s.px(x, y + i, v); s.px(x, y - i, v); } }
+function brackets(s, x0, y0, x1, y1, L) { s.rect(x0, y0, L, 1); s.rect(x0, y0, 1, L); s.rect(x1 - L + 1, y0, L, 1); s.rect(x1, y0, 1, L); s.rect(x0, y1, L, 1); s.rect(x0, y1 - L + 1, 1, L); s.rect(x1 - L + 1, y1, L, 1); s.rect(x1, y1 - L + 1, 1, L); }
+function burst(s, x, y, r, n = 8) { for (let i = 0; i < n; i++) { const a = i * Math.PI * 2 / n; s.line(x + Math.cos(a) * r * 0.45, y + Math.sin(a) * r * 0.45, x + Math.cos(a) * r, y + Math.sin(a) * r); } }
+function star5(s, x, y) { s.rect(x - 2, y, 5, 1); s.rect(x, y - 2, 1, 5); s.px(x - 1, y - 1); s.px(x + 1, y - 1); s.px(x - 1, y + 1); s.px(x + 1, y + 1); }
+function zz(s, x, y, k) { if (k === 2) { s.rect(x, y, 5, 1); s.line(x + 4, y + 1, x, y + 4); s.rect(x, y + 4, 5, 1); } else { s.rect(x, y, 3, 1); s.px(x + 1, y + 1); s.rect(x, y + 2, 3, 1); } }
+function bubble(s, x, y, w, h, tail = -1) { s.rect(x, y, w, h, 0); s.box(x, y, w, h); s.px(x, y, 0); s.px(x + w - 1, y, 0); s.px(x, y + h - 1, 0); s.px(x + w - 1, y + h - 1, 0); const tx = x + (tail < 0 ? 3 : w - 5); s.rect(tx, y + h - 1, 3, 1, 0); s.px(tx, y + h); s.px(tx + 1, y + h + 1); s.px(tx + 2, y + h - 1); }
+function topbar(s, l, r) { s.rect(0, 0, 128, 8, 1); s.txt(l, 2, 2, 0); if (r) s.txt(r, 126 - tw(r), 2, 0); }
+function panel(s, y = 51) { s.rect(0, y, 128, 64 - y, 0); s.rect(0, y, 128, 1); }
+function okBtn(s, x, y, down) { s.ell(x + 4, y + 4, 4.5, 4.5, 1); if (!down) { s.ell(x + 4, y + 3.5, 3.5, 3.5, 0); s.txt('OK', x + 1, y + 1, 1); } else { s.txt('OK', x + 1, y + 2, 0); } }
+function arrowUD(s, x, y, up, on) { if (up) s.tri(x, y + 4, x + 6, y + 4, x + 3, y, 1); else s.tri(x, y, x + 6, y, x + 3, y + 4, 1); if (!on) { if (up) s.tri(x + 2, y + 3, x + 4, y + 3, x + 3, y + 2, 0); else s.tri(x + 2, y + 1, x + 4, y + 1, x + 3, y + 2, 0); } }
+function grid3d(s, t, hz = 34) { for (let i = -8; i <= 8; i++) s.line(64 + i * 4, hz, 64 + i * 26, 64); for (let k = 0; k < 6; k++) { const z = (k + (t * 1.5) % 1) / 6; s.rect(0, Math.round(hz + z * z * 30), 128, 1); } s.rect(0, hz, 128, 1); }
+function dots(s, y0 = 12, y1 = 50, step = 8) { for (let y = y0; y < y1; y += step) for (let x = 4; x < 128; x += step) s.px(x, y); }
+function poop(s, x, y, t) { s.tri(x, y + 6, x + 9, y + 6, x + 4.5, y - 1, 1); s.rect(x + 2, y + 1, 5, 1, 0); s.rect(x + 1, y + 3, 7, 1, 0); const k = (t * 3 | 0) % 2; for (let i = 0; i < 2; i++) { const sx = x + 2 + i * 5; for (let j = 0; j < 4; j++) s.px(sx + ((j + k) % 2), y - 3 - j); } }
+function skull(s, x, y) { s.ell(x + 3, y + 3, 3.5, 3, 1); s.rect(x + 1, y + 5, 5, 2, 1); s.rect(x + 1, y + 2, 2, 2, 0); s.rect(x + 4, y + 2, 2, 2, 0); s.px(x + 2, y + 6, 0); s.px(x + 4, y + 6, 0); }
+function bandage(s, x, y) { s.rect(x - 1, y + 1, 9, 5, 0); s.rect(x + 1, y - 1, 5, 9, 0); s.rect(x, y + 2, 7, 3, 1); s.rect(x + 2, y, 3, 7, 1); s.px(x + 3, y + 3, 0); s.px(x + 1, y + 3, 0); s.px(x + 5, y + 3, 0); }
+function lightning(s, x, y, len, seed) { let px = x, py = y; for (let i = 0; i < len; i++) { const nx = px + 3, ny = y + (hash(i, seed) * 6 - 3); s.line(px, py, nx, ny); px = nx; py = ny; } }
+
+// ================= ATTRIBUTES =================
+const ATTRN = { P: 'PORTADOR', R: 'RUIDO', C: 'CIFRADO', N: 'NULO', PC: 'POR+CIF' };
+const ATTRC = { P: '#3ad0ff', R: '#ff3a6a', C: '#7dff3a', N: '#e8e8e8', PC: '#c08aff' };
+function attrIcon(s, x, y, a) {
+  if (a === 'PC') { attrIcon(s, x, y, 'P'); attrIcon(s, x + 8, y, 'C'); return; }
+  if (a === 'P') { s.ell(x + 3, y + 3, 3.5, 3.5, 1); s.ell(x + 3, y + 3, 2.5, 2.5, 0); s.px(x + 1, y + 3); s.px(x + 2, y + 2); s.px(x + 3, y + 3); s.px(x + 4, y + 4); s.px(x + 5, y + 3); }
+  if (a === 'R') { s.line(x + 5, y, x + 1, y + 3); s.line(x + 1, y + 3, x + 5, y + 3); s.line(x + 5, y + 3, x + 1, y + 6); s.px(x + 6, y); s.px(x, y + 6); }
+  if (a === 'C') { s.box(x, y, 7, 7); s.rect(x + 2, y + 2, 3, 2); s.rect(x + 3, y + 4, 1, 2); }
+  if (a === 'N') { s.ell(x + 3, y + 3, 3.5, 3.5, 1); s.ell(x + 3, y + 3, 2.5, 2.5, 0); s.line(x + 1, y + 5, x + 5, y + 1); }
+}
+// projectile: sz 1..5 (bebe, novato, campeon, supremo, mega)
+function shot(s, x, y, a, sz, dir = 1, t = 0) {
+  if (a === 'PC') a = (t * 6 | 0) % 2 ? 'P' : 'C';
+  if (sz >= 5) { // mega beam 9x5 + trail
+    s.rect(x - (dir > 0 ? 8 : 0), y - 2, 9, 5, 1); s.rect(x - (dir > 0 ? 7 : -1), y - 1, 7, 3, 0);
+    if (a === 'P') for (let i = 0; i < 7; i++) s.px(x - dir * i, y + Math.round(Math.sin(i + t * 20)), 1);
+    else if (a === 'R') for (let i = 0; i < 7; i += 2) s.px(x - dir * i, y + (i % 4 ? 1 : -1), 1);
+    else s.rect(x - dir * 4, y, 2, 1, 1);
+    for (let i = 1; i < 4; i++) s.rect(x - dir * (9 + i * 4), y - 2 + i, 3, 5 - i * 2 < 1 ? 1 : 5 - i * 2, 1);
+    return;
+  }
+  const r = [1, 1, 2, 3, 4][sz - 1];
+  if (a === 'P') { for (let k = 0; k < 3; k++) s.arc(x - dir * k * 3, y, r + 1, r + 1 + k, -1.1, 1.1, 1); if (dir < 0) { /* arcs mirrored */ } }
+  else if (a === 'R') { let px = x - dir * r * 3, py = y; for (let i = 0; i < 4; i++) { const nx = px + dir * r * 1.5, ny = y + (i % 2 ? r : -r); s.line(px, py, nx, ny); s.line(px, py + 1, nx, ny + 1); px = nx; py = ny; } }
+  else if (a === 'C') { s.rect(x - r, y - r, r * 2 + 1, r * 2 + 1, 1); if (r > 1) s.rect(x - r + 1, y - r + 1, r * 2 - 1, r * 2 - 1, 0); s.px(x, y, 1); for (let i = 1; i < 4; i++) if ((t * 10 + i) % 2 < 1) s.px(x - dir * (r + i * 2), y + (i % 2 ? r : -r)); }
+  else { s.ell(x, y, r + 1, r + 1, 1); s.ell(x, y, r, r, 0); }
+}
+const SHOTSZ = [1, 1, 2, 3, 4, 5, 2, 5];
+
+// ================= MONSTERS =================
+function eye(g, x, y, P, sz = 1) {
+  const e = P.blink ? 'c' : P.eye;
+  if (e === 'c') { g.rect(x - 1, y + 1, sz ? 3 : 2, 1, 1); return; }
+  if (e === 'h') { g.px(x - 1, y + 1); g.px(x, y); g.px(x + 1, y + 1); return; }
+  if (e === 'x') { g.px(x - 1, y - 1); g.px(x + 1, y - 1); g.px(x, y); g.px(x - 1, y + 1); g.px(x + 1, y + 1); return; }
+  if (e === 's') { g.rect(x - 1, y, 3, 1); g.px(x, y + 1); g.px(x - 1, y - 1); return; }
+  if (sz === 0) g.rect(x, y, 1, 2, 1);
+  else if (sz === 1) g.rect(x - 1, y - 1, 2, 3, 1);
+  else { g.rect(x - 1, y - 1, 3, 4, 1); g.px(x, y, 0); }
+  if (e === 'a') g.line(x - 2, y - 3, x + 1, y - 2, 1);
+}
+function eyes2(g, x, y, gap, P, sz) { eye(g, x - gap, y, P, sz); eye(g, x + gap, y, P, sz); }
+function mouth(g, x, y, P, w = 3) {
+  const m = P.mouth;
+  if (m === 0) g.rect(x - (w >> 1), y, w, 1, 1);
+  else if (m === 1) { g.px(x - (w >> 1) - 1, y - 1); g.rect(x - (w >> 1), y, w, 1); g.px(x + (w >> 1) + 1, y - 1); }
+  else { g.ell(x, y + 1, w / 2 + 0.5, m === 2 ? 1.5 : 2, 1); }
+}
+const chainParts = (g, pts) => pts.map(([x, y, r]) => v => g.ell(x, y, r, r, v));
+
+const MONS = [
+  // ---- BEBE I ----
+  { id: 'PIPO', st: 0, at: 'N', from: 'HUEVO A', m: [25, 44], look: 'gota con brillo, solo ojos; rebota', d(g, P) {
+    const f = P.f;
+    solid(g, [v => g.ell(24, 42 + f * 0.5, 6 + f, 5 - f * 0.5, v), v => g.tri(19, 40, 29, 40, 24, 33 + f, v)]);
+    g.shade(17, 44, 16, 4, 6); g.px(20, 40); g.px(20, 41); g.px(21, 38);
+    eyes2(g, 25, 41, 2, P, 0); mouth(g, 25, 44, P, 2);
+  } },
+  { id: 'CHISPI', st: 0, at: 'N', from: 'HUEVO B', m: [25, 45], look: 'bolita con antena-chispa y flecos', d(g, P) {
+    const f = P.f;
+    solid(g, [v => g.ell(24, 42, 5.5 + f * 0.5, 5 - f * 0.5, v), v => g.line(25, 37, 28, 32, v)]);
+    g.ell(28, 31, 1.5, 1.5, 1);
+    if ((P.t * 5 | 0) % 2) { g.px(28, 27); g.px(32, 31); g.px(24, 29); g.px(31, 28); }
+    for (let x = 19; x <= 29; x += 2) g.erase(x, 47, 1, 1);
+    g.shade(19, 44, 12, 3, 5);
+    eyes2(g, 25, 42, 2, P, 0); mouth(g, 25, 45, P, 2);
+  } },
+  // ---- BEBE II ----
+  { id: 'OREJIN', st: 1, at: 'N', from: 'PIPO', m: [27, 43], look: 'bola con orejas largas que se mecen', d(g, P) {
+    const f = P.f;
+    solid(g, [v => g.tri(17, 37, 22, 34, 13, 25 + f * 2, v), v => g.tri(26, 34, 31, 37, 35, 25 + f * 2, v), v => g.ell(24, 40, 8 + f * 0.5, 7 - f * 0.5, v), v => g.ell(20, 46, 2.5, 1.5, v), v => g.ell(29, 46, 2.5, 1.5, v)]);
+    g.line(17, 33, 14, 26); g.line(30, 33, 34, 26);
+    g.shade(16, 43, 18, 4, 5);
+    eyes2(g, 26, 39, 3, P, 1); mouth(g, 27, 43, P, 3);
+  } },
+  { id: 'COLIX', st: 1, at: 'N', from: 'CHISPI', m: [28, 44], look: 'bola con cuernito y cola enroscada', d(g, P) {
+    const f = P.f, w = Math.sin(P.t * 3) * 1.5;
+    solid(g, [v => g.ell(25, 41, 7 + f * 0.5, 6 - f * 0.5, v), v => g.tri(27, 36, 31, 36, 31, 30, v),
+      ...chainParts(g, [[18, 43, 2], [15, 42, 2], [12.5, 40, 1.8], [11 + w * 0.3, 37, 1.6], [11.5 + w * 0.6, 34, 1.5], [13.5 + w, 32, 2]])]);
+    g.ell(13.5 + w, 32, 1, 1, 1); g.px(30, 32);
+    g.shade(19, 44, 14, 3, 5);
+    eyes2(g, 27, 40, 2, P, 1); mouth(g, 28, 44, P, 3);
+  } },
+  // ---- NOVATO ----
+  { id: 'KORNO', st: 2, at: 'P', from: 'OREJIN', m: [37, 35], look: 'cachorro con un cuerno, oreja caida y onda en el pecho', d(g, P) {
+    const f = P.f;
+    solid(g, [v => g.tri(13, 36, 14, 40, 5, 31 - f, v), v => g.ell(21, 40, 9, 6 - f * 0.5, v), v => g.rect(13, 42, 4, 6, v), v => g.rect(25, 42, 4, 6, v),
+      v => g.ell(28, 30, 9, 8, v), v => g.ell(35, 33, 4.5, 3, v), v => g.tri(29, 24, 33, 24, 33, 15, v)]);
+    solid(g, [v => g.tri(19, 25, 24, 24, 16, 35 + f, v)]);
+    g.px(31, 20); g.px(32, 20); g.px(32, 18);
+    for (let x = 15; x < 27; x++) g.dot(x, 40 + Math.round(Math.sin(x * 0.9 + P.t * 4)));
+    g.rect(13, 46, 4, 2, 1); g.rect(25, 46, 4, 2, 1); g.ell(39, 31.5, 1, 1, 1);
+    eyes2(g, 31, 29, 2, P, 1); mouth(g, 36, 35, P, 3);
+  } },
+  { id: 'CHIPKO', st: 2, at: 'C', from: 'COLIX', m: [37, 35], look: 'geco cuadrado con pines de chip en el lomo', d(g, P) {
+    const w = Math.round(Math.sin(P.t * 3)), f = P.f;
+    solid(g, [v => g.rect(14, 35 + f, 17, 9 - f, v), v => g.rect(27, 27, 13, 11, v), v => g.rect(4, 38, 11, 4, v), v => g.rect(1, 34 + w, 4, 6, v),
+      v => g.rect(15, 43, 4, 5, v), v => g.rect(26, 43, 4, 5, v), ...[0, 1, 2, 3].map(i => v => g.rect(16 + i * 4, 32 + f, 2, 3, v))]);
+    for (let x = 17; x < 30; x += 3) for (let y = 38; y < 43; y += 2) g.dot(x, y);
+    g.rect(14, 47, 6, 1); g.rect(25, 47, 6, 1); g.dot(2, 36 + w); g.dot(3, 37 + w);
+    g.rect(27, 33, 4, 1, 1);
+    eyes2(g, 33, 30, 3, P, 1); mouth(g, 37, 35, P, 5);
+  } },
+  { id: 'ESTATIK', st: 2, at: 'R', from: 'OREJIN', m: [30, 32], look: 'diablillo con pelo de estatica, alas rotas y cola de flecha', d(g, P) {
+    const fl = P.f ? 2 : 0;
+    solid(g, [v => g.tri(18, 37, 8, 29 - fl, 12, 41, v), v => g.tri(12, 41, 6, 36 - fl, 15, 43, v), v => g.line(20, 44, 11, 46, v), v => g.tri(6, 43, 11, 45, 7, 47, v),
+      v => g.ell(24, 40, 6, 6, v), v => g.rect(20, 45, 3, 3, v), v => g.rect(26, 45, 3, 3, v),
+      v => g.ell(25, 28, 8, 7, v), v => g.tri(17, 25, 22, 22, 15, 15, v), v => g.tri(21, 22, 26, 21, 22, 13, v), v => g.tri(26, 22, 30, 24, 31, 15, v), v => g.tri(30, 24, 32, 26, 37, 20, v)]);
+    g.shade(5, 28, 14, 16, 9); g.shade(18, 34, 13, 14, 9);
+    const k = P.t * 8 | 0; for (let i = 0; i < 9; i++) g.dot(17 + (hash(i, k) * 16 | 0), 16 + (hash(i + 9, k) * 10 | 0));
+    eyes2(g, 28, 28, 3, P, 1); mouth(g, 30, 32, P, 3); if (P.mouth < 2) g.px(31, 33);
+  } },
+  { id: 'MOKOBIT', st: 2, at: 'N', from: 'COLIX', m: [25, 41], look: 'baba hueca con burbujas y charquitos', d(g, P) {
+    const f = P.f;
+    solid(g, [v => g.ell(24, 43, 12 + f, 4, v), v => g.ell(24, 37, 7.5 - f * 0.5, 7 + f * 0.5, v), v => g.ell(11, 46, 2, 1.5, v), v => g.ell(37, 45, 2, 1.5, v)]);
+    for (let x = 15; x <= 33; x += 2) g.dot(x, 45);
+    for (let i = 0; i < 2; i++) { const by = 44 - ((P.t * 6 + i * 5) % 10), bx = 18 + i * 12; g.dot(bx, by - 1); g.dot(bx - 1, by); g.dot(bx + 1, by); g.dot(bx, by + 1); }
+    eyes2(g, 25, 36, 3, P, 2); mouth(g, 25, 41, P, 3);
+  } },
+  // ---- CAMPEON ----
+  { id: 'ARIETE', st: 3, at: 'P', from: 'KORNO', m: [40, 35], look: 'carnero lanudo con cuernos en espiral y pezunas', d(g, P) {
+    const f = P.f;
+    solid(g, [v => g.ell(7, 31, 3, 2.5, v), v => g.ell(20, 34, 12, 8 - f * 0.5, v), v => g.ell(12, 27, 4.5, 4.5, v), v => g.ell(19, 25, 4.5, 4.5, v), v => g.ell(26, 26, 4.5, 4.5, v),
+      v => g.rect(10, 40, 4, 8, v), v => g.rect(16, 41, 4, 7, v), v => g.rect(25, 41, 4, 7, v), v => g.rect(30, 40, 4, 8, v),
+      v => g.ell(35, 28, 6, 6, v), v => g.ell(39, 32, 4.5, 3.5, v)]);
+    solid(g, [v => g.ell(30, 23, 5.5, 5.5, v), v => g.tri(30, 27, 35, 27, 34, 33, v)]);
+    g.ell(30, 23, 3.8, 3.8, 1); g.ell(30.5, 23.5, 2.8, 2.8, 0); g.ell(31, 24, 1.3, 1.3, 1);
+    for (let i = 0; i < 16; i++) { const x = 10 + (i * 7) % 22, y = 27 + ((i * 5) % 10); g.dot(x, y); g.dot(x + 1, y - 1); }
+    [10, 16, 25, 30].forEach(x => g.rect(x, 46, 4, 2, 1));
+    for (let x = 14; x < 28; x++) g.dot(x, 37 + Math.round(Math.sin(x * 0.8 + P.t * 4)));
+    g.px(42, 31); g.px(43, 31);
+    eye(g, 38, 27, P, 1); mouth(g, 40, 35, P, 3);
+  } },
+  { id: 'ECOLOBO', st: 3, at: 'P', from: 'KORNO', m: [42, 28], look: 'lobo esbelto, orejas en punta, cola en llama y onda en el flanco', d(g, P) {
+    const f = P.f;
+    solid(g, [v => g.tri(10, 30, 13, 35, 1, 23 + f * 2, v), v => g.ell(20, 34, 11, 6 - f * 0.5, v), v => g.ell(29, 31, 6, 8, v),
+      v => g.rect(10, 38, 3, 10, v), v => g.rect(15, 38, 3, 10, v), v => g.rect(26, 37, 3, 11, v), v => g.rect(31, 37, 3, 11, v),
+      v => g.ell(34, 23, 7, 6, v), v => g.tri(36, 20, 46, 26, 36, 29, v), v => g.tri(29, 19, 33, 18, 30, 10, v), v => g.tri(34, 18, 38, 20, 38, 11, v)]);
+    g.line(31, 14, 31, 17); g.line(37, 14, 37, 17);
+    g.shade(1, 22, 10, 13, 7);
+    for (let i = 0; i < 5; i++) g.dot(24 + i, 27 + (i % 2) * 2);
+    for (let x = 12; x < 26; x++) g.dot(x, 34 + Math.round(Math.sin(x * 0.7 + P.t * 4)));
+    [10, 15, 26, 31].forEach(x => g.rect(x, 46, 3, 2, 1));
+    g.rect(45, 25, 2, 2, 1);
+    eye(g, 37, 22, P, 1); mouth(g, 41, 28, P, 4);
+  } },
+  { id: 'VAMPIXEL', st: 3, at: 'R', from: 'KORNO', m: [24, 21], look: 'murcielago de alas oscuras que se glitchea', d(g, P) {
+    const fl = Math.round(Math.sin(P.t * 9) * 3);
+    const wing = sd => [v => g.tri(24 + sd * 4, 22, 24 + sd * 22, 8 + fl, 24 + sd * 20, 24 + fl * 0.5, v), v => g.tri(24 + sd * 4, 22, 24 + sd * 20, 24 + fl * 0.5, 24 + sd * 15, 32, v), v => g.tri(24 + sd * 4, 26, 24 + sd * 15, 32, 24 + sd * 8, 34, v)];
+    solid(g, [...wing(-1), ...wing(1), v => g.ell(24, 28, 6, 8, v), v => g.ell(24, 18, 6.5, 5.5, v), v => g.tri(17, 16, 21, 13, 16, 5, v), v => g.tri(27, 13, 31, 16, 32, 5, v), v => g.rect(20, 35, 2, 7, v), v => g.rect(26, 35, 2, 7, v)]);
+    g.shade(0, 4, 18, 32, 10); g.shade(30, 4, 18, 32, 10);
+    for (const sd of [-1, 1]) { g.line(24 + sd * 5, 22, 24 + sd * 22, 8 + fl); g.line(24 + sd * 5, 23, 24 + sd * 20, 24 + fl * 0.5); g.line(24 + sd * 5, 25, 24 + sd * 15, 32); }
+    g.px(19, 42); g.px(22, 42); g.px(25, 42); g.px(28, 42);
+    g.shade(19, 26, 11, 9, 4);
+    eyes2(g, 24, 17, 3, P, 1); mouth(g, 24, 21, P, 3); if (P.mouth < 2) { g.px(22, 22); g.px(26, 22); }
+    const k = P.t * 6 | 0; if (hash(k, 3) < 0.5) g.rowShift(8 + (hash(k, 4) * 26 | 0), 2, hash(k, 5) < 0.5 ? -2 : 2);
+  } },
+  { id: 'CERROJO', st: 3, at: 'C', from: 'CHIPKO', m: [39, 35], look: 'escarabajo con caparazon-cerradura y cuerno de llave', d(g, P) {
+    const f = P.f;
+    solid(g, [v => g.rect(8, 23 + f, 26, 17 - f, v), v => g.rect(32, 29, 9, 9, v), v => g.tri(38, 30, 42, 30, 46, 17, v), v => g.tri(40, 24, 45, 21, 44, 27, v),
+      ...[10, 18, 26].map(x => v => g.rect(x, 39, 2, 7, v)), ...[9, 17, 25].map(x => v => g.rect(x, 46, 4, 2, v))]);
+    for (let x = 10; x < 32; x += 2) { g.px(x, 25 + f); g.px(x, 37); }
+    g.ell(21, 29 + f, 2.5, 2.5, 1); g.tri(19.5, 30 + f, 22.5, 30 + f, 21, 35 + f, 1);
+    [[11, 27], [30, 27], [11, 35], [30, 35]].forEach(([x, y]) => g.px(x, y + f));
+    g.shade(8, 38, 26, 2, 16);
+    eye(g, 36, 32, P, 1); mouth(g, 39, 35, P, 3);
+  } },
+  { id: 'BUHOSCAN', st: 3, at: 'C', from: 'CHIPKO', m: [24, 33], look: 'buho con visor-escaner y plumas en reticula', d(g, P) {
+    const f = P.f;
+    solid(g, [v => g.tri(13, 23, 19, 21, 11, 12, v), v => g.tri(29, 21, 35, 23, 37, 12, v), v => g.ell(24, 32, 11, 13 - f * 0.5, v), v => g.rect(19, 44, 3, 4, v), v => g.rect(26, 44, 3, 4, v)]);
+    solid(g, [v => g.ell(13, 35, 4, 8, v)]); solid(g, [v => g.ell(35, 35, 4, 8, v)]);
+    g.shade(9, 29, 8, 14, 6); g.shade(31, 29, 8, 14, 6);
+    g.rect(14, 23, 20, 8, 1);
+    const sx = Math.round(Math.sin(P.t * 2) * 2), e = P.blink ? 'c' : P.eye;
+    for (const cx of [19, 29]) {
+      if (e === 'c' || e === 's') g.rect(cx - 2, 27, 5, 1, 0);
+      else if (e === 'h') { g.px(cx - 2, 28, 0); g.px(cx - 1, 27, 0); g.px(cx, 26, 0); g.px(cx + 1, 27, 0); g.px(cx + 2, 28, 0); }
+      else { g.ell(cx, 27, 3, 3, 0); g.rect(cx - 1 + sx, 26, 2, 2, 1); if (e === 'a') g.line(cx - 3, 24, cx + 3, 26, 1); }
+    }
+    g.rect(14, 24 + ((P.t * 8 | 0) % 6), 20, 1, 2);
+    g.tri(22, 31, 26, 31, 24, 35, 1); if (P.mouth >= 2) g.tri(22, 36, 26, 36, 24, 38, 1);
+    for (let y = 37; y < 44; y += 2) for (let x = 19 + (y % 4 ? 1 : 0); x < 30; x += 3) g.dot(x, y);
+    g.px(18, 47); g.px(22, 47); g.px(25, 47); g.px(29, 47);
+  } },
+  { id: 'FUZZCAN', st: 3, at: 'R', from: 'ESTATIK', m: [42, 31], look: 'sabueso de pelo erizado con ruido de TV y oreja doblada', d(g, P) {
+    const f = P.f;
+    const spikes = [0, 1, 2, 3, 4, 5].map(i => v => g.tri(9 + i * 4, 30, 13 + i * 4, 30, 11 + i * 4, 23 + (i % 2) * 3, v));
+    solid(g, [v => g.tri(8, 32, 10, 37, 1, 39 - f * 2, v), ...spikes, v => g.ell(20, 35, 12, 7 - f * 0.5, v),
+      v => g.rect(9, 40, 4, 8, v), v => g.rect(15, 40, 3, 8, v), v => g.rect(26, 40, 3, 8, v), v => g.rect(31, 39, 4, 9, v),
+      v => g.ell(34, 27, 7, 6, v), v => g.rect(36, 29, 10, 5, v), v => g.tri(27, 23, 31, 21, 25, 14, v), v => g.tri(33, 21, 37, 22, 41, 15, v)]);
+    g.shade(6, 24, 28, 18, 7);
+    const k = P.t * 10 | 0; for (let i = 0; i < 26; i++) g.dot(4 + (hash(i, k) * 40 | 0), 16 + (hash(i, k + 99) * 30 | 0));
+    if (P.mouth >= 2) { g.rect(37, 31, 9, 3, 1); for (let x = 38; x < 46; x += 2) g.px(x, 31, 0); }
+    else { g.rect(37, 32, 9, 1, 1); for (let x = 38; x < 46; x += 2) g.px(x, 31, 1); }
+    [9, 15, 26, 31].forEach(x => g.rect(x, 46, 4, 2, 1)); g.rect(45, 29, 2, 2, 1);
+    eye(g, 36, 26, P, 1);
+  } },
+  { id: 'SILBAPO', st: 3, at: 'R', from: 'ESTATIK', m: [24, 37], look: 'sapo gordo con verrugas y saco que se infla', d(g, P) {
+    const f = P.f;
+    solid(g, [v => g.ell(10, 44, 5, 3, v), v => g.ell(38, 44, 5, 3, v), v => g.ell(24, 37, 15, 9 + f * 0.5, v), v => g.ell(17, 29, 4.5, 4.5, v), v => g.ell(31, 29, 4.5, 4.5, v)]);
+    solid(g, [v => g.ell(24, 44, 6 + f, 3 + f * 0.5, v)]);
+    solid(g, [v => g.ell(17, 46, 3, 1.5, v), v => g.ell(31, 46, 3, 1.5, v)]);
+    g.shade(10, 39, 28, 4, 5);
+    [[13, 35], [33, 34], [20, 32], [28, 40], [11, 40], [36, 40], [26, 31]].forEach(([x, y]) => { g.px(x, y); g.px(x + 1, y); });
+    eye(g, 17, 29, P, 1); eye(g, 31, 29, P, 1);
+    if (P.mouth >= 2) g.ell(24, 37, 8, 2, 1);
+    else { g.line(13, 35 - P.mouth, 18, 37); g.line(18, 37, 30, 37); g.line(30, 37, 35, 35 - P.mouth); }
+  } },
+  { id: 'CHATARRO', st: 3, at: 'N', from: 'MOKOBIT', m: [24, 20], look: 'golem de chatarra hueco con brazos desparejos', d(g, P) {
+    const f = P.f;
+    solid(g, [v => g.rect(14, 24 + f, 20, 16 - f, v), v => g.rect(18, 13 + f, 12, 10, v), v => g.rect(6, 25 + f, 7, 15, v), v => g.rect(35, 27 + f, 5, 10, v), v => g.rect(16, 40, 6, 8, v), v => g.rect(27, 40, 6, 8, v)]);
+    g.box(16, 26 + f, 16, 12, 1); g.line(16, 26 + f, 31, 37);
+    g.box(8, 27 + f, 3, 11, 1);
+    g.px(15, 25 + f); g.px(32, 25 + f); g.px(36, 28 + f);
+    g.line(28, 13 + f, 31, 7 + f); g.line(31, 7 + f, 34, 9 + f);
+    eye(g, 21, 17 + f, P, 1);
+    const e = P.blink ? 'c' : P.eye; if (e === 'c' || e === 's') g.rect(25, 18 + f, 4, 1, 1); else g.box(25, 16 + f, 4, 4, 1);
+    if (P.mouth >= 2) g.rect(20, 20 + f, 8, 2, 1); else for (let x = 20; x < 28; x += 2) g.px(x, 20 + f);
+    g.rect(16, 46, 6, 2); g.rect(27, 46, 6, 2);
+  } },
+  // ---- FALLIDA ----
+  { id: 'CHARCO', st: 6, at: 'N', from: 'NOVATO', m: [25, 42], look: 'charco triste con orejas lacias y moscas', d(g, P) {
+    const f = P.f;
+    solid(g, [v => g.ell(24, 44, 14 + f, 3.5, v), v => g.ell(24, 39, 8, 6 - f * 0.5, v), v => g.tri(16, 38, 20, 36, 7, 43, v), v => g.tri(28, 36, 32, 38, 41, 43, v)]);
+    g.shade(10, 44, 28, 3, 6);
+    const P2 = Object.assign({}, P, { eye: P.eye === 'o' ? 's' : P.eye });
+    eyes2(g, 25, 38, 3, P2, 1);
+    if (!P.mouth) { g.px(23, 42); g.px(24, 41); g.px(25, 42); g.px(26, 41); g.px(27, 42); } else mouth(g, 25, 42, P, 3);
+    for (let i = 0; i < 2; i++) { const a = P.t * 5 + i * 3, x = 24 + Math.cos(a) * 11, y = 27 + Math.sin(a * 1.3) * 3; g.px(x, y); g.px(x + 1, y - 1); g.px(x - 1, y - 1); }
+  } },
+  // ---- SUPREMO ----
+  { id: 'LANZERO', st: 4, at: 'P', from: 'ARIETE', m: [25, 15], look: 'caballero con lanza-antena y escudo de onda', d(g, P) {
+    const f = P.f;
+    solid(g, [v => g.line(36, 30, 45, 6, v), v => g.line(37, 30, 46, 6, v), v => g.tri(43, 8, 47, 8, 46, 1, v),
+      v => g.rect(18, 33, 5, 12, v), v => g.rect(26, 33, 5, 12, v), v => g.rect(16, 44, 8, 4, v), v => g.rect(26, 44, 8, 4, v),
+      v => g.rect(17, 18 + f, 14, 15 - f, v), v => g.ell(16, 20 + f, 4.5, 3.5, v), v => g.ell(32, 20 + f, 4.5, 3.5, v), v => g.rect(33, 23 + f, 4, 9, v),
+      v => g.ell(24, 12 + f, 6, 6, v), v => g.line(24, 6 + f, 26, 2 + f, v)]);
+    solid(g, [v => g.ell(10, 29 + f, 7, 9, v)]);
+    for (let x = 5; x <= 15; x++) g.px(x, 29 + f + Math.round(Math.sin((x - 5) * 0.63 + P.t * 4) * 2.5));
+    g.ell(26, 2 + f, 1, 1, 1);
+    g.rect(19, 10 + f, 11, 4, 1);
+    const e = P.blink ? 'c' : P.eye;
+    if (e === 'h') { for (const x of [23, 27]) { g.px(x, 12 + f, 0); g.px(x + 1, 11 + f, 0); g.px(x + 2, 12 + f, 0); } }
+    else if (e !== 'c' && e !== 's') { g.rect(23, 11 + f, 2, 1, 0); g.rect(27, 11 + f, 2, 1, 0); if (e === 'a') { g.px(22, 10 + f, 0); g.px(29, 10 + f, 0); } }
+    else g.rect(22, 12 + f, 7, 1, 0);
+    if (P.mouth >= 2) g.rect(22, 14 + f, 5, 3, 1); else g.rect(22, 15 + f, 5, 1, 1);
+    g.rect(17, 27 + f, 14, 1, 1); g.rect(17, 31, 14, 1, 1);
+    for (let x = 19; x < 30; x++) g.px(x, 22 + f + Math.round(Math.sin(x * 0.9 + P.t * 4)));
+    g.rect(18, 38, 5, 1); g.rect(26, 38, 5, 1); g.rect(16, 46, 8, 2); g.rect(26, 46, 8, 2);
+  } },
+  { id: 'WYVOLT', st: 4, at: 'R', from: 'VAMPIXEL', m: [43, 15], look: 'guiverno de cuello largo con alas que chisporrotean', d(g, P) {
+    const fl = Math.round(Math.sin(P.t * 6) * 3), f = P.f;
+    solid(g, [v => g.tri(18, 24, 4, 3 + fl, 22, 20, v), v => g.tri(18, 24, 1, 14 + fl, 6, 4 + fl, v), v => g.tri(18, 26, 1, 14 + fl, 10, 30, v),
+      v => g.tri(13, 35, 15, 41, 0, 46, v), v => g.ell(20, 32, 9, 8 - f * 0.5, v), v => g.ell(27, 25, 4, 4, v), v => g.ell(30, 19, 3.5, 3.5, v),
+      v => g.ell(35, 13, 6, 4.5, v), v => g.tri(38, 10, 47, 15, 38, 17, v), v => g.tri(31, 10, 35, 9, 29, 2, v),
+      v => g.rect(15, 38, 4, 10, v), v => g.rect(23, 38, 4, 10, v)]);
+    g.shade(0, 2, 20, 29, 9); g.line(18, 24, 4, 3 + fl); g.line(18, 25, 1, 14 + fl);
+    for (let y = 29; y < 39; y += 3) g.rect(22, y, 6, 1);
+    g.tri(3, 44, 7, 41, 6, 45, 1);
+    const k = P.t * 7 | 0; if (k % 3 === 0) { let x = 2, y = 7 + fl; for (let i = 0; i < 5; i++) { const nx = x + 3, ny = y + (i % 2 ? 3 : -2); g.line(x, y, nx, ny); x = nx; y = ny; } }
+    eye(g, 36, 12, P, 1); mouth(g, 43, 16, P, 4); g.rect(15, 46, 4, 2); g.rect(23, 46, 4, 2);
+  } },
+  { id: 'FANGOREY', st: 4, at: 'R', from: 'SILBAPO', m: [24, 36], look: 'rey de lodo coronado con tentaculos y goteo', d(g, P) {
+    const f = P.f;
+    const arm = sd => [0, 1, 2, 3].map(i => v => g.ell(24 + sd * (13 + i * 3), 32 + i * 2 + Math.sin(P.t * 3 + i) * 1.5 * sd, 3 - i * 0.4, 3 - i * 0.4, v));
+    solid(g, [v => g.ell(24, 44, 19, 3.5, v), ...arm(-1), ...arm(1), v => g.ell(24, 33, 13 + f * 0.5, 12 - f * 0.5, v)]);
+    solid(g, [v => g.rect(15, 16 + f, 18, 5, v), ...[0, 1, 2, 3, 4].map(i => v => g.tri(15 + i * 4, 17 + f, 18 + i * 4, 17 + f, 16.5 + i * 4, 9 + f + (i % 2 ? 2 : 0), v))]);
+    g.rect(15, 19 + f, 18, 1, 1); g.px(17, 18 + f); g.px(24, 18 + f); g.px(31, 18 + f);
+    g.shade(5, 22, 38, 26, 11);
+    const e = P.blink ? 'c' : P.eye;
+    for (const cx of [19, 29]) {
+      if (e === 'c') g.rect(cx - 2, 28, 5, 1, 0);
+      else if (e === 'h') { g.px(cx - 1, 28, 0); g.px(cx, 27, 0); g.px(cx + 1, 28, 0); }
+      else { g.ell(cx, 28, 2.5, 2.5, 0); g.rect(cx, 28, 2, 2, 1); if (e === 'a') g.line(cx - 3, 24, cx + 2, 26, 1); }
+    }
+    if (P.mouth >= 2) { g.ell(24, 37, 6, 3, 1); for (let x = 19; x < 30; x += 2) g.px(x, 35, 0); }
+    else for (let x = 18; x < 31; x++) g.px(x, 36 + (x % 2), 0);
+    for (let i = 0; i < 3; i++) { const y = (P.t * 5 + i * 2.7) % 6; g.dot(12 + i * 12, 40 + y); }
+  } },
+  { id: 'BOVEDAX', st: 4, at: 'C', from: 'CERROJO', m: [24, 10], look: 'titan-boveda con puerta de caja fuerte y dial giratorio', d(g, P) {
+    const f = P.f;
+    solid(g, [v => g.rect(13, 38, 8, 10, v), v => g.rect(27, 38, 8, 10, v), v => g.rect(3, 14 + f, 7, 19, v), v => g.rect(38, 14 + f, 7, 19, v), v => g.rect(2, 32 + f, 9, 7, v), v => g.rect(37, 32 + f, 9, 7, v),
+      v => g.rect(10, 12 + f, 28, 27 - f, v), v => g.rect(18, 3 + f, 12, 10, v)]);
+    g.ell(24, 25 + f, 8.5, 8.5, 1); g.ell(24, 25 + f, 7.5, 7.5, 0); g.ell(24, 25 + f, 5, 5, 1); g.ell(24, 25 + f, 4, 4, 0);
+    const a = P.t * 2; for (let i = 0; i < 4; i++) { const an = a + i * Math.PI / 2; g.line(24, 25 + f, 24 + Math.cos(an) * 4, 25 + f + Math.sin(an) * 4); }
+    g.ell(24, 25 + f, 1, 1, 1);
+    g.rect(13, 20 + f, 2, 3); g.rect(13, 28 + f, 2, 3);
+    [[12, 14], [35, 14], [12, 36], [35, 36]].forEach(([x, y]) => g.px(x, y + f));
+    for (let y = 18; y < 32; y += 4) { g.rect(3, y + f, 7, 1); g.rect(38, y + f, 7, 1); }
+    g.rect(3, 35 + f, 7, 1, 1); g.rect(38, 35 + f, 7, 1, 1);
+    const e = P.blink ? 'c' : P.eye;
+    for (const x of [21, 26]) { if (e === 'c' || e === 's') g.rect(x, 7 + f, 2, 1); else if (e === 'h') { g.px(x, 7 + f); g.px(x + 1, 6 + f); } else { g.rect(x, 6 + f, 2, 2); if (e === 'a') g.px(x + (x < 24 ? -1 : 2), 5 + f); } }
+    if (P.mouth >= 2) g.rect(21, 9 + f, 6, 2, 1); else for (let x = 21; x < 27; x += 2) g.px(x, 10 + f);
+    g.rect(13, 46, 8, 2); g.rect(27, 46, 8, 2);
+  } },
+  { id: 'KOLOSO', st: 4, at: 'N', from: 'CHATARRO', m: [24, 13], look: 'coloso de chatarra, torso en V hueco y ojo ciclope', d(g, P) {
+    const f = P.f;
+    solid(g, [v => g.rect(15, 37, 6, 11, v), v => g.rect(27, 37, 6, 11, v), v => g.rect(17, 32, 14, 6, v), v => g.tri(7, 14 + f, 41, 14 + f, 24, 35, v),
+      v => g.rect(1, 16 + f, 6, 20, v), v => g.rect(41, 16 + f, 6, 20, v), v => g.ell(5, 16 + f, 5, 4, v), v => g.ell(43, 16 + f, 5, 4, v), v => g.ell(24, 8 + f, 6, 6, v)]);
+    g.line(12, 17 + f, 24, 31); g.line(36, 17 + f, 24, 31); g.line(12, 17 + f, 36, 17 + f); g.line(17, 22 + f, 31, 22 + f); g.line(24, 17 + f, 24, 31);
+    g.line(7, 20 + f, 11, 22 + f); g.line(41, 20 + f, 37, 22 + f);
+    g.box(2, 20 + f, 4, 14, 1); g.box(42, 20 + f, 4, 14, 1);
+    const e = P.blink ? 'c' : P.eye;
+    if (e === 'c' || e === 's') g.rect(21, 8 + f, 7, 1, 1);
+    else if (e === 'h') g.arc(24, 10 + f, 3, 3, Math.PI, Math.PI * 2, 1);
+    else { g.ell(24, 8 + f, 3.5, 3.5, 1); g.ell(24, 8 + f, 2.5, 2.5, 0); g.rect(24 + Math.round(Math.sin(P.t)), 7 + f, 2, 2, 1); }
+    g.rect(22, 12 + f, 5, P.mouth >= 2 ? 2 : 1, 1);
+    g.rect(15, 46, 6, 2); g.rect(27, 46, 6, 2);
+  } },
+  // ---- MEGA ----
+  { id: 'AUREOLA', st: 5, at: 'P', from: 'LANZERO', m: [24, 14], look: 'serafin con cuatro alas de onda senoidal y halo', d(g, P) {
+    const f = P.f, t = P.t;
+    const wing = (sd, k) => { const out = []; for (let i = 0; i <= 17; i += 1.5) { const x = 24 + sd * (6 + i), y = 19 + k * 7 - i * (k ? 0.25 : 0.85) + Math.sin(i * 0.55 - t * 4) * 1.6; out.push(v => g.ell(x, y, 1.4, 1.4, v)); } return out; };
+    solid(g, [...wing(-1, 0), ...wing(1, 0), ...wing(-1, 1), ...wing(1, 1)]);
+    solid(g, [v => g.tri(13, 46, 35, 46, 24, 15, v), v => g.ell(24, 20, 5, 4, v), v => g.ell(24, 11 + f * 0.5, 5, 5, v)]);
+    g.ell(24, 3 + f * 0.5, 7, 2, 1); g.ell(24, 3 + f * 0.5, 5.5, 1, 0);
+    for (let y = 28; y < 45; y += 5) { const hw = (y - 15) * 0.33; for (let x = 24 - hw; x < 24 + hw; x++) g.dot(x, y + Math.round(Math.sin(x * 0.8 + t * 3))); }
+    g.line(20, 22, 17, 29); g.line(28, 22, 31, 29);
+    eyes2(g, 24, 11 + f * 0.5, 2, P, 0); mouth(g, 24, 14 + f * 0.5, P, 2);
+    if ((t * 3 | 0) % 2) { g.px(3, 34); g.px(45, 30); g.px(8, 5); g.px(40, 6); }
+  } },
+  { id: 'DRAKSTAT', st: 5, at: 'R', from: 'WYVOLT', m: [43, 16], look: 'dragon de estatica con cuernos, alas dentadas y placas', d(g, P) {
+    const f = P.f, fl = Math.round(Math.sin(P.t * 5) * 2);
+    solid(g, [v => g.tri(17, 18, 1, 1 + fl, 6, 22, v), v => g.tri(6, 22, 1, 1 + fl, 0, 16 + fl, v), v => g.tri(17, 22, 0, 16 + fl, 8, 28, v),
+      v => g.tri(10, 34, 16, 40, 0, 45, v), v => g.ell(22, 30, 10, 11 - f * 0.5, v), v => g.ell(28, 19, 5, 5, v), v => g.ell(32, 12, 6, 5, v), v => g.rect(35, 11, 10, 6, v),
+      v => g.tri(28, 8, 31, 7, 23, 1, v), v => g.tri(32, 7, 35, 8, 35, 1, v),
+      v => g.ell(15, 40, 5, 5, v), v => g.rect(12, 42, 7, 6, v), v => g.rect(26, 39, 6, 9, v), v => g.rect(30, 24, 8, 3, v)]);
+    g.shade(0, 0, 18, 30, 11); g.shade(8, 18, 26, 30, 8);
+    for (let y = 22; y < 41; y++) g.rect(24, y, 5, 1, 0);
+    for (let y = 23; y < 41; y += 3) g.rect(24, y, 5, 1, 1);
+    for (let i = 0; i < 4; i++) g.tri(13 + i * 3, 21 - i * 2, 16 + i * 3, 20 - i * 2, 13 + i * 3, 16 - i * 2, 1);
+    if (P.mouth >= 2) { g.rect(37, 15, 8, 3, 1); g.px(38, 15, 0); g.px(40, 15, 0); g.px(42, 15, 0); } else { g.rect(37, 15, 8, 1, 1); g.px(39, 16); g.px(42, 16); }
+    eye(g, 34, 11, Object.assign({}, P, { eye: P.eye === 'o' ? 'a' : P.eye }), 1);
+    g.px(38, 27); g.px(39, 25);
+    const k = P.t * 7 | 0; if (k % 3 === 1) { let x = 1, y = 10 + fl; for (let i = 0; i < 4; i++) { const nx = x + 3, ny = y + (i % 2 ? 3 : -2); g.line(x, y, nx, ny); x = nx; y = ny; } }
+  } },
+  { id: 'ORAKULO', st: 5, at: 'C', from: 'BOVEDAX', m: [24, 18], look: 'oraculo flotante encapuchado, ojo-cerradura y cubos en orbita', d(g, P) {
+    const t = P.t;
+    const cubes = [0, 1, 2].map(i => { const a = t * 1.5 + i * 2.094; return [24 + Math.cos(a) * 21, 27 + Math.sin(a) * 6, Math.sin(a)]; });
+    const cube = c => { g.rect(c[0] - 2, c[1] - 2, 5, 5, 1); g.rect(c[0] - 1, c[1] - 1, 3, 3, 0); g.px(c[0], c[1], 1); };
+    cubes.filter(c => c[2] < 0).forEach(cube);
+    solid(g, [v => g.tri(7, 44, 41, 44, 24, 16, v), v => g.rect(5, 22, 9, 12, v), v => g.rect(34, 22, 9, 12, v), v => g.tri(12, 19, 36, 19, 24, 1, v), v => g.rect(14, 16, 20, 7, v)]);
+    g.rect(17, 11, 14, 9, 1);
+    const e = P.blink ? 'c' : P.eye;
+    for (const x of [20, 26]) { if (e === 'c' || e === 's') g.rect(x, 15, 2, 1, 0); else if (e === 'h') { g.px(x, 15, 0); g.px(x + 1, 14, 0); } else { g.rect(x, 13, 2, 2, 0); if (e === 'a') g.px(x + (x < 24 ? -1 : 2), 12, 0); } }
+    if (P.mouth >= 2) g.rect(22, 17, 4, 2, 0); else if (P.mouth === 1) g.rect(22, 18, 4, 1, 0);
+    g.ell(24, 30, 4.5, 4.5, 1); g.ell(24, 30, 3.5, 3.5, 0); g.ell(24, 29, 1.2, 1.2, 1); g.rect(23, 30, 2, 3, 1);
+    for (let x = 10; x < 39; x += 4) g.rect(x, (x / 4 | 0) % 2 ? 39 : 41, 2, 2, 1);
+    g.rect(5, 31, 9, 1); g.rect(34, 31, 9, 1);
+    cubes.filter(c => c[2] >= 0).forEach(cube);
+  } },
+  { id: 'NULARCA', st: 5, at: 'N', from: 'KOLOSO', m: [24, 15], look: 'soberano de capa hueca: su cuerpo es espacio negativo', d(g, P) {
+    const t = P.t, f = P.f;
+    solid(g, [v => g.tri(3, 46, 45, 46, 24, 12, v), v => g.ell(14, 19, 5, 4, v), v => g.ell(34, 19, 5, 4, v)]);
+    for (let x = 4; x < 45; x += 5) g.erase(x, 45 + Math.round(Math.sin(t * 3 + x) * 1), 2, 3);
+    for (let y = 22; y < 44; y += 2) { const hw = (y - 12) * 21 / 34 - 3; g.dot(24 - hw, y); g.dot(24 + hw, y); }
+    g.ell(24, 31, 7, 13, 1); g.ell(24, 31, 6, 12, 0); g.ell(24, 31, 5, 11, 1);
+    solid(g, [v => g.ell(24, 12 + f * 0.5, 5.5, 5.5, v)]); g.ell(24, 12 + f * 0.5, 4.5, 4.5, 1);
+    solid(g, [v => g.rect(18, 4, 13, 3, v), v => g.tri(18, 5, 21, 5, 18, 0, v), v => g.tri(23, 5, 26, 5, 24.5, 0, v), v => g.tri(28, 5, 31, 5, 31, 0, v)]);
+    const e = P.blink ? 'c' : P.eye, y = 11 + Math.round(f * 0.5);
+    if (e === 'h') { g.px(21, y + 1, 0); g.px(22, y, 0); g.px(23, y + 1, 0); g.px(25, y + 1, 0); g.px(26, y, 0); g.px(27, y + 1, 0); }
+    else if (e !== 'c' && e !== 's') { g.rect(20, y, 3, 1, 0); g.rect(26, y, 3, 1, 0); if (e === 'a') { g.px(20, y - 1, 0); g.px(28, y - 1, 0); } }
+    if (P.mouth >= 2) g.rect(23, y + 3, 3, 2, 0);
+    g.px(14, 19); g.px(34, 19);
+    const k = (t * 2) % 1; g.box(4, 30 - k * 10, 3, 3, 1); g.box(41, 24 - k * 8, 3, 3, 1);
+  } },
+  // ---- ESPECIAL ----
+  { id: 'PRISMAR', st: 7, at: 'PC', from: 'FUSION', m: [24, 17], look: 'regente de cristal facetado: ondas arriba, reticula abajo', d(g, P) {
+    const t = P.t, f = P.f;
+    solid(g, [v => g.tri(18, 40, 22, 47, 14, 47, v), v => g.tri(30, 40, 34, 47, 26, 47, v), v => g.tri(24, 5 + f, 38, 24, 10, 24, v), v => g.tri(10, 24, 38, 24, 24, 44, v),
+      v => g.tri(6, 13, 14, 21, 3, 28, v), v => g.tri(42, 13, 45, 28, 34, 21, v), v => g.tri(20, 7 + f, 28, 7 + f, 24, 1 + f, v)]);
+    g.line(24, 24, 24, 44); g.line(10, 24, 38, 24); g.line(24, 44, 17, 24); g.line(24, 44, 31, 24); g.line(6, 13, 8, 24); g.line(42, 13, 40, 24);
+    for (let x = 16; x < 33; x++) g.dot(x, 20 + Math.round(Math.sin(x * 0.9 + t * 4)));
+    for (let y = 27; y < 41; y += 3) for (let x = 13; x < 36; x += 3) g.dot(x, y);
+    eyes2(g, 24, 13 + f, 2, P, 0); mouth(g, 24, 17 + f, P, 2);
+    for (let i = 0; i < 2; i++) { const a = t * 2 + i * Math.PI, x = 24 + Math.cos(a) * 21, y = 32 + Math.sin(a) * 4; g.px(x, y - 2); g.px(x - 1, y); g.px(x + 1, y); g.px(x, y + 2); g.px(x, y); }
+    if ((t * 4 | 0) % 3 === 0) { g.px(14, 10); g.px(13, 10); g.px(14, 9); }
+  } },
+  { id: 'BALIZA', st: 7, at: 'N', from: 'SECRETO', m: [24, 32], look: 'fantasma-baliza con farol en la cabeza que barre rayos', d(g, P) {
+    const t = P.t, f = P.f;
+    const a = t * 2.5; for (const k of [0, Math.PI]) { const c = Math.cos(a + k), s = Math.sin(a + k); if (s < 0.2) for (let r = 6; r < 22; r += 2) g.px(24.5 + c * r, 11 + s * r * 0.5, 1); }
+    const sc = [0, 1, 2, 3, 4].map(i => v => g.ell(14 + i * 5, 40 + ((i + (t * 4 | 0)) % 2), 2.6, 2.6, v));
+    solid(g, [v => g.ell(24, 27, 10, 11, v), v => g.rect(14, 27, 21, 13, v), ...sc, v => g.ell(11, 30 + f, 3, 2, v), v => g.ell(37, 30 - f, 3, 2, v)]);
+    solid(g, [v => g.rect(19, 8, 11, 8, v), v => g.tri(18, 8, 31, 8, 24.5, 3, v)]);
+    g.rect(21, 10, 7, 4, (t * 4 | 0) % 2); g.rect(24, 8, 1, 8, 1);
+    g.shade(14, 36, 21, 8, 3);
+    eyes2(g, 24, 26, 4, P, 2);
+    if (P.mouth === 0) { g.ell(24, 33, 1.5, 1.5, 1); } else mouth(g, 24, 32, P, 3);
+  } }
+];
+const MON = {}; MONS.forEach((m, i) => { m.i = i; MON[m.id] = m; });
+const STN = ['BEBE I', 'BEBE II', 'NOVATO', 'CAMPEON', 'SUPREMO', 'MEGA', 'FALLIDA', 'ESPECIAL'];
+
+const POSES = [['REPOSO', 2.4], ['ATAQUE', 1.6], ['COMER', 1.8], ['DORMIR', 2.2], ['FELIZ', 1.4], ['RECHAZO', 1.4]];
+const POSET = POSES.reduce((a, p) => a + p[1], 0);
+function pose(name, T, t) {
+  const P = { f: 0, eye: 'o', mouth: 0, blink: false, t }; let dx = 0, dy = 0, flip = false;
+  if (name === 'REPOSO' || name === 'CAMINA') { P.f = ((T * (name === 'CAMINA' ? 5 : 2.5)) | 0) % 2; P.blink = (T % 2.4) > 2.25; if (name === 'REPOSO') dx = Math.round(Math.sin(T * 1.3) * 1.5); else dy = -P.f; }
+  else if (name === 'ATAQUE') { P.eye = 'a'; if (T < 0.5) { dx = -2; P.f = (T * 10 | 0) % 2; } else { dx = T < 0.8 ? 3 : 1; P.mouth = T < 1.1 ? 2 : 0; } }
+  else if (name === 'COMER') { P.mouth = ((T / 0.3) | 0) % 2 ? 0 : 2; if (T > 1.5) { P.mouth = 1; P.eye = 'h'; } }
+  else if (name === 'DORMIR') { P.eye = 'c'; P.f = (T | 0) % 2; dy = 1; }
+  else if (name === 'FELIZ') { P.eye = 'h'; P.mouth = 1; dy = -Math.round(Math.abs(Math.sin(T * Math.PI * 2.2)) * 4); }
+  else if (name === 'RECHAZO') { P.eye = 'a'; flip = ((T / 0.18) | 0) % 2 === 1; }
+  else if (name === 'TRISTE') { P.eye = 's'; P.f = (T * 1.2 | 0) % 2; dy = 2; }
+  else if (name === 'CANSADO') { P.eye = 'x'; P.f = (T * 0.8 | 0) % 2; dy = 1; }
+  else if (name === 'CARGA') { P.eye = 'a'; P.f = (T * 12 | 0) % 2; dx = P.f ? -1 : 0; }
+  return { P, dx, dy, flip };
+}
+const SPR = new Spr(48, 48);
+// fx,fy = foot point (bottom-centre). flip=true faces left. Returns screen bbox.
+function drawMon(s, m, fx, fy, P, o = {}) {
+  SPR.clr(); m.d(SPR, P);
+  const sc = o.sc || 1, x = fx - 24 * sc + (o.dx || 0), y = fy - 48 * sc + (o.dy || 0);
+  SPR.blit(s, x, y, { flip: o.flip, sil: o.sil, inv: o.inv, sc, fade: o.fade });
+  const bb = SPR.bbox();
+  const X0 = o.flip ? 47 - bb.x1 : bb.x0, X1 = o.flip ? 47 - bb.x0 : bb.x1;
+  return { x0: x + X0 * sc, x1: x + X1 * sc + sc - 1, y0: y + bb.y0 * sc, y1: y + bb.y1 * sc + sc - 1 };
+}
+function mouthAt(m, fx, fy, o = {}) { const sc = o.sc || 1; const mx = o.flip ? 47 - m.m[0] : m.m[0]; return [fx - 24 * sc + mx * sc + (o.dx || 0), fy - 48 * sc + m.m[1] * sc + (o.dy || 0)]; }
+
+// food sprite with bite masks (side = side the mouth is on: -1 left, 1 right)
+const FSP = new Spr(14, 12);
+function food(s, x, y, type, bites, side = -1) {
+  const g = FSP; g.clr();
+  if (type === 'carne') {
+    solid(g, [v => g.ell(8, 6, 5, 4.5, v), v => g.rect(1, 5, 4, 2, v), v => g.ell(1, 4.5, 1.2, 1.2, v), v => g.ell(1, 7.5, 1.2, 1.2, v)]);
+    g.shade(4, 2, 10, 9, 7); g.px(7, 4, 0); g.px(8, 3, 0); g.px(6, 5, 0);
+  } else if (type === 'prot') {
+    solid(g, [v => g.ell(4, 6, 3.5, 3.5, v), v => g.ell(10, 6, 3.5, 3.5, v), v => g.rect(4, 3, 6, 7, v)]);
+    g.rect(7, 2, 7, 9, 1); g.ell(10, 6, 3.5, 3.5, 1); g.rect(7, 2, 1, 9, 1); g.px(3, 4, 1); g.px(4, 4, 1);
+  } else if (type === 'chip') {
+    solid(g, [v => g.rect(3, 3, 8, 7, v)]); for (let i = 0; i < 3; i++) { g.rect(4 + i * 3, 1, 1, 2, 1); g.rect(4 + i * 3, 10, 1, 2, 1); } g.rect(5, 5, 4, 3, 1);
+  }
+  const cut = [0, 4, 7, 14][clamp(bites, 0, 3)];
+  if (cut) {
+    if (side < 0) { g.erase(0, 0, cut, 12); if (cut < 14) { g.erase(cut - 2, 2, 3, 2); g.erase(cut - 1, 7, 2, 3); } }
+    else { g.erase(14 - cut, 0, cut, 12); if (cut < 14) { g.erase(13 - cut, 2, 3, 2); g.erase(13 - cut, 7, 2, 3); } }
+  }
+  g.blit(s, x - 7, y - 6);
+}
+function biteCount(T, t0 = 0.3, per = 0.6) { return T < t0 ? 0 : Math.min(3, Math.floor((T - t0) / per) + 1); }
+
+// ================= LOOP =================
+const SCENES = {};
+function boot(ledFn) {
+  const items = [...document.querySelectorAll('canvas[data-scene]')].map(cv => ({ s: new Scr(cv), scene: cv.dataset.scene, led: cv.parentElement.querySelector('.led'), dev: cv.parentElement, cv, vis: true }));
+  if (typeof IntersectionObserver !== 'undefined') {
+    const io = new IntersectionObserver(es => es.forEach(e => { const it = items.find(k => k.cv === e.target); if (it) it.vis = e.isIntersecting; }), { rootMargin: '120px' });
+    items.forEach(it => { it.vis = false; io.observe(it.cv); });
+  }
+  let last = 0;
+  function loop(ms) {
+    if (ms - last > 40) {
+      last = ms; const t = ms / 1000;
+      for (const it of items) {
+        const fn = SCENES[it.scene]; if (!fn || !it.vis) continue;
+        const r = fn(it.s, t) || {}; it.s.flush();
+        const c = r.led || 'rgba(255,255,255,.08)';
+        if (it.led) { it.led.style.background = c; it.led.style.boxShadow = r.led ? `0 0 10px 3px ${c}` : 'none'; }
+        if (it.dev && it.dev.style) it.dev.style.transform = r.vib ? `translate(${(Math.random() * 4 - 2) | 0}px,${(Math.random() * 2 - 1) | 0}px)` : '';
+      }
+    }
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+}
+
+// ================= COMBATE =================
+const ME = MON.ECOLOBO, FOE = MON.FUZZCAN, PX = 30, FXX = 98, FY = 50;
+const wrap = (v, m) => ((v % m) + m) % m;
+function arena(s) { dots(s, 11, 50, 8); for (const x of [PX, FXX]) { s.ell(x, 51, 19, 2.5, 1); s.ell(x, 51, 17, 1.2, 0); } }
+function bhud(s, a, b) {
+  s.rect(0, 0, 128, 8, 1); s.txt(ME.id, 2, 2, 0); s.txt(FOE.id, 126 - tw(FOE.id), 2, 0);
+  for (let i = 0; i < 3; i++) { const x1 = 32 + i * 6, x2 = 91 - i * 6 - 4; i < a ? s.rect(x1, 2, 5, 5, 0) : s.box(x1, 2, 5, 5, 0); i < b ? s.rect(x2, 2, 5, 5, 0) : s.box(x2, 2, 5, 5, 0); }
+  s.txt('VS', 57, 2, 0);
+}
+function me(s, name, T, t, o = {}) { const ps = pose(name, T, t); return drawMon(s, ME, PX + ps.dx + (o.dx || 0), FY, ps.P, { dy: ps.dy + (o.dy || 0), inv: o.inv, fade: o.fade }); }
+function foe(s, name, T, t, o = {}) { const ps = pose(name, T, t); return drawMon(s, FOE, FXX - ps.dx + (o.dx || 0), FY, ps.P, { flip: !ps.flip, dy: ps.dy + (o.dy || 0), inv: o.inv, fade: o.fade }); }
+const meMouth = () => mouthAt(ME, PX, FY), foeMouth = () => mouthAt(FOE, FXX, FY, { flip: true });
+function shake(s, a) { s.ox = Math.round(Math.random() * a * 2 - a); s.oy = Math.round(Math.random() * a * 2 - a); }
+function dmg(s, x, y, txt, p) { const yy = y - p * 8; s.rect(x - 1, yy - 1, tw(txt) + 2, 7, 0); s.txt(txt, x, yy); }
+function shield(s, x, y) { s.rect(x, y, 5, 9, 0); s.box(x, y, 5, 9); s.px(x, y + 8, 0); s.px(x + 4, y + 8, 0); s.rect(x + 2, y + 2, 1, 5); s.rect(x + 1, y + 3, 3, 1); }
+
+SCENES.enc = (s, t) => {
+  const T = t % 7.5; s.clr(); s.ox = s.oy = 0; let led = null;
+  if (T < 2.4) {
+    for (let y = 10; y < 34; y += 3) s.dith(0, y, 128, 1, 2);
+    for (let x = 0; x < 128; x++) { const h = 34 + Math.round(Math.sin((x + t * 4) * 0.05) * 4); s.dith(x, h, 1, 64 - h, 5); s.px(x, h); }
+    for (let y = 47; y < 64; y++) for (let x = 0; x < 128; x++) if (hash(x + (t * 14 | 0), y, t * 12 | 0) < 0.15 + (y - 47) * 0.02) s.px(x, y);
+    const ps = pose(T < 1 ? 'CAMINA' : 'REPOSO', T, t), bb = drawMon(s, ME, 50, 58, ps.P, { dy: ps.dy });
+    if (T > 1) { const b = Math.round(Math.abs(Math.sin(T * 9)) * 3); bubble(s, bb.x1 - 6, Math.max(9, bb.y0 - 13) - b, 9, 11); s.rect(bb.x1 - 2, Math.max(9, bb.y0 - 13) - b + 2, 1, 5); s.px(bb.x1 - 2, Math.max(9, bb.y0 - 13) - b + 8); led = (T * 8 | 0) % 2 ? '#ff2a2a' : null; }
+    if (T > 1.6) { const p = ease((T - 1.6) / 0.7); for (let k = 0; k < 16; k++) { const w = Math.round(p * 128), y = k * 4; if (k % 2) s.rect(0, y, w, 4); else s.rect(128 - w, y, w, 4); } s.glitch(6); if ((T * 16 | 0) % 2) s.inv(); }
+    topbar(s, 'PRADO ESTATICO', 'D071');
+  } else if (T < 3.0) {
+    s.rect(0, 0, 128, 64, 1); const p = ease((T - 2.4) / 0.4);
+    const w = Math.round(p * 70);
+    for (let y = 18; y < 46; y++) { const sk = (y - 18) >> 1; s.rect(64 - w - sk + 7, y, w, 1, 0); s.rect(64 + sk - 7, y, w, 1, 0); }
+    for (let i = 0; i < 6; i++) { const x = wrap(i * 23 + T * 300, 128); s.rect(x, 12 + i * 8, 10, 1, 0); }
+    if (p > 0.85) { s.ctxt('VS', 64, 25, 1, 3); }
+    led = ATTRC[FOE.at];
+  } else {
+    const p = ease((T - 3.0) / 0.7);
+    arena(s);
+    const bm = drawMon(s, ME, -30 + (PX + 30) * p, FY, pose('REPOSO', T, t).P, {});
+    drawMon(s, FOE, 158 - (158 - FXX) * p, FY, pose('REPOSO', T, t).P, { flip: true });
+    if (T < 3.3) { s.rect(0, 0, 128, 64, 2); }
+    bhud(s, 0, 0);
+    panel(s, 51);
+    if (T > 3.8) { const n = Math.floor((T - 3.8) * 22); const l1 = 'UN FUZZCAN SALVAJE!', l2 = 'RUIDO  POT 31'; s.txt(l1.slice(0, n), 3, 53); s.txt(l2.slice(0, Math.max(0, n - l1.length)), 3, 59); attrIcon(s, 119, 53, 'R'); }
+    led = T < 4.2 ? ATTRC[FOE.at] : 'rgba(255,58,106,.35)';
+  }
+  return { led, vib: T > 1 && T < 1.5 };
+};
+
+const TRI = { P: [40, 15], R: [66, 49], C: [14, 49] };
+SCENES.tri = (s, t) => {
+  const T = t % 9, c = Math.floor(T / 3), L = T % 3; s.clr(); s.ox = s.oy = 0;
+  topbar(s, 'ATRIBUTOS', ['1/3', '2/3', '3/3'][c]);
+  const edges = [['P', 'R'], ['R', 'C'], ['C', 'P']];
+  const hot = [0, 2, -1][c];
+  edges.forEach(([a, b], i) => {
+    const [x0, y0] = TRI[a], [x1, y1] = TRI[b];
+    const n = 30; for (let k = 2; k < n - 2; k++) { const u = k / n, on = i === hot ? (k + (t * 20 | 0)) % 4 < 2 : k % 2 === 0; if (on) s.px(x0 + (x1 - x0) * u, y0 + (y1 - y0) * u); }
+    const mx = (x0 + x1) / 2, my = (y0 + y1) / 2, dx = (x1 - x0), dy = (y1 - y0), l = Math.hypot(dx, dy), ux = dx / l, uy = dy / l;
+    s.tri(mx + ux * 3, my + uy * 3, mx - ux * 2 - uy * 3, my - uy * 2 + ux * 3, mx - ux * 2 + uy * 3, my - uy * 2 - ux * 3);
+  });
+  for (const k of ['P', 'R', 'C']) { const [x, y] = TRI[k]; s.ell(x, y, 6, 6, 0); s.ell(x, y, 6, 6, 1); s.ell(x, y, 5, 5, 0); attrIcon(s, x - 3, y - 3, k); }
+  s.ell(40, 37, 5, 5, 0); s.ell(40, 37, 5, 5, 1); s.ell(40, 37, 4, 4, 0); attrIcon(s, 37, 34, 'N');
+  if (c === 2 && (t * 4 | 0) % 2) s.box(33, 30, 15, 15);
+  const foeA = ['R', 'C', 'N'][c];
+  const hl = c === 0 ? 'P' : c === 1 ? 'C' : null; if (hl && (t * 4 | 0) % 2) { const [x, y] = TRI[hl]; s.box(x - 8, y - 8, 17, 17); }
+  s.rect(78, 9, 1, 55);
+  s.txt('TU', 82, 11); attrIcon(s, 82, 17, 'P'); s.txt('PORTADOR', 91, 18);
+  s.txt('RIVAL', 82, 26); attrIcon(s, 82, 32, foeA); s.txt(ATTRN[foeA], 91, 33);
+  const res = ['VENTAJA', 'DESVENTAJA', 'NEUTRO'][c], pc = ['+6%', '-6%', '+0%'][c], hit = [56, 44, 50][c];
+  if (L > 0.6) { s.rect(80, 42, 48, 9, 1); s.ctxt(res, 104, 44, 0); }
+  if (L > 1.0) { s.txt('ACIERTO', 82, 54); s.txt(pc, 82, 59); s.txt(hit + '%', 126 - tw(hit + '%'), 59); }
+  if (L > 0.6 && L < 0.7) s.inv(80, 42, 48, 9);
+  return { led: ATTRC[foeA] };
+};
+
+SCENES.charge = (s, t) => {
+  const T = t % 9, a = Math.floor(T / 3), L = T % 3; s.clr(); s.ox = s.oy = 0;
+  arena(s);
+  const stop = [6, 12, 13][a], sweep = L < 1.6, cur = sweep ? Math.round((1 - Math.abs(((L * 1.5 + a * 0.3) % 2) - 1)) * 19) : stop;
+  const tier = ['PEQUENO', 'GRANDE', 'DOBLE!'][a];
+  const bb = me(s, 'CARGA', L, t);
+  foe(s, 'REPOSO', T, t);
+  const [mx, my] = meMouth();
+  if (sweep) { for (let i = 0; i < 8; i++) { const an = i * Math.PI / 4 + t * 5, r = 14 - (L * 6) % 10; s.px(mx + Math.cos(an) * r, my + Math.sin(an) * r); } }
+  else { const r = [3, 6, 9][a] + Math.sin(t * 20); s.dashRing(mx, my, r, t * 4, 10); if (a === 2) s.dashRing(mx, my, r + 4, -t * 4, 14); }
+  bhud(s, 1, 0);
+  s.rect(84, 10, 44, 7, 0); s.txt('FUERZA', 85, 11); for (let i = 0; i < 4; i++) i < 3 ? s.rect(110 + i * 4, 12, 3, 3) : s.box(110 + i * 4, 12, 3, 3);
+  panel(s, 51);
+  s.txt(sweep ? 'CARGA! OK EN LA ZONA' : 'TIRO ' + tier, 3, 53);
+  for (let i = 0; i < 20; i++) { const x = 3 + i * 5; (i >= 11 && i <= 15) ? s.rect(x, 59, 4, 4) : s.rect(x, 62, 4, 1); if (i === 13) s.rect(x + 1, 58, 2, 1); }
+  s.rect(3 + cur * 5 - 1, 57, 1, 7, 2); s.rect(3 + cur * 5 + 4, 57, 1, 7, 2);
+  okBtn(s, 109, 54, !sweep && L < 1.8);
+  if (!sweep && L < 1.7) s.inv(0, 51, 100, 13);
+  return { led: sweep ? 'rgba(58,208,255,.35)' : ['#3ad0ff', '#7af', '#fff'][a] };
+};
+
+SCENES.aim = (s, t) => {
+  const T = t % 8, r = Math.floor(T / 4), L = T % 4; s.clr(); s.ox = s.oy = 0;
+  arena(s);
+  const pick = r === 0 ? 'ALTO' : 'BAJO', guard = 'BAJO', blocked = pick === guard;
+  const hit = L > 2.4 && L < 2.7 && !blocked;
+  if (hit) shake(s, 1);
+  me(s, L > 1.6 && L < 2.4 ? 'ATAQUE' : 'REPOSO', L > 1.6 ? L - 1.1 : L, t);
+  foe(s, 'REPOSO', T, t, { inv: hit && (t * 20 | 0) % 2 });
+  if (L > 1.2) shield(s, 70, guard === 'ALTO' ? 18 : 34);
+  if (L > 1.6) {
+    const [mx, my] = meMouth(), ty = pick === 'ALTO' ? 22 : 40, p = seg(L, 1.6, 2.4);
+    if (p < 1) shot(s, mx + 4 + p * (76 - mx), my + (ty - my) * p, 'P', 3, 1, t);
+    else if (blocked && L < 3) { burst(s, 70, ty, 6, 6); for (let i = 0; i < 3; i++) s.px(66 - (L - 2.4) * 30 - i * 3, ty - 4 + i * 4); }
+    else if (!blocked && L < 2.9) { burst(s, 92, ty, 4 + (L - 2.4) * 16); star5(s, 92, ty); }
+  }
+  s.ox = s.oy = 0;
+  bhud(s, r === 0 && L < 2.4 ? 1 : 2, 1);
+  for (const [up, y] of [[1, 14], [0, 40]]) { const sel = (up ? 'ALTO' : 'BAJO') === pick, on = L < 1.6 ? (sel ? (t * 4 | 0) % 2 : 0) : sel; arrowUD(s, 3, y, up, on); }
+  panel(s, 51);
+  if (L < 1.6) { s.txt('APUNTA: ^ ALTO  v BAJO', 3, 53); s.txt('ELIGES ' + pick + '...', 3, 59); }
+  else if (L < 2.4) { s.txt('TIRO ' + pick + '!', 3, 53); s.txt('GUARDIA RIVAL: ' + guard, 3, 59); }
+  else { s.txt(blocked ? 'BLOQUEADO!' : 'PASA! GOLPE', 3, 53); s.txt(blocked ? 'DANO A LA MITAD' : 'GUARDIA EQUIVOCADA', 3, 59); }
+  return { led: hit ? '#ff2a2a' : blocked && L > 2.4 && L < 2.8 ? '#ffffff' : null, vib: hit };
+};
+
+function shotLine(ids, a) {
+  return (s, t) => {
+    const T = t % 8, k = Math.floor(T / 2), L = T % 2, m = MON[ids[k]]; s.clr(); s.ox = s.oy = 0;
+    dots(s, 12, 58, 8);
+    const ps = pose(L < 0.5 ? 'REPOSO' : 'ATAQUE', L < 0.5 ? L : L - 0.5, t);
+    const hit = L > 1.2 && L < 1.5;
+    if (hit) shake(s, k + 1 > 2 ? 2 : 1);
+    s.rect(112, 20, 6, 38); s.rect(113, 21, 4, 36, 0); for (let y = 24; y < 56; y += 6) s.rect(113, y, 4, 1);
+    s.ell(118, 59, 8, 1.5, 1);
+    const bb = drawMon(s, m, 26, 60, ps.P, { dx: ps.dx, dy: ps.dy });
+    const [mx, my] = mouthAt(m, 26, 60, { dx: ps.dx, dy: ps.dy });
+    if (L >= 1.0 && L < 1.2) { const p = (L - 1.0) / 0.2; shot(s, mx + 4 + p * (110 - mx), my, a, k + 2, 1, t); }
+    else if (L >= 0.5 && L < 1.0) { const p = (L - 0.5) / 0.5; shot(s, mx + 4 + p * (110 - mx) * 0.0 + p * 0, my, a, 1, 1, t); for (let i = 0; i < 6; i++) { const an = i * 1.05 + t * 6, r = 10 * (1 - p) + 2; s.px(mx + Math.cos(an) * r, my + Math.sin(an) * r); } }
+    if (hit) { burst(s, 110, my, 5 + (k + 1) * 3 + (L - 1.2) * 20, 10); s.rect(112, 20, 6, 38, 2); }
+    s.ox = s.oy = 0;
+    const lab = STN[m.st], sz = ['3X3', '5X5', '7X7', 'RAYO 9X5'][k];
+    topbar(s, lab + ' ' + m.id, sz);
+    return { led: hit ? '#ffffff' : ATTRC[a] };
+  };
+}
+SCENES.shotsP = shotLine(['KORNO', 'ECOLOBO', 'LANZERO', 'AUREOLA'], 'P');
+SCENES.shotsR = shotLine(['ESTATIK', 'FUZZCAN', 'WYVOLT', 'DRAKSTAT'], 'R');
+SCENES.shotsC = shotLine(['CHIPKO', 'CERROJO', 'BOVEDAX', 'ORAKULO'], 'C');
+
+function exchange(s, t, L, who, hit, a0, b0) {
+  // one shot: 0..0.5 wind-up, 0.5..0.9 travel, 0.9..1.4 impact
+  arena(s);
+  const atk = who === 'me', impact = L > 0.9 && L < 1.4;
+  if (impact && hit) shake(s, L < 1.05 ? 2 : 1);
+  const flash = impact && hit && L < 1.0;
+  if (atk) { me(s, L < 1.2 ? 'ATAQUE' : 'REPOSO', L, t); foe(s, 'REPOSO', t, t, { inv: flash, dy: !hit && L > 0.7 && L < 1.3 ? -Math.round(Math.sin((L - 0.7) / 0.6 * Math.PI) * 10) : 0 }); }
+  else { me(s, 'REPOSO', t, t, { inv: flash, dy: !hit && L > 0.7 && L < 1.3 ? -Math.round(Math.sin((L - 0.7) / 0.6 * Math.PI) * 10) : 0 }); foe(s, L < 1.2 ? 'ATAQUE' : 'REPOSO', L, t); }
+  const [mx, my] = atk ? meMouth() : foeMouth(), tx = atk ? FXX - 6 : PX + 6;
+  if (L > 0.5 && L < 0.9) { const p = (L - 0.5) / 0.4; shot(s, mx + (tx - mx) * p, my, atk ? 'P' : 'R', 3, atk ? 1 : -1, t); }
+  if (L >= 0.9 && !hit && L < 1.4) { const p = (L - 0.9) / 0.5, x = tx + (atk ? 1 : -1) * p * 60; shot(s, x, my, atk ? 'P' : 'R', 3, atk ? 1 : -1, t); for (let i = 0; i < 3; i++) s.rect(tx + (atk ? 6 : -10), my - 8 + i * 6, 4, 1); }
+  if (impact && hit) { star5(s, tx, my); burst(s, tx, my, 6 + (L - 0.9) * 20, 8); }
+  s.ox = s.oy = 0;
+  if (impact && hit) dmg(s, tx - 4, my - 14, '-1', (L - 0.9) / 0.5);
+  if (impact && !hit) { s.rect(tx - 10, my - 18, 23, 7, 0); s.txt('FALLO', tx - 9, my - 17); }
+  return { led: impact && hit ? '#ff2a2a' : null, vib: impact && hit && L < 1.0 };
+}
+SCENES.hit = (s, t) => { const T = t % 4; s.clr(); s.ox = s.oy = 0; const r = exchange(s, t, T, 'me', true); const a = T > 0.9 ? 2 : 1; bhud(s, a, 1); panel(s, 51); s.txt(T < 0.9 ? 'ECOLOBO DISPARA!' : 'GOLPE! ' + a + '/3', 3, 53); if (T > 0.9) s.txt('FLASH + TEMBLOR + VIBRA', 3, 59); if (T > 0.9 && T < 1.0) s.inv(); return r; };
+SCENES.miss = (s, t) => { const T = t % 4; s.clr(); s.ox = s.oy = 0; const r = exchange(s, t, T, 'me', false); bhud(s, 1, 1); panel(s, 51); s.txt(T < 0.9 ? 'ECOLOBO DISPARA!' : 'FUZZCAN ESQUIVA!', 3, 53); if (T > 0.9) s.txt('EL TIRO SE PIERDE', 3, 59); return r; };
+SCENES.foe = (s, t) => { const T = t % 4.5; s.clr(); s.ox = s.oy = 0; const r = exchange(s, t, T, 'foe', true); bhud(s, 2, T > 0.9 ? 2 : 1); panel(s, 51); s.txt('TURNO RIVAL', 3, 53); s.txt(T < 0.9 ? 'FUZZCAN LANZA RAYO' : 'TE DIO! ' + (T > 0.9 ? 2 : 1) + '/3', 3, 59); if (T > 0.9 && T < 1.0) s.inv(); return r; };
+const SEQ = [['me', 1], ['foe', 1], ['me', 1], ['foe', 0], ['me', 0], ['foe', 1], ['me', 1]];
+SCENES.count = (s, t) => {
+  const D = 1.6, total = SEQ.length * D + 2.5, T = t % total, k = Math.min(SEQ.length - 1, Math.floor(T / D)), L = T - k * D;
+  s.clr(); s.ox = s.oy = 0;
+  let a = 0, b = 0; for (let i = 0; i < k; i++) { if (SEQ[i][1]) SEQ[i][0] === 'me' ? a++ : b++; }
+  const [who, hit] = SEQ[k];
+  let r = {};
+  if (T < SEQ.length * D) { r = exchange(s, t, L, who, !!hit); if (hit && L > 0.9) who === 'me' ? a++ : b++; }
+  else { a = 3; b = 2; arena(s); const p = T - SEQ.length * D; me(s, 'FELIZ', p, t); foe(s, 'TRISTE', p, t, { fade: Math.max(0, 16 - p * 10) }); if (p < 0.3) shake(s, 3); s.ox = s.oy = 0; if (p < 0.12) s.inv(); s.rect(36, 18, 56, 18, 0); s.box(36, 18, 56, 18); s.ctxt('K.O.', 64, 22, 1, 2); r = { led: '#3aff7a' }; }
+  bhud(s, a, b);
+  panel(s, 51);
+  s.txt('A 3 GOLPES GANA', 3, 53); s.txt('TU ' + a + ' - ' + b + ' RIVAL', 3, 59);
+  for (let i = 0; i < 3; i++) { const x = 80 + i * 8; i < a ? heart(s, x, 57) : heartO(s, x, 57); }
+  return r;
+};
+SCENES.win = (s, t) => {
+  const T = t % 7; s.clr(); s.ox = s.oy = 0;
+  arena(s);
+  if (T < 1.2) foe(s, 'TRISTE', T, t, { fade: Math.max(0, Math.round(16 - T * 14)) });
+  const bb = me(s, T > 0.8 ? 'FELIZ' : 'REPOSO', T, t);
+  if (T > 0.8) { for (let i = 0; i < 4; i++) { const q = (T * 0.8 + i / 4) % 1; sparkle(s, 12 + i * 14, 46 - q * 30, 1); } }
+  if (T > 1.0) { const p = T < 1.5 ? ease((T - 1.0) / 0.5) : 1, y = Math.round(-14 + p * 24 + (T > 1.5 && T < 1.7 ? Math.sin((T - 1.5) * 30) * 2 : 0)); s.rect(52, y, 72, 15, 1); s.rect(54, y + 2, 68, 11, 0); s.ctxt('VICTORIA', 88, y + 3, 1, 2); }
+  if (T > 1.7) { const e = Math.min(12, Math.floor((T - 1.7) * 12)); s.rect(70, 26, 50, 7, 0); s.txt('+' + e + ' EXP', 72, 27); }
+  if (T > 2.6) { const p = clamp((T - 2.6) / 0.6, 0, 1), by = p < 1 ? -10 + p * 54 : 44 - Math.abs(Math.sin((T - 3.2) * 6)) * Math.max(0, 4 - (T - 3.2) * 6); s.ell(90, by, 5, 4, 1); s.ell(90, by, 4, 3, 0); s.rect(86, by, 9, 1, 1); s.rect(89, by - 3, 3, 7, 1); s.px(90, by - 1, 0); s.px(90, by + 1, 0); if (T > 3.4) { sparkle(s, 84, 38, (t * 6 | 0) % 2 + 1); sparkle(s, 97, 41, ((t * 6 | 0) + 1) % 2 + 1); } }
+  bhud(s, 3, 1); panel(s, 51);
+  s.txt('GANASTE! VICTORIAS 64%', 3, 53); s.txt(T > 3.4 ? 'OBJETO: ESCUDO' : 'BUSCANDO BOTIN...', 3, 59);
+  return { led: '#3aff7a' };
+};
+SCENES.lose = (s, t) => {
+  const T = t % 7; s.clr(); s.ox = s.oy = 0;
+  arena(s);
+  foe(s, T > 0.6 ? 'FELIZ' : 'REPOSO', T, t);
+  const sink = Math.min(2, Math.floor(T * 2));
+  if (T > 1.5 && T < 1.62) shake(s, 2);
+  const bb = me(s, T < 0.6 ? 'CANSADO' : 'TRISTE', T, t, { dy: sink });
+  s.ox = s.oy = 0;
+  if (T > 1.5) { const k = T < 1.9 ? Math.round(ease((T - 1.5) / 0.4) * 1) : 1; bandage(s, bb.x1 - 12, bb.y0 + 6); if (T < 1.7) burst(s, bb.x1 - 9, bb.y0 + 9, 8, 6); }
+  if (T > 0.3) { const p = T < 0.8 ? ease((T - 0.3) / 0.5) : 1; s.rect(0, -14 + p * 24, 64, 14, 1); s.ctxt('DERROTA', 32, -12 + p * 24, 0, 2); }
+  const ys = (t * 8) % 5; s.px(bb.x0 + 4, bb.y0 + 6 + ys); s.px(bb.x0 + 4, bb.y0 + 7 + ys);
+  bhud(s, 1, 3); panel(s, 51);
+  s.txt(T > 1.5 ? 'HERIDO! USA UNA VENDA' : 'ECOLOBO CAE...', 3, 53); s.txt('-1 ANIMO  -2G', 3, 59);
+  return { led: T < 1.5 ? ((t * 4 | 0) % 2 ? '#ff2a2a' : '#300') : '#ff2a2a' };
+};
+boot();
+
+</script>
+</body>
+</html>
