@@ -127,6 +127,7 @@ typedef struct {
     bool hike_done;
     DigiviceMidwayResult midway;
     bool midway_claimed;
+    bool midway_accepted;
     // The encounter the app already auto-started or saw declined, so it never insists.
     uint8_t offered_kind;
     uint32_t offered_expires;

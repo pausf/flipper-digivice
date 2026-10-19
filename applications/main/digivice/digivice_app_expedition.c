@@ -107,6 +107,7 @@ static void midway_enter(DigiviceApp* app) {
     app->midway.kind = digivice_expedition_midway_kind(app->state.area);
     app->midway.ok = false;
     app->midway_claimed = false;
+    app->midway_accepted = true;
     digivice_app_set_screen(app, DigiviceScreenMidway);
     // Spring and cache pay out at once; only the shortcut asks first.
     if(app->midway.kind != DigiviceMidwayShortcut) {
@@ -194,7 +195,8 @@ static void midway_input(DigiviceApp* app, const InputEvent* event) {
         return;
     }
     if(event->key == InputKeyOk || event->key == InputKeyBack) {
-        app->midway = digivice_midway_claim(app->digivice, event->key == InputKeyOk);
+        app->midway_accepted = event->key == InputKeyOk;
+        app->midway = digivice_midway_claim(app->digivice, app->midway_accepted);
         app->midway_claimed = true;
         digivice_get_state(app->digivice, &app->state);
     }
@@ -400,7 +402,7 @@ static void draw_map(Canvas* canvas, DigiviceApp* app) {
     }
     int32_t sx = node_x[app->map_sel];
     int32_t sy = node_y[app->map_sel];
-    digivice_draw_brackets(canvas, sx - 8, sy - 8, sx + 8, sy + 8, 3);
+    digivice_draw_brackets(canvas, sx - 8, sy - 8, sx + 8, sy + 7, 3);
 
     draw_panel(canvas);
     uint8_t a = app->map_sel;
@@ -518,8 +520,10 @@ static void draw_midway(Canvas* canvas, DigiviceApp* app) {
     } else if(kind == DigiviceMidwayCache) {
         line = app->midway.ok ? DigiviceStrMidCacheShield : DigiviceStrMidCacheExp;
     } else if(app->midway.kind == DigiviceMidwayShortcut) {
-        // Skip and lose both leave ok false: the distance tells them apart.
-        line = app->midway.ok ? DigiviceStrMidShortcutWin : DigiviceStrMidShortcutLose;
+        // Skip and lose both leave ok false: midway_accepted tells them apart.
+        line = !app->midway_accepted ? DigiviceStrMidSkipped :
+               app->midway.ok        ? DigiviceStrMidShortcutWin :
+                                       DigiviceStrMidShortcutLose;
     }
     digivice_draw_text(canvas, 3, 53, digivice_app_str(app, line));
     if(kind == DigiviceMidwayCache && !app->midway.ok) {
@@ -539,10 +543,18 @@ static void draw_gate(Canvas* canvas, DigiviceApp* app) {
         canvas, app->state.area, (DigiviceForm)app->state.form, 96, 50, app->frame, true);
     digivice_draw_form(
         canvas, (DigiviceForm)app->state.form, 30, 39, app->frame, DigivicePoseIdle, false);
-    draw_top_bar(
-        canvas,
+    // The bar stops at x 62 so the tallest bosses (x 64..127) are never covered.
+    char title[24];
+    snprintf(
+        title,
+        sizeof(title),
+        "%s %s",
         digivice_app_str(app, DigiviceStrEncBoss),
         digivice_expedition_boss_name(app->state.area));
+    canvas_draw_box(canvas, 0, 0, 62, 9);
+    canvas_set_color(canvas, ColorWhite);
+    digivice_draw_text(canvas, 2, 2, title);
+    canvas_set_color(canvas, ColorBlack);
     draw_panel(canvas);
     // The scratch line is wider than the pet's half: it takes turns with the requirement.
     DigiviceStr need = (app->frame / 20) % 2 ? DigiviceStrGateScratch : DigiviceStrGateNeed;
