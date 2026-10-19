@@ -610,7 +610,7 @@ void digivice_draw_shot(
     int8_t dir,
     uint32_t frame) {
     canvas_set_color(canvas, ColorBlack);
-    if(size >= DIGIVICE_SHOT_BEAM) {
+    if(size == DIGIVICE_SHOT_BEAM) {
         int32_t x0 = dir > 0 ? x - 8 : x;
         digivice_draw_box(canvas, x0, y - 2, 9, 5);
         canvas_set_color(canvas, ColorWhite);
@@ -747,13 +747,9 @@ void digivice_draw_exclam_bubble(Canvas* canvas, int32_t x, int32_t y) {
     digivice_draw_line(canvas, x + 1, y + 10, x + 7, y + 10);
     digivice_draw_line(canvas, x, y + 1, x, y + 9);
     digivice_draw_line(canvas, x + 8, y + 1, x + 8, y + 9);
-    // Tail towards the speaker, bottom left.
-    canvas_set_color(canvas, ColorWhite);
-    digivice_draw_box(canvas, x + 3, y + 10, 3, 1);
-    canvas_set_color(canvas, ColorBlack);
+    // Tail towards the speaker, bottom left, hanging off the bottom border.
     digivice_draw_dot(canvas, x + 3, y + 11);
-    digivice_draw_dot(canvas, x + 4, y + 12);
-    digivice_draw_dot(canvas, x + 5, y + 10);
+    digivice_draw_dot(canvas, x + 2, y + 12);
     digivice_draw_box(canvas, x + 4, y + 2, 1, 5);
     digivice_draw_dot(canvas, x + 4, y + 8);
 }

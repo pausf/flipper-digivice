@@ -160,7 +160,8 @@ void digivice_draw_boss(
     uint32_t frame,
     bool silhouette);
 /** Projectile centred on (x, y) flying towards `dir` (+1 right, -1 left). `size` is 2, 3, 5,
- * 7 (plus 2 for a Big charge) or DIGIVICE_SHOT_BEAM. The style follows the attribute. */
+ * 7 (plus 2 for a Big charge) or DIGIVICE_SHOT_BEAM (a distinct
+ * value: a 9 px beam, never a Big charge). The style follows the attribute. */
 void digivice_draw_shot(
     Canvas* canvas,
     DigiviceAttr attr,
@@ -176,7 +177,7 @@ void digivice_draw_burst(Canvas* canvas, int32_t cx, int32_t cy, int32_t r);
 void digivice_draw_star5(Canvas* canvas, int32_t cx, int32_t cy);
 /** 5x9 shield, top-left at (x, y). */
 void digivice_draw_shield(Canvas* canvas, int32_t x, int32_t y);
-/** 9x11 speech bubble with a "!", top-left at (x, y). */
+/** 9x13 speech bubble with a "!", top-left at (x, y). */
 void digivice_draw_exclam_bubble(Canvas* canvas, int32_t x, int32_t y);
 /** 7x7 bandage cross with a white outline, top-left at (x, y). */
 void digivice_draw_bandage(Canvas* canvas, int32_t x, int32_t y);

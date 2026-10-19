@@ -107,7 +107,7 @@
 #define DIGIVICE_SHOT_ROOKIE_FOE 3
 #define DIGIVICE_SHOT_CHAMP_FOE  5
 #define DIGIVICE_SHOT_BOSS       7
-#define DIGIVICE_SHOT_BEAM       9
+#define DIGIVICE_SHOT_BEAM       10
 
 // Cutscene length in frames of the 100 ms animation clock.
 #define DIGIVICE_EVO_FRAMES 50

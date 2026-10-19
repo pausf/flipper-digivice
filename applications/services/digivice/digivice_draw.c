@@ -183,7 +183,7 @@ void digivice_draw_fill_triangle(
             int32_t w1 = dv_edge(cx, cy, ax, ay, x, y);
             int32_t w2 = dv_edge(ax, ay, bx, by, x, y);
             if((w0 >= 0 && w1 >= 0 && w2 >= 0) || (w0 <= 0 && w1 <= 0 && w2 <= 0)) {
-                canvas_draw_dot(canvas, x, y);
+                dv_dot(canvas, x, y);
             }
         }
     }
