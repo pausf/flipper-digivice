@@ -27,8 +27,9 @@ void digivice_app_refusal(DigiviceApp* app, DigiviceResult result) {
         [DigiviceResultAwake] = DigiviceStrNoticeOnlyAtNight,
         [DigiviceResultHealthy] = DigiviceStrNoticeHealthy,
         [DigiviceResultNothingToClean] = DigiviceStrNoticeNothingToClean,
+        [DigiviceResultTooYoung] = DigiviceStrNoticeTooYoung,
     };
-    if(result == DigiviceResultOk || result > DigiviceResultNothingToClean) return;
+    if(result == DigiviceResultOk || result > DigiviceResultTooYoung) return;
     digivice_app_notice(app, refusal_str[result]);
 }
 
@@ -55,15 +56,38 @@ bool digivice_meter_hit(const DigiviceMeter* meter) {
     return digivice_rules_timing_hit(meter->cursor, meter->zone_start);
 }
 
+static bool digivice_trail_screen(DigiviceScreen screen) {
+    return screen == DigiviceScreenEncounter || screen == DigiviceScreenBattle;
+}
+
 void digivice_app_set_screen(DigiviceApp* app, DigiviceScreen screen) {
+    // The background cache only lives while a trail screen shows it.
+    if(!digivice_trail_screen(screen) && app->scene) {
+        free(app->scene);
+        app->scene = NULL;
+    }
     app->screen = screen;
     app->screen_frame = 0;
 }
 
+const DigiviceScene* digivice_app_scene(DigiviceApp* app) {
+    if(!app->scene) {
+        app->scene = malloc(sizeof(DigiviceScene));
+        digivice_scene_init(app->scene, app->state.area);
+    } else if(app->scene->area != app->state.area) {
+        digivice_scene_init(app->scene, app->state.area);
+    }
+    return app->scene;
+}
+
+uint16_t digivice_app_day_minute(void) {
+    return (uint16_t)((furi_hal_rtc_get_timestamp() % 86400UL) / 60UL);
+}
+
 void digivice_app_refresh(DigiviceApp* app) {
     digivice_get_state(app->digivice, &app->state);
-    bool busy = app->screen == DigiviceScreenBattle || app->screen == DigiviceScreenTrain ||
-                app->screen == DigiviceScreenFeed || app->screen == DigiviceScreenEvolution ||
+    bool busy = app->screen == DigiviceScreenBattle || app->screen == DigiviceScreenEncounter ||
+                app->screen == DigiviceScreenTrain || app->screen == DigiviceScreenFeed || app->screen == DigiviceScreenEvolution ||
                 app->care != DigiviceCareNone;
     if(app->state.evo_from != DigiviceFormNone && !busy) {
         digivice_app_set_screen(app, DigiviceScreenEvolution);
@@ -153,11 +177,11 @@ static void digivice_main_open(DigiviceApp* app) {
         }
         break;
     case DigiviceIconBattle:
-        result = digivice_rules_can_battle(&app->state);
+        result = digivice_rules_can_battle(&app->state, now);
         if(result != DigiviceResultOk) {
             digivice_app_refusal(app, result);
         } else if(digivice_rules_virux_active(&app->state, now)) {
-            digivice_battle_enter(app);
+            digivice_encounter_start(app, DigiviceEncounterVirux);
         } else {
             digivice_app_notice(
                 app,
@@ -252,6 +276,9 @@ static void digivice_app_draw_callback(Canvas* canvas, void* context) {
     case DigiviceScreenTrain:
         digivice_train_draw(canvas, app);
         break;
+    case DigiviceScreenEncounter:
+        digivice_encounter_draw(canvas, app);
+        break;
     case DigiviceScreenBattle:
         digivice_battle_draw(canvas, app);
         break;
@@ -292,6 +319,9 @@ static void digivice_app_input(DigiviceApp* app, const InputEvent* event) {
         break;
     case DigiviceScreenTrain:
         digivice_train_input(app, event);
+        break;
+    case DigiviceScreenEncounter:
+        digivice_encounter_input(app, event);
         break;
     case DigiviceScreenBattle:
         digivice_battle_input(app, event);
@@ -335,6 +365,9 @@ static void digivice_app_tick(DigiviceApp* app) {
         break;
     case DigiviceScreenTrain:
         digivice_train_tick(app);
+        break;
+    case DigiviceScreenEncounter:
+        digivice_encounter_tick(app);
         break;
     case DigiviceScreenBattle:
         digivice_battle_tick(app);
@@ -399,6 +432,7 @@ int32_t digivice_app(void* p) {
     furi_record_close(RECORD_GUI);
     if(app->digivice) furi_record_close(RECORD_DIGIVICE);
     furi_record_close(RECORD_NOTIFICATION);
+    free(app->scene);
     furi_message_queue_free(app->input_queue);
     furi_mutex_free(app->mutex);
     free(app);

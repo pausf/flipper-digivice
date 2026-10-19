@@ -523,37 +523,6 @@ void digivice_draw_virux(Canvas* canvas, int32_t cx, int32_t cy, uint32_t frame)
     canvas_set_color(canvas, ColorBlack);
 }
 
-void digivice_draw_hp_box(
-    Canvas* canvas,
-    int32_t x,
-    int32_t y,
-    const char* name,
-    uint16_t hp,
-    uint16_t hp_max) {
-    const int32_t w = 58;
-    canvas_set_color(canvas, ColorWhite);
-    canvas_draw_box(canvas, x, y, w, 13);
-    canvas_set_color(canvas, ColorBlack);
-    digivice_draw_brackets(canvas, x, y, x + w - 1, y + 12, 3);
-    digivice_draw_text(canvas, x + 3, y + 1, name);
-
-    uint32_t pct = hp_max ? (uint32_t)hp * 100 / hp_max : 0;
-    // Sized for any 32-bit value: gcc's -Wformat-truncation can't see that pct <= 100.
-    char text[12];
-    snprintf(text, sizeof(text), "%lu%%", (unsigned long)pct);
-    digivice_draw_text(canvas, x + w - 3 - digivice_draw_text_width(canvas, text), y + 1, text);
-
-    uint32_t segs = hp_max ? ((uint32_t)hp * 10 + hp_max - 1) / hp_max : 0;
-    for(uint32_t i = 0; i < 10; i++) {
-        int32_t sx = x + 3 + (int32_t)i * 5;
-        if(i < segs) {
-            canvas_draw_box(canvas, sx, y + 8, 4, 3);
-        } else {
-            canvas_draw_box(canvas, sx, y + 10, 4, 1);
-        }
-    }
-}
-
 void digivice_draw_meter(Canvas* canvas, int32_t x, int32_t y, uint8_t zone_start, uint8_t cursor) {
     for(uint8_t i = 0; i < DIGIVICE_METER_SEGMENTS; i++) {
         int32_t sx = x + i * 5;

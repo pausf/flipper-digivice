@@ -11,7 +11,6 @@
 
 #define DIGIVICE_APP_FRAME_MS   100
 #define DIGIVICE_APP_AIM_FRAMES 50
-#define DIGIVICE_APP_HIT_FRAMES 10
 
 // Middle band between the two icon bars.
 #define BAND_TOP    12
@@ -21,6 +20,7 @@ typedef enum {
     DigiviceScreenMain,
     DigiviceScreenFeed,
     DigiviceScreenTrain,
+    DigiviceScreenEncounter,
     DigiviceScreenBattle,
     DigiviceScreenProfile,
     DigiviceScreenSettings,
@@ -45,22 +45,14 @@ typedef enum {
 } DigiviceSetting;
 
 typedef enum {
-    DigiviceBattlePhaseIntro,
-    DigiviceBattlePhaseChoose,
+    DigiviceBattlePhaseCharge,
     DigiviceBattlePhaseAim,
-    DigiviceBattlePhasePlayerHit,
-    DigiviceBattlePhaseFoeHit,
+    DigiviceBattlePhasePlayerShot,
+    DigiviceBattlePhaseFoeShot,
     DigiviceBattlePhaseEnd,
 } DigiviceBattlePhase;
 
-typedef enum {
-    DigiviceBattleChoiceAttack,
-    DigiviceBattleChoiceDefend,
-    DigiviceBattleChoiceFlee,
-    DigiviceBattleChoiceCount,
-} DigiviceBattleChoice;
-
-/** Ping-pong cursor over DIGIVICE_METER_SEGMENTS, shared by training and battle. */
+/** Ping-pong cursor over DIGIVICE_METER_SEGMENTS for the training minigame. */
 typedef struct {
     uint8_t zone_start;
     uint8_t cursor;
@@ -98,12 +90,26 @@ typedef struct {
     bool train_done;
     bool train_success;
 
+    DigiviceScene* scene; /**< area background on the heap, freed when leaving the trail */
+
     DigiviceBattle battle;
     DigiviceBattlePhase phase;
-    uint8_t choice;
-    uint16_t last_damage;
-    DigiviceBattleResult result;
-    const char* message;
+    uint8_t enc_kind; /**< DigiviceEncounterKind of the current fight */
+    uint8_t enc_area; /**< area the fight started in */
+    uint8_t zone_start;
+    uint8_t zone_w;
+    uint8_t cursor; /**< charge meter cursor, frozen once locked */
+    bool charge_locked;
+    uint8_t charge; /**< DigiviceCharge of the player's shot */
+    uint8_t guard0; /**< guard height at aim frame 0 */
+    uint8_t aim; /**< DigiviceAim of the player's shot, or the foe's height on its turn */
+    bool aim_locked;
+    uint32_t aim_frame; /**< aim-phase frame of the press: the guard is sampled 5 frames later */
+    uint8_t shot; /**< DigiviceShot on screen */
+    uint8_t result; /**< DigiviceBattleResult once decided */
+    DigiviceReward reward;
+    bool streak_lost;
+    bool area_cleared;
 } DigiviceApp;
 
 void digivice_app_set_screen(DigiviceApp* app, DigiviceScreen screen);
@@ -144,7 +150,17 @@ void digivice_train_input(DigiviceApp* app, const InputEvent* event);
 void digivice_train_tick(DigiviceApp* app);
 void digivice_train_draw(Canvas* canvas, DigiviceApp* app);
 
-void digivice_battle_enter(DigiviceApp* app);
+/** The cached background of the pet's area, allocated on first use. */
+const DigiviceScene* digivice_app_scene(DigiviceApp* app);
+/** Minutes since midnight from the RTC, for the day and night sky. */
+uint16_t digivice_app_day_minute(void);
+
+/** Starts the encounter transition, or shows why the pet cannot fight now. */
+void digivice_encounter_start(DigiviceApp* app, DigiviceEncounterKind kind);
+void digivice_encounter_input(DigiviceApp* app, const InputEvent* event);
+void digivice_encounter_tick(DigiviceApp* app);
+void digivice_encounter_draw(Canvas* canvas, DigiviceApp* app);
+
 void digivice_battle_input(DigiviceApp* app, const InputEvent* event);
 void digivice_battle_tick(DigiviceApp* app);
 void digivice_battle_draw(Canvas* canvas, DigiviceApp* app);

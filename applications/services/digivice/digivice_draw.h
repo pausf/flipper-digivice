@@ -74,15 +74,6 @@ void digivice_draw_form(
     bool silhouette);
 void digivice_draw_virux(Canvas* canvas, int32_t cx, int32_t cy, uint32_t frame);
 
-/** Segmented HUD HP box, 58x13, with the name and the percentage. */
-void digivice_draw_hp_box(
-    Canvas* canvas,
-    int32_t x,
-    int32_t y,
-    const char* name,
-    uint16_t hp,
-    uint16_t hp_max);
-
 /** Segmented timing meter; the zone is drawn hollow and the cursor as a tall bar. */
 void digivice_draw_meter(Canvas* canvas, int32_t x, int32_t y, uint8_t zone_start, uint8_t cursor);
 

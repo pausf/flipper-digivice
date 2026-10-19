@@ -40,19 +40,6 @@ static const char* const strings_es[DigiviceStrCount] = {
     [DigiviceStrTrainHit] = "FUERZA +1  " A_ACUTE "NIMO +1",
     [DigiviceStrTrainMiss] = "FALLASTE...",
 
-    [DigiviceStrBattleAttack] = "ATACAR",
-    [DigiviceStrBattleDefend] = "DEFENDER",
-    [DigiviceStrBattleFlee] = "HUIR",
-    [DigiviceStrBattleAim] = EXCL_INV "PULSA OK A TIEMPO!",
-    [DigiviceStrBattleFoeStrikes] = EXCL_INV "EL VIRUX ATACA!",
-    [DigiviceStrBattleFled] = EXCL_INV "ESCAPASTE!",
-    [DigiviceStrBattleCrit] = EXCL_INV "BYTE CR" I_ACUTE "TICO!",
-    [DigiviceStrBattleGlancing] = "GOLPE D" E_ACUTE "BIL",
-    [DigiviceStrBattleMiss] = "CORRUPTO... " EXCL_INV "FALLO!",
-    [DigiviceStrBattleAppeared] = EXCL_INV "APARECI" O_ACUTE " UN VIRUX!",
-    [DigiviceStrBattleWon] = EXCL_INV "VIRUX BORRADO! +EXP",
-    [DigiviceStrBattleLost] = "SISTEMA CORRUPTO...",
-
     [DigiviceStrCleanDone] = EXCL_INV "LIMPIO!",
     [DigiviceStrLightYawn] = "BOSTEZO...",
     [DigiviceStrLightNight] = "BUENAS NOCHES",
@@ -211,19 +198,6 @@ static const char* const strings_en[DigiviceStrCount] = {
     [DigiviceStrTrainHit] = "STR +1  MOOD +1",
     [DigiviceStrTrainMiss] = "MISSED...",
 
-    [DigiviceStrBattleAttack] = "ATTACK",
-    [DigiviceStrBattleDefend] = "DEFEND",
-    [DigiviceStrBattleFlee] = "FLEE",
-    [DigiviceStrBattleAim] = "TIME IT! PRESS OK",
-    [DigiviceStrBattleFoeStrikes] = "VIRUX STRIKES!",
-    [DigiviceStrBattleFled] = "GOT AWAY SAFELY",
-    [DigiviceStrBattleCrit] = "CRITICAL BYTE!",
-    [DigiviceStrBattleGlancing] = "GLANCING HIT",
-    [DigiviceStrBattleMiss] = "CORRUPTED... MISS!",
-    [DigiviceStrBattleAppeared] = "A VIRUX APPEARED!",
-    [DigiviceStrBattleWon] = "VIRUX DELETED! EXP UP",
-    [DigiviceStrBattleLost] = "SYSTEM CORRUPTED...",
-
     [DigiviceStrCleanDone] = "CLEAN!",
     [DigiviceStrLightYawn] = "YAWN...",
     [DigiviceStrLightNight] = "GOOD NIGHT",
@@ -358,8 +332,6 @@ static const char* const strings_en[DigiviceStrCount] = {
 
 // Slot widths in pixels, from the layouts in digivice_draw.c and the app screens.
 #define SLOT_LABEL   120 // centred label box, full width minus its frame
-#define SLOT_TEXTBOX 108 // battle text box, between the ">" and the blinking arrow
-#define SLOT_CHOICE  31 // one of the three battle choices
 #define SLOT_BAR     25 // profile bar label, left of the 12 bar segments
 #define SLOT_SHORT   40 // short tags: header mode, feed hunger box, yum, settings values
 #define SLOT_ROW     100 // full-width rows: settings, error screen, train result
@@ -401,19 +373,6 @@ static const uint8_t budgets[DigiviceStrCount] = {
     [DigiviceStrTrainHint] = SLOT_ROW,
     [DigiviceStrTrainHit] = SLOT_ROW,
     [DigiviceStrTrainMiss] = SLOT_ROW,
-
-    [DigiviceStrBattleAttack] = SLOT_CHOICE,
-    [DigiviceStrBattleDefend] = SLOT_CHOICE,
-    [DigiviceStrBattleFlee] = SLOT_CHOICE,
-    [DigiviceStrBattleAim] = SLOT_TEXTBOX,
-    [DigiviceStrBattleFoeStrikes] = SLOT_TEXTBOX,
-    [DigiviceStrBattleFled] = SLOT_TEXTBOX,
-    [DigiviceStrBattleCrit] = SLOT_TEXTBOX,
-    [DigiviceStrBattleGlancing] = SLOT_TEXTBOX,
-    [DigiviceStrBattleMiss] = SLOT_TEXTBOX,
-    [DigiviceStrBattleAppeared] = SLOT_TEXTBOX,
-    [DigiviceStrBattleWon] = SLOT_TEXTBOX,
-    [DigiviceStrBattleLost] = SLOT_TEXTBOX,
 
     [DigiviceStrCleanDone] = SLOT_LABEL,
     [DigiviceStrLightYawn] = SLOT_LABEL,
