@@ -25,6 +25,9 @@ jobs:
           fetch-depth: 1
       - name: Build update package
         run: ./fbt COMPACT=1 DEBUG=0 updater_package
+      - name: Report firmware size
+        # fbt downloads its toolchain into toolchain/<arch>-<os>; text + data is the flash used.
+        run: toolchain/x86_64-linux/bin/arm-none-eabi-size build/f7-firmware-C/firmware.elf
       - uses: actions/upload-artifact@v4
         with:
           name: digivice-update-package
