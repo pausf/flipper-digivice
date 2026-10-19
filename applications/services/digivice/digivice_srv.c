@@ -263,12 +263,16 @@ static void digivice_publish(Digivice* digivice) {
     furi_pubsub_publish(digivice->pubsub, &snapshot);
 }
 
-/** A trail encounter spawned (or was replaced), or the walk just reached the boss. */
+/** A trail encounter spawned (or was replaced), or the boss became fightable: the walk reached
+ * it with the gate open, or the pet grew past the gate while it waited. */
 static bool digivice_encounter_appeared(const DigiviceState* before, const DigiviceState* after) {
     bool spawned = after->enc_foe != DIGIVICE_ENC_NONE &&
                    (before->enc_foe == DIGIVICE_ENC_NONE ||
                     after->enc_expires != before->enc_expires);
-    return spawned || (after->distance == 0 && before->distance > 0);
+    bool boss_open = digivice_expedition_boss_ready(after) &&
+                     digivice_expedition_boss_gate_open(after);
+    bool boss_new = before->distance > 0 || !digivice_expedition_boss_gate_open(before);
+    return spawned || (boss_open && boss_new);
 }
 
 /** Runs `before` vs current state bookkeeping after any mutation done under the mutex. */
