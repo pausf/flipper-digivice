@@ -12,3 +12,5 @@ extern const NotificationSequence digivice_sequence_sick;
 extern const NotificationSequence digivice_sequence_sick_silent;
 extern const NotificationSequence digivice_sequence_poop;
 extern const NotificationSequence digivice_sequence_bedtime;
+extern const NotificationSequence digivice_sequence_encounter;
+extern const NotificationSequence digivice_sequence_lose;

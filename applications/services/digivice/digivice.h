@@ -2,7 +2,7 @@
 
 #include <core/pubsub.h>
 
-#include "digivice_rules.h"
+#include "digivice_expedition.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -42,6 +42,16 @@ void digivice_set_mode(Digivice* digivice, DigiviceMode mode);
 
 /** Thread safe, blocking. Replaces the pet with a fresh egg; language and mode stay. */
 void digivice_reset(Digivice* digivice);
+
+/** Thread safe, blocking. Grants Hike paces within the hourly cap; returns the paces granted.
+ * Hike paces are bookkeeping, so the service saves them explicitly. */
+uint8_t digivice_hike_finish(Digivice* digivice, uint8_t good_taps);
+
+/** Thread safe, blocking. False (and nothing changes) when the area is locked. */
+bool digivice_select_area(Digivice* digivice, uint8_t area);
+
+/** Thread safe, blocking. Claims the available midway event; `accept` answers the shortcut. */
+DigiviceMidwayResult digivice_midway_claim(Digivice* digivice, bool accept);
 
 /** Thread safe, never blocks: if the queue is full the cutscene simply plays again later. */
 void digivice_ack_evolution(Digivice* digivice);

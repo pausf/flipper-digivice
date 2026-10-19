@@ -20,6 +20,9 @@ typedef enum {
     DigiviceMessageTypeSetLang,
     DigiviceMessageTypeSetMode,
     DigiviceMessageTypeReset,
+    DigiviceMessageTypeHike,
+    DigiviceMessageTypeSelectArea,
+    DigiviceMessageTypeMidway,
 } DigiviceMessageType;
 
 typedef struct {
@@ -27,6 +30,7 @@ typedef struct {
     FuriEventFlag* flag;
     bool* result;
     DigiviceResult* outcome;
+    void* output; /**< typed result: uint8_t paces (Hike), DigiviceMidwayResult (Midway) */
     union {
         DolphinDeed deed;
         bool success;

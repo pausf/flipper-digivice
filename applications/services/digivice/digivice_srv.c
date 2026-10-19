@@ -97,6 +97,42 @@ void digivice_reset(Digivice* digivice) {
     digivice_send_wait(digivice, &message);
 }
 
+uint8_t digivice_hike_finish(Digivice* digivice, uint8_t good_taps) {
+    furi_check(digivice);
+    uint8_t granted = 0;
+    DigiviceMessage message = {
+        .type = DigiviceMessageTypeHike,
+        .output = &granted,
+        .value = good_taps,
+    };
+    digivice_send_wait(digivice, &message);
+    return granted;
+}
+
+bool digivice_select_area(Digivice* digivice, uint8_t area) {
+    furi_check(digivice);
+    bool selected = false;
+    DigiviceMessage message = {
+        .type = DigiviceMessageTypeSelectArea,
+        .result = &selected,
+        .value = area,
+    };
+    digivice_send_wait(digivice, &message);
+    return selected;
+}
+
+DigiviceMidwayResult digivice_midway_claim(Digivice* digivice, bool accept) {
+    furi_check(digivice);
+    DigiviceMidwayResult result = {.kind = DigiviceMidwayCount, .ok = false};
+    DigiviceMessage message = {
+        .type = DigiviceMessageTypeMidway,
+        .output = &result,
+        .success = accept,
+    };
+    digivice_send_wait(digivice, &message);
+    return result;
+}
+
 void digivice_battle_finish(Digivice* digivice, DigiviceBattleResult result) {
     furi_check(digivice);
     DigiviceMessage message = {.type = DigiviceMessageTypeBattle, .battle = result};
@@ -215,6 +251,14 @@ static void digivice_publish(Digivice* digivice) {
     furi_pubsub_publish(digivice->pubsub, &snapshot);
 }
 
+/** A trail encounter spawned (or was replaced), or the walk just reached the boss. */
+static bool digivice_encounter_appeared(const DigiviceState* before, const DigiviceState* after) {
+    bool spawned = after->enc_foe != DIGIVICE_ENC_NONE &&
+                   (before->enc_foe == DIGIVICE_ENC_NONE ||
+                    after->enc_expires != before->enc_expires);
+    return spawned || (after->distance == 0 && before->distance > 0);
+}
+
 /** Runs `before` vs current state bookkeeping after any mutation done under the mutex. */
 static void digivice_changed(Digivice* digivice, const DigiviceState* before) {
     DigiviceState after;
@@ -230,6 +274,8 @@ static void digivice_changed(Digivice* digivice, const DigiviceState* before) {
         notification_message(
             digivice->notification,
             asleep ? &digivice_sequence_sick_silent : &digivice_sequence_sick);
+    } else if(digivice_encounter_appeared(before, &after) && !asleep) {
+        notification_message(digivice->notification, &digivice_sequence_encounter);
     } else if(after.poop > before->poop && !asleep) {
         notification_message(digivice->notification, &digivice_sequence_poop);
     }
@@ -288,6 +334,7 @@ static void digivice_process_message(FuriEventLoopObject* object, void* context)
 
     uint32_t now = furi_hal_rtc_get_timestamp();
     bool spawned = false;
+    bool bookkeeping = false;
 
     furi_check(furi_mutex_acquire(digivice->mutex, FuriWaitForever) == FuriStatusOk);
     DigiviceState before = digivice->state;
@@ -342,12 +389,29 @@ static void digivice_process_message(FuriEventLoopObject* object, void* context)
     case DigiviceMessageTypeAckEvolution:
         digivice_rules_ack_evolution(state);
         break;
+    case DigiviceMessageTypeHike:
+        *(uint8_t*)message.output = digivice_expedition_hike(state, message.value, now);
+        // Hike paces only move bookkeeping fields, which digivice_changed would not save.
+        bookkeeping = true;
+        break;
+    case DigiviceMessageTypeSelectArea:
+        *message.result = digivice_expedition_select_area(state, message.value);
+        break;
+    case DigiviceMessageTypeMidway:
+        *(DigiviceMidwayResult*)message.output = digivice_expedition_midway_claim(
+            state, message.success, digivice_rules_rng_pct(state), now);
+        digivice_rules_evolve(state, now);
+        break;
     default:
         break;
     }
     furi_mutex_release(digivice->mutex);
 
     if(spawned) notification_message(digivice->notification, &digivice_sequence_virux);
+    if(bookkeeping) {
+        digivice->dirty = true;
+        furi_event_loop_timer_start(digivice->flush_timer, DIGIVICE_FLUSH_S * 1000UL);
+    }
     digivice_changed(digivice, &before);
 
     if(message.flag) furi_event_flag_set(message.flag, DIGIVICE_DONE_FLAG);

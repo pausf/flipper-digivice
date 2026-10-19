@@ -111,3 +111,31 @@ const NotificationSequence digivice_sequence_poop = {
     &message_green_0,
     NULL,
 };
+
+// Two red blinks with a buzz each: a trail encounter spawned or the boss is ready.
+const NotificationSequence digivice_sequence_encounter = {
+    &message_red_255,
+    &message_vibro_on,
+    &message_delay_100,
+    &message_vibro_off,
+    &message_red_0,
+    &message_delay_100,
+    &message_red_255,
+    &message_vibro_on,
+    &message_delay_100,
+    &message_vibro_off,
+    &message_red_0,
+    NULL,
+};
+
+// Red and a falling two-note phrase: the battle was lost.
+const NotificationSequence digivice_sequence_lose = {
+    &message_red_255,
+    &message_note_e4,
+    &message_delay_100,
+    &message_note_c4,
+    &message_delay_250,
+    &message_sound_off,
+    &message_red_0,
+    NULL,
+};
