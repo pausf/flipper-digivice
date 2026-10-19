@@ -673,18 +673,30 @@ void digivice_draw_home(
     }
     if(!sd_ok) digivice_draw_text(canvas, 115, 57, "SD!");
 
-    if(digivice_rules_virux_active(state, now) && (frame % 10) < 6) {
-        uint32_t left_min = (state->virux_expires - now + 59) / 60;
-        snprintf(
-            text,
-            sizeof(text),
-            "%s %lum",
-            digivice_str(lang, DigiviceStrHomeVirux),
-            (unsigned long)left_min);
-        canvas_draw_box(canvas, 44, 56, 46, 8);
-        canvas_set_color(canvas, ColorWhite);
-        digivice_draw_text(canvas, 46, 57, text);
-        canvas_set_color(canvas, ColorBlack);
+    // Something waits on the trail: a blinking "!" over the pet and, for a fight, a label.
+    if(digivice_rules_attention(state, now) && (frame % 10) < 6) {
+        digivice_draw_exclam_bubble(canvas, 76, hy - 26);
+        text[0] = '\0';
+        if(digivice_rules_virux_active(state, now)) {
+            uint32_t left_min = (state->virux_expires - now + 59) / 60;
+            snprintf(
+                text,
+                sizeof(text),
+                "%s %lum",
+                digivice_str(lang, DigiviceStrHomeVirux),
+                (unsigned long)left_min);
+        } else if(digivice_expedition_trail_pending(state, now)) {
+            snprintf(text, sizeof(text), "%s", digivice_str(lang, DigiviceStrHomeEncounter));
+        } else if(
+            digivice_expedition_boss_ready(state) && digivice_expedition_boss_gate_open(state)) {
+            snprintf(text, sizeof(text), "%s", digivice_str(lang, DigiviceStrHomeBoss));
+        }
+        if(text[0]) {
+            canvas_draw_box(canvas, 44, 56, 46, 8);
+            canvas_set_color(canvas, ColorWhite);
+            digivice_draw_text(canvas, 46, 57, text);
+            canvas_set_color(canvas, ColorBlack);
+        }
     }
 
     digivice_draw_scanline(canvas, frame);
