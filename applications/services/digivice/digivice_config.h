@@ -31,7 +31,6 @@
 
 #define DIGIVICE_WIN_BASE_EXP 10
 #define DIGIVICE_WIN_DATA     3
-#define DIGIVICE_FLEE_PCT     50
 
 // Training EXP, granted in both modes.
 #define DIGIVICE_TRAIN_EXP_OK   3
@@ -49,16 +48,36 @@
 #define DIGIVICE_SICK_TWO_DOSES_S (12UL * 3600UL)
 #define DIGIVICE_LIGHT_MISTAKE_S  3600UL
 
-// Multipliers are stored x10 so the rules stay in integer math.
-#define DIGIVICE_TIMING_HIT_X10  15
-#define DIGIVICE_TIMING_MISS_X10 5
-#define DIGIVICE_TYPE_ADV_X10    15
+// Battle. Indexed by DigiviceStage: egg, baby, rookie, champion. Multipliers are x10.
+#define DIGIVICE_STAGE_POWER       {0, 8, 20, 40}
+#define DIGIVICE_VIRUX_POWER       {24, 24, 24, 46}
+#define DIGIVICE_STRENGTH_CAP      24
+#define DIGIVICE_CHARGE_X10        {6, 10, 15}
+#define DIGIVICE_ATTR_PCT          5
+#define DIGIVICE_HIT_MIN_PCT       10
+#define DIGIVICE_HIT_MAX_PCT       90
+#define DIGIVICE_BLOCK_MIN_PCT     5
+#define DIGIVICE_HITS_TO_WIN       3
+#define DIGIVICE_ROUND_CAP         10
+#define DIGIVICE_ZONE_BASE_W       3
+#define DIGIVICE_NEAR_SEGMENTS     2
+#define DIGIVICE_CHARGE_FRAMES     30
+#define DIGIVICE_AIM_FRAMES        30
+#define DIGIVICE_GUARD_FLIP_FRAMES 5
+#define DIGIVICE_IMPACT_LAG_FRAMES 5
+#define DIGIVICE_TRAIL_EXP_BASE    6
+#define DIGIVICE_TRAIL_EXP_AREA    2
+#define DIGIVICE_BOSS_EXP_BASE     40
+#define DIGIVICE_BOSS_EXP_AREA     20
+#define DIGIVICE_DROP_PCT          10
+#define DIGIVICE_INJURY_S          3600UL
 
-// Indexed by DigiviceStage: egg, baby, rookie, champion.
-#define DIGIVICE_BASE_DAMAGE {1, 2, 4, 7}
-#define DIGIVICE_PLAYER_HP   {10, 14, 24, 40}
-#define DIGIVICE_VIRUX_HP    {10, 14, 22, 38}
-#define DIGIVICE_VIRUX_ATK   {2, 3, 4, 7}
+// Projectile sizes in px; the Baby fires 2x2, the area 8 boss a 9x5 beam.
+#define DIGIVICE_STAGE_SHOT      {2, 2, 3, 5}
+#define DIGIVICE_SHOT_ROOKIE_FOE 3
+#define DIGIVICE_SHOT_CHAMP_FOE  5
+#define DIGIVICE_SHOT_BOSS       7
+#define DIGIVICE_SHOT_BEAM       10
 
 // Timing meter shared by training and battle.
 #define DIGIVICE_METER_SEGMENTS 20
@@ -101,13 +120,6 @@
 #define DIGIVICE_CACHE_EXP              20
 #define DIGIVICE_SPRING_CORRUPTION_DROP 10
 #define DIGIVICE_SHORTCUT_WIN_PCT       50
-
-// Projectile sizes in px; the Baby fires 2x2, the area 8 boss a 9x5 beam.
-#define DIGIVICE_STAGE_SHOT      {2, 2, 3, 5}
-#define DIGIVICE_SHOT_ROOKIE_FOE 3
-#define DIGIVICE_SHOT_CHAMP_FOE  5
-#define DIGIVICE_SHOT_BOSS       7
-#define DIGIVICE_SHOT_BEAM       10
 
 // Cutscene length in frames of the 100 ms animation clock.
 #define DIGIVICE_EVO_FRAMES 50

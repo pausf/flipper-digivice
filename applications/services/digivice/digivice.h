@@ -2,7 +2,7 @@
 
 #include <core/pubsub.h>
 
-#include "digivice_expedition.h"
+#include "digivice_battle.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -24,8 +24,13 @@ bool digivice_feed(Digivice* digivice);
 /** Thread safe, blocking. Refused (Sick, Asleep) without changing anything. */
 DigiviceResult digivice_train(Digivice* digivice, bool success);
 
-/** Thread safe, blocking. Removes the pending VIRUX and applies rewards or penalties. */
-void digivice_battle_finish(Digivice* digivice, DigiviceBattleResult result);
+/** Thread safe, blocking. Applies a finished battle, clears its trail encounter or VIRUX and
+ * returns the reward. `shield_used` drops the Shield the fight consumed. */
+DigiviceReward digivice_battle_finish(
+    Digivice* digivice,
+    DigiviceEncounterKind kind,
+    DigiviceBattleResult result,
+    bool shield_used);
 
 /** Thread safe, blocking. NothingToClean when there was no poop. */
 DigiviceResult digivice_clean(Digivice* digivice);

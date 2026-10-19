@@ -30,11 +30,16 @@ typedef struct {
     FuriEventFlag* flag;
     bool* result;
     DigiviceResult* outcome;
-    void* output; /**< typed result: uint8_t paces (Hike), DigiviceMidwayResult (Midway) */
+    /** Typed result: DigiviceReward (Battle), uint8_t paces (Hike), DigiviceMidwayResult. */
+    void* output;
     union {
         DolphinDeed deed;
         bool success;
-        DigiviceBattleResult battle;
+        struct {
+            uint8_t kind; /**< DigiviceEncounterKind */
+            uint8_t result; /**< DigiviceBattleResult */
+            bool shield_used;
+        } battle;
         uint8_t value;
     };
 } DigiviceMessage;

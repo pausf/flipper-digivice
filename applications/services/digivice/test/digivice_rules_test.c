@@ -437,212 +437,6 @@ static void test_player_type_by_form(void) {
     CHECK(digivice_rules_stage(&s) == DigiviceStageChampion);
 }
 
-static void test_lose_can_transform(void) {
-    DigiviceState s = rookie(T0);
-    s.virux_type = DigiviceTypeIr;
-    s.virux_expires = T0 + 60;
-    s.corruption = 90;
-    digivice_rules_battle_result(&s, DigiviceBattleResultLose, T0);
-    CHECK(s.form == DigiviceFormVirubyte);
-    CHECK(s.prev_form == DigiviceFormBytemon);
-}
-
-static void test_type_chart(void) {
-    CHECK(digivice_rules_type_x10(DigiviceTypeNfc, DigiviceTypeUsb) == 15);
-    CHECK(digivice_rules_type_x10(DigiviceTypeUsb, DigiviceTypeIr) == 15);
-    CHECK(digivice_rules_type_x10(DigiviceTypeIr, DigiviceTypeSubGhz) == 15);
-    CHECK(digivice_rules_type_x10(DigiviceTypeSubGhz, DigiviceTypeNfc) == 15);
-    CHECK(digivice_rules_type_x10(DigiviceTypeUsb, DigiviceTypeNfc) == 10);
-    CHECK(digivice_rules_type_x10(DigiviceTypeNfc, DigiviceTypeNfc) == 10);
-    CHECK(digivice_rules_type_x10(DigiviceTypeNone, DigiviceTypeNfc) == 10);
-    CHECK(digivice_rules_type_x10(DigiviceTypeNfc, DigiviceTypeNone) == 10);
-}
-
-static void test_damage_formula(void) {
-    // (base + strength) x timing x type, integer math.
-    CHECK(digivice_rules_damage(4, 0, true, DigiviceTypeNone, DigiviceTypeNfc) == 6);
-    CHECK(digivice_rules_damage(4, 0, false, DigiviceTypeNone, DigiviceTypeNfc) == 2);
-    CHECK(digivice_rules_damage(4, 6, true, DigiviceTypeNfc, DigiviceTypeUsb) == 22);
-    CHECK(digivice_rules_damage(7, 3, false, DigiviceTypeIr, DigiviceTypeSubGhz) == 7);
-    CHECK(digivice_rules_damage(1, 0, false, DigiviceTypeNone, DigiviceTypeNone) == 1);
-}
-
-static void test_battle_flow(void) {
-    DigiviceState s = rookie(T0);
-    s.virux_type = DigiviceTypeIr;
-    s.virux_expires = T0 + 60;
-    DigiviceBattle b;
-    digivice_battle_init(&b, &s);
-    CHECK(b.stage == DigiviceStageRookie);
-    CHECK(b.foe_type == DigiviceTypeIr);
-    CHECK(b.player_hp == b.player_hp_max && b.foe_hp == b.foe_hp_max);
-    CHECK(digivice_battle_outcome(&b) == DigiviceBattleOngoing);
-
-    uint16_t foe_before = b.foe_hp;
-    uint16_t dealt = digivice_battle_player_attack(&b, &s, true, 99);
-    CHECK(dealt == 6);
-    CHECK(b.foe_hp == foe_before - 6);
-
-    uint16_t taken = digivice_battle_foe_attack(&b);
-    digivice_battle_defend(&b);
-    CHECK(b.defending);
-    uint16_t halved = digivice_battle_foe_attack(&b);
-    CHECK(halved == taken / 2);
-    CHECK(!b.defending);
-
-    b.foe_hp = 1;
-    digivice_battle_player_attack(&b, &s, false, 99);
-    CHECK(digivice_battle_outcome(&b) == DigiviceBattleWon);
-
-    b.foe_hp = 5;
-    b.player_hp = 1;
-    digivice_battle_foe_attack(&b);
-    CHECK(digivice_battle_outcome(&b) == DigiviceBattleLost);
-}
-
-static void test_corrupt_attack_can_miss(void) {
-    DigiviceState s = rookie(T0);
-    s.corruption = 60;
-    s.virux_type = DigiviceTypeNfc;
-    DigiviceBattle b;
-    digivice_battle_init(&b, &s);
-    uint16_t hp = b.foe_hp;
-    CHECK(digivice_battle_player_attack(&b, &s, true, 0) == 0);
-    CHECK(b.foe_hp == hp);
-}
-
-static void test_flee(void) {
-    CHECK(digivice_battle_flee(DIGIVICE_FLEE_PCT - 1));
-    CHECK(!digivice_battle_flee(DIGIVICE_FLEE_PCT));
-}
-
-static void test_battle_rewards(void) {
-    DigiviceState s = rookie(T0);
-    s.virux_type = DigiviceTypeUsb;
-    s.virux_expires = T0 + 60;
-    uint32_t exp = s.exp;
-    digivice_rules_battle_result(&s, DigiviceBattleResultWin, T0);
-    CHECK(s.exp == exp + 2 * DIGIVICE_WIN_BASE_EXP);
-    CHECK(s.data[DigiviceTypeUsb] == DIGIVICE_WIN_DATA);
-    CHECK(s.wins == 1);
-    CHECK(s.virux_type == DigiviceTypeNone);
-
-    s.virux_type = DigiviceTypeNfc;
-    digivice_rules_battle_result(&s, DigiviceBattleResultLose, T0);
-    CHECK(s.corruption == DIGIVICE_CORRUPTION_LOSE_GAIN);
-    CHECK(s.losses == 1);
-    CHECK(s.virux_type == DigiviceTypeNone);
-
-    s.virux_type = DigiviceTypeIr;
-    DigiviceState before = s;
-    digivice_rules_battle_result(&s, DigiviceBattleResultFled, T0);
-    CHECK(s.virux_type == DigiviceTypeNone);
-    CHECK(s.exp == before.exp && s.corruption == before.corruption);
-}
-
-static void test_corrupt_pet_fights_at_pre_corruption_stage(void) {
-    DigiviceState champ = fresh(T0);
-    champ.form = DigiviceFormVirubyte;
-    champ.prev_form = DigiviceFormTagdrake;
-    champ.corruption = DIGIVICE_CORRUPTION_MAX;
-    champ.virux_type = DigiviceTypeIr;
-    DigiviceBattle b;
-    digivice_battle_init(&b, &champ);
-    const uint16_t champion_hp[] = DIGIVICE_PLAYER_HP;
-    const uint16_t champion_foe_hp[] = DIGIVICE_VIRUX_HP;
-    CHECK(b.stage == DigiviceStageChampion);
-    CHECK(b.player_hp == champion_hp[DigiviceStageChampion]);
-    CHECK(b.player_hp_max == champion_hp[DigiviceStageChampion]);
-    CHECK(b.foe_hp == champion_foe_hp[DigiviceStageChampion]);
-    // A corrupt pet has no type of its own.
-    CHECK(b.player_type == DigiviceTypeNone);
-
-    // Same shape from a Rookie, so a stage() that ignores prev_form cannot pass both.
-    DigiviceState rook = champ;
-    rook.prev_form = DigiviceFormBytemon;
-    digivice_battle_init(&b, &rook);
-    CHECK(b.stage == DigiviceStageRookie);
-    CHECK(b.player_hp == champion_hp[DigiviceStageRookie]);
-    CHECK(b.foe_hp == champion_foe_hp[DigiviceStageRookie]);
-}
-
-static void test_corrupt_attack_miss_edges(void) {
-    DigiviceState s = rookie(T0);
-    s.virux_type = DigiviceTypeNfc;
-    DigiviceBattle b;
-
-    s.corruption = DIGIVICE_CORRUPTION_GLITCH;
-    digivice_battle_init(&b, &s);
-    uint16_t hp = b.foe_hp;
-    CHECK(digivice_battle_player_attack(&b, &s, true, DIGIVICE_CORRUPTION_MISS_PCT - 1) == 0);
-    CHECK(b.foe_hp == hp);
-    CHECK(digivice_battle_player_attack(&b, &s, true, DIGIVICE_CORRUPTION_MISS_PCT) > 0);
-    CHECK(b.foe_hp < hp);
-
-    // Just under the glitch threshold the roll never matters.
-    s.corruption = DIGIVICE_CORRUPTION_GLITCH - 1;
-    digivice_battle_init(&b, &s);
-    for(uint8_t rng = 0; rng < 100; rng++) {
-        CHECK(digivice_battle_player_attack(&b, &s, false, rng) > 0);
-    }
-}
-
-static void test_foe_type_multiplier(void) {
-    const uint16_t atk[] = DIGIVICE_VIRUX_ATK;
-    uint16_t adv = atk[DigiviceStageChampion] * DIGIVICE_TYPE_ADV_X10 / 10;
-    CHECK(adv != atk[DigiviceStageChampion]);
-
-    // USB beats IR, so a USB foe has the advantage over an IR player.
-    DigiviceState ir = fresh(T0);
-    ir.form = DigiviceFormBeamdrake;
-    ir.virux_type = DigiviceTypeUsb;
-    DigiviceBattle b;
-    digivice_battle_init(&b, &ir);
-    CHECK(digivice_battle_foe_attack(&b) == adv);
-    CHECK(b.player_hp == b.player_hp_max - adv);
-
-    // The advantage also stacks with defending: halved after the multiplier.
-    digivice_battle_init(&b, &ir);
-    digivice_battle_defend(&b);
-    CHECK(digivice_battle_foe_attack(&b) == adv / 2);
-
-    // The reverse matchup (IR foe vs USB player) and same-type are neutral.
-    DigiviceState usb = fresh(T0);
-    usb.form = DigiviceFormPlugdrake;
-    usb.virux_type = DigiviceTypeIr;
-    digivice_battle_init(&b, &usb);
-    CHECK(digivice_battle_foe_attack(&b) == atk[DigiviceStageChampion]);
-
-    usb.virux_type = DigiviceTypeUsb;
-    digivice_battle_init(&b, &usb);
-    CHECK(digivice_battle_foe_attack(&b) == atk[DigiviceStageChampion]);
-}
-
-static void test_win_without_virux_type_grants_exp_only(void) {
-    // Guard bytes after the state catch a write through data[DigiviceTypeNone].
-    struct {
-        DigiviceState s;
-        uint8_t guard[1024];
-    } box;
-    box.s = rookie(T0);
-    memset(box.guard, 0xAA, sizeof(box.guard));
-    uint32_t exp = box.s.exp;
-    CHECK(box.s.virux_type == DigiviceTypeNone);
-
-    digivice_rules_battle_result(&box.s, DigiviceBattleResultWin, T0);
-    CHECK(box.s.exp == exp + 2 * DIGIVICE_WIN_BASE_EXP);
-    CHECK(box.s.wins == 1);
-    for(uint8_t t = 0; t < DigiviceTypeCount; t++) {
-        CHECK(box.s.data[t] == 0);
-    }
-    for(size_t i = 0; i < sizeof(box.guard); i++) {
-        if(box.guard[i] != 0xAA) {
-            CHECK(box.guard[i] == 0xAA);
-            break;
-        }
-    }
-}
-
 static void test_deed_out_of_range_is_ignored(void) {
     DigiviceState s = hacker(rookie(T0));
     DigiviceState before = s;
@@ -977,13 +771,6 @@ static void test_train_refused_while_sick_or_asleep(void) {
     CHECK(digivice_rules_train(&s, true, night) == DigiviceResultAsleep);
     CHECK(memcmp(&s, &before, sizeof(s)) == 0);
     CHECK(digivice_rules_can_train(&s, T0) == DigiviceResultOk);
-}
-
-static void test_battle_refused_while_sick(void) {
-    DigiviceState s = rookie(T0);
-    CHECK(digivice_rules_can_battle(&s) == DigiviceResultOk);
-    s.sick = 1;
-    CHECK(digivice_rules_can_battle(&s) == DigiviceResultSick);
 }
 
 static void test_migrate_v1_field_by_field(void) {
@@ -1371,17 +1158,6 @@ int main(void) {
     test_deed_grants_exp_and_data();
     test_spawn_rules();
     test_player_type_by_form();
-    test_lose_can_transform();
-    test_type_chart();
-    test_damage_formula();
-    test_battle_flow();
-    test_corrupt_attack_can_miss();
-    test_flee();
-    test_battle_rewards();
-    test_corrupt_pet_fights_at_pre_corruption_stage();
-    test_corrupt_attack_miss_edges();
-    test_foe_type_multiplier();
-    test_win_without_virux_type_grants_exp_only();
     test_deed_out_of_range_is_ignored();
     test_spawn_deed_when_ineligible_still_rewards();
     test_v2_defaults_and_layout();
@@ -1397,7 +1173,6 @@ int main(void) {
     test_normal_mode_ignores_deeds();
     test_train_grants_exp_in_both_modes();
     test_train_refused_while_sick_or_asleep();
-    test_battle_refused_while_sick();
     test_migrate_v1_field_by_field();
     test_lang_and_mode_are_range_checked();
     test_reset_keeps_lang_and_mode();

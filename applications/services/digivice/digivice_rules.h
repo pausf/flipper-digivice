@@ -45,18 +45,6 @@ typedef enum {
 } DigiviceStage;
 
 typedef enum {
-    DigiviceBattleResultWin,
-    DigiviceBattleResultLose,
-    DigiviceBattleResultFled,
-} DigiviceBattleResult;
-
-typedef enum {
-    DigiviceBattleOngoing,
-    DigiviceBattleWon,
-    DigiviceBattleLost,
-} DigiviceBattleOutcome;
-
-typedef enum {
     DigiviceModeNormal, /**< store-bought V-Pet: Flipper deeds are ignored */
     DigiviceModeHacker, /**< v1 play: deeds grant EXP and data and spawn VIRUX */
     DigiviceModeCount,
@@ -70,6 +58,7 @@ typedef enum {
     DigiviceResultAwake,
     DigiviceResultHealthy,
     DigiviceResultNothingToClean,
+    DigiviceResultTooYoung, /**< an Egg cannot fight */
 } DigiviceResult;
 
 typedef enum {
@@ -215,17 +204,6 @@ _Static_assert(
     "v3 keeps the v2 prefix");
 _Static_assert(sizeof(DigiviceState) == 116, "v3 file layout");
 
-typedef struct {
-    uint16_t player_hp;
-    uint16_t player_hp_max;
-    uint16_t foe_hp;
-    uint16_t foe_hp_max;
-    uint8_t player_type;
-    uint8_t foe_type;
-    uint8_t stage;
-    bool defending;
-} DigiviceBattle;
-
 void digivice_rules_init(DigiviceState* s, uint32_t now);
 /** Fresh egg that keeps the owner's language and mode. */
 void digivice_rules_reset(DigiviceState* s, uint32_t now);
@@ -286,7 +264,8 @@ bool digivice_rules_evolve(DigiviceState* s, uint32_t now);
 /** Returns false (and changes nothing) when hunger is already full. */
 bool digivice_rules_feed(DigiviceState* s, uint32_t now);
 DigiviceResult digivice_rules_can_train(const DigiviceState* s, uint32_t now);
-DigiviceResult digivice_rules_can_battle(const DigiviceState* s);
+/** Refused while sick, asleep or still an Egg. */
+DigiviceResult digivice_rules_can_battle(const DigiviceState* s, uint32_t now);
 /** Refused while sick or asleep; otherwise v1 effects plus training EXP. */
 DigiviceResult digivice_rules_train(DigiviceState* s, bool success, uint32_t now);
 /** Returns false when there is nothing to clean. */
@@ -295,7 +274,6 @@ bool digivice_rules_clean(DigiviceState* s, uint32_t now);
 bool digivice_rules_cure(DigiviceState* s, uint32_t now);
 /** Toggles the light while asleep; refused while awake, where the light always stays on. */
 DigiviceResult digivice_rules_toggle_light(DigiviceState* s, uint32_t now);
-void digivice_rules_battle_result(DigiviceState* s, DigiviceBattleResult result, uint32_t now);
 void digivice_rules_ack_evolution(DigiviceState* s);
 
 bool digivice_rules_virux_active(const DigiviceState* s, uint32_t now);
@@ -307,26 +285,6 @@ bool digivice_rules_timing_hit(uint8_t cursor, uint8_t zone_start);
 
 /** True when two states differ only in tick bookkeeping, so the service can skip a flash write. */
 bool digivice_rules_same_visible(const DigiviceState* a, const DigiviceState* b);
-
-uint16_t digivice_rules_type_x10(DigiviceType attacker, DigiviceType defender);
-uint16_t digivice_rules_damage(
-    uint16_t base,
-    uint16_t strength,
-    bool in_zone,
-    DigiviceType attacker,
-    DigiviceType defender);
-
-void digivice_battle_init(DigiviceBattle* b, const DigiviceState* s);
-/** Returns the damage dealt, 0 on a corruption miss. */
-uint16_t digivice_battle_player_attack(
-    DigiviceBattle* b,
-    const DigiviceState* s,
-    bool in_zone,
-    uint8_t rng_pct);
-void digivice_battle_defend(DigiviceBattle* b);
-bool digivice_battle_flee(uint8_t rng_pct);
-uint16_t digivice_battle_foe_attack(DigiviceBattle* b);
-DigiviceBattleOutcome digivice_battle_outcome(const DigiviceBattle* b);
 
 #ifdef __cplusplus
 }

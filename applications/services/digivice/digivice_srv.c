@@ -133,10 +133,20 @@ DigiviceMidwayResult digivice_midway_claim(Digivice* digivice, bool accept) {
     return result;
 }
 
-void digivice_battle_finish(Digivice* digivice, DigiviceBattleResult result) {
+DigiviceReward digivice_battle_finish(
+    Digivice* digivice,
+    DigiviceEncounterKind kind,
+    DigiviceBattleResult result,
+    bool shield_used) {
     furi_check(digivice);
-    DigiviceMessage message = {.type = DigiviceMessageTypeBattle, .battle = result};
+    DigiviceReward reward = {.exp = 0, .item = DigiviceItemNone};
+    DigiviceMessage message = {
+        .type = DigiviceMessageTypeBattle,
+        .output = &reward,
+        .battle = {.kind = (uint8_t)kind, .result = (uint8_t)result, .shield_used = shield_used},
+    };
     digivice_send_wait(digivice, &message);
+    return reward;
 }
 
 void digivice_ack_evolution(Digivice* digivice) {
@@ -383,7 +393,13 @@ static void digivice_process_message(FuriEventLoopObject* object, void* context)
         digivice_rules_reset(state, now);
         break;
     case DigiviceMessageTypeBattle:
-        digivice_rules_battle_result(state, message.battle, now);
+        *(DigiviceReward*)message.output = digivice_rules_battle_result(
+            state,
+            (DigiviceEncounterKind)message.battle.kind,
+            (DigiviceBattleResult)message.battle.result,
+            message.battle.shield_used,
+            digivice_rules_rng_pct(state),
+            now);
         digivice_rules_evolve(state, now);
         break;
     case DigiviceMessageTypeAckEvolution:
