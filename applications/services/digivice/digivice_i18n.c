@@ -17,7 +17,7 @@
 static const char* const strings_es[DigiviceStrCount] = {
     [DigiviceStrMenuFeed] = "COMER",
     [DigiviceStrMenuTrain] = "ENTRENAR",
-    [DigiviceStrMenuBattle] = "BATALLA",
+    [DigiviceStrMenuBattle] = "RUTA",
     [DigiviceStrMenuClean] = "LIMPIAR",
     [DigiviceStrMenuLight] = "LUZ",
     [DigiviceStrMenuCure] = "CURAR",
@@ -30,8 +30,6 @@ static const char* const strings_es[DigiviceStrCount] = {
     [DigiviceStrNoticeNothingToClean] = "NO HAY NADA QUE LIMPIAR",
     [DigiviceStrNoticeHealthy] = "EST" A_ACUTE " SANO",
     [DigiviceStrNoticeFull] = EXCL_INV "EST" A_ACUTE " LLENO!",
-    [DigiviceStrNoticeNoVirux] = "NING" U_ACUTE "N VIRUX CERCA",
-    [DigiviceStrNoticeHackerOnly] = "SOLO EN MODO HACKER",
 
     [DigiviceStrFeedHunger] = "HAMBRE",
     [DigiviceStrFeedYum] = EXCL_INV N_TILDE "AM!",
@@ -175,7 +173,7 @@ static const char* const strings_es[DigiviceStrCount] = {
 static const char* const strings_en[DigiviceStrCount] = {
     [DigiviceStrMenuFeed] = "FEED",
     [DigiviceStrMenuTrain] = "TRAIN",
-    [DigiviceStrMenuBattle] = "BATTLE",
+    [DigiviceStrMenuBattle] = "TRAIL",
     [DigiviceStrMenuClean] = "CLEAN",
     [DigiviceStrMenuLight] = "LIGHT",
     [DigiviceStrMenuCure] = "CURE",
@@ -188,8 +186,6 @@ static const char* const strings_en[DigiviceStrCount] = {
     [DigiviceStrNoticeNothingToClean] = "NOTHING TO CLEAN",
     [DigiviceStrNoticeHealthy] = "IT'S HEALTHY",
     [DigiviceStrNoticeFull] = "IT'S FULL!",
-    [DigiviceStrNoticeNoVirux] = "NO VIRUX NEARBY",
-    [DigiviceStrNoticeHackerOnly] = "HACKER MODE ONLY",
 
     [DigiviceStrFeedHunger] = "HUNGER",
     [DigiviceStrFeedYum] = "YUM!",
@@ -364,8 +360,6 @@ static const uint8_t budgets[DigiviceStrCount] = {
     [DigiviceStrNoticeNothingToClean] = SLOT_LABEL,
     [DigiviceStrNoticeHealthy] = SLOT_LABEL,
     [DigiviceStrNoticeFull] = SLOT_LABEL,
-    [DigiviceStrNoticeNoVirux] = SLOT_LABEL,
-    [DigiviceStrNoticeHackerOnly] = SLOT_LABEL,
 
     [DigiviceStrFeedHunger] = SLOT_SHORT,
     [DigiviceStrFeedYum] = SLOT_SHORT,

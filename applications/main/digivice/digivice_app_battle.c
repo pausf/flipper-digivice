@@ -30,8 +30,7 @@ static const DigiviceStr tier_str[DigiviceChargeCount] = {
 };
 
 static void battle_exit(DigiviceApp* app) {
-    digivice_app_set_screen(app, DigiviceScreenMain);
-    digivice_app_refresh(app);
+    digivice_expedition_enter(app);
 }
 
 static const char* foe_name(const DigiviceApp* app) {
@@ -74,6 +73,10 @@ void digivice_encounter_start(DigiviceApp* app, DigiviceEncounterKind kind) {
     }
     app->enc_kind = (uint8_t)kind;
     app->enc_area = app->state.area;
+    app->offered_kind = (uint8_t)kind;
+    app->offered_expires = kind == DigiviceEncounterTrail ? app->state.enc_expires :
+                           kind == DigiviceEncounterVirux ? app->state.virux_expires :
+                                                            app->state.cleared;
     digivice_battle_init(&app->battle, &app->state, kind, now);
     app->streak_lost = false;
     app->area_cleared = false;

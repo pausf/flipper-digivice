@@ -20,6 +20,11 @@ typedef enum {
     DigiviceScreenMain,
     DigiviceScreenFeed,
     DigiviceScreenTrain,
+    DigiviceScreenExpedition,
+    DigiviceScreenMap,
+    DigiviceScreenHike,
+    DigiviceScreenMidway,
+    DigiviceScreenGate,
     DigiviceScreenEncounter,
     DigiviceScreenBattle,
     DigiviceScreenProfile,
@@ -110,6 +115,21 @@ typedef struct {
     DigiviceReward reward;
     bool streak_lost;
     bool area_cleared;
+
+    uint32_t trail_scroll; /**< background scroll, advancing only while the pet walks */
+    uint8_t map_sel;
+    uint32_t hike_start; /**< furi tick when the Hike session started */
+    uint32_t hike_paid; /**< one bit per beat that already paid */
+    uint8_t hike_good;
+    uint8_t hike_left; /**< hourly budget when the session started */
+    uint8_t hike_granted;
+    uint8_t hike_flash; /**< frames left of the good-tap flash */
+    bool hike_done;
+    DigiviceMidwayResult midway;
+    bool midway_claimed;
+    // The encounter the app already auto-started or saw declined, so it never insists.
+    uint8_t offered_kind;
+    uint32_t offered_expires;
 } DigiviceApp;
 
 void digivice_app_set_screen(DigiviceApp* app, DigiviceScreen screen);
@@ -154,6 +174,13 @@ void digivice_train_draw(Canvas* canvas, DigiviceApp* app);
 const DigiviceScene* digivice_app_scene(DigiviceApp* app);
 /** Minutes since midnight from the RTC, for the day and night sky. */
 uint16_t digivice_app_day_minute(void);
+
+void digivice_expedition_enter(DigiviceApp* app);
+/** Jumps straight to a pending encounter once, when the pet can fight it. */
+void digivice_expedition_auto_start(DigiviceApp* app);
+void digivice_expedition_input(DigiviceApp* app, const InputEvent* event);
+void digivice_expedition_tick(DigiviceApp* app);
+void digivice_expedition_draw(Canvas* canvas, DigiviceApp* app);
 
 /** Starts the encounter transition, or shows why the pet cannot fight now. */
 void digivice_encounter_start(DigiviceApp* app, DigiviceEncounterKind kind);

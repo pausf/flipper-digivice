@@ -57,7 +57,10 @@ bool digivice_meter_hit(const DigiviceMeter* meter) {
 }
 
 static bool digivice_trail_screen(DigiviceScreen screen) {
-    return screen == DigiviceScreenEncounter || screen == DigiviceScreenBattle;
+    return screen == DigiviceScreenExpedition || screen == DigiviceScreenMap ||
+           screen == DigiviceScreenHike || screen == DigiviceScreenMidway ||
+           screen == DigiviceScreenGate || screen == DigiviceScreenEncounter ||
+           screen == DigiviceScreenBattle;
 }
 
 void digivice_app_set_screen(DigiviceApp* app, DigiviceScreen screen) {
@@ -87,7 +90,8 @@ uint16_t digivice_app_day_minute(void) {
 void digivice_app_refresh(DigiviceApp* app) {
     digivice_get_state(app->digivice, &app->state);
     bool busy = app->screen == DigiviceScreenBattle || app->screen == DigiviceScreenEncounter ||
-                app->screen == DigiviceScreenTrain || app->screen == DigiviceScreenFeed || app->screen == DigiviceScreenEvolution ||
+                app->screen == DigiviceScreenHike || app->screen == DigiviceScreenTrain ||
+                app->screen == DigiviceScreenFeed || app->screen == DigiviceScreenEvolution ||
                 app->care != DigiviceCareNone;
     if(app->state.evo_from != DigiviceFormNone && !busy) {
         digivice_app_set_screen(app, DigiviceScreenEvolution);
@@ -177,17 +181,8 @@ static void digivice_main_open(DigiviceApp* app) {
         }
         break;
     case DigiviceIconBattle:
-        result = digivice_rules_can_battle(&app->state, now);
-        if(result != DigiviceResultOk) {
-            digivice_app_refusal(app, result);
-        } else if(digivice_rules_virux_active(&app->state, now)) {
-            digivice_encounter_start(app, DigiviceEncounterVirux);
-        } else {
-            digivice_app_notice(
-                app,
-                app->state.mode == DigiviceModeNormal ? DigiviceStrNoticeHackerOnly :
-                                                        DigiviceStrNoticeNoVirux);
-        }
+        // The trail view always opens; refusals only apply when a fight starts.
+        digivice_expedition_enter(app);
         break;
     case DigiviceIconClean: {
         uint8_t poop = app->state.poop;
@@ -276,6 +271,13 @@ static void digivice_app_draw_callback(Canvas* canvas, void* context) {
     case DigiviceScreenTrain:
         digivice_train_draw(canvas, app);
         break;
+    case DigiviceScreenExpedition:
+    case DigiviceScreenMap:
+    case DigiviceScreenHike:
+    case DigiviceScreenMidway:
+    case DigiviceScreenGate:
+        digivice_expedition_draw(canvas, app);
+        break;
     case DigiviceScreenEncounter:
         digivice_encounter_draw(canvas, app);
         break;
@@ -320,6 +322,13 @@ static void digivice_app_input(DigiviceApp* app, const InputEvent* event) {
     case DigiviceScreenTrain:
         digivice_train_input(app, event);
         break;
+    case DigiviceScreenExpedition:
+    case DigiviceScreenMap:
+    case DigiviceScreenHike:
+    case DigiviceScreenMidway:
+    case DigiviceScreenGate:
+        digivice_expedition_input(app, event);
+        break;
     case DigiviceScreenEncounter:
         digivice_encounter_input(app, event);
         break;
@@ -354,6 +363,7 @@ static void digivice_app_tick(DigiviceApp* app) {
             digivice_care_tick(app);
         } else if(app->frame % 10 == 0) {
             digivice_app_refresh(app);
+            if(app->screen == DigiviceScreenMain) digivice_expedition_auto_start(app);
         }
         break;
     case DigiviceScreenProfile:
@@ -365,6 +375,13 @@ static void digivice_app_tick(DigiviceApp* app) {
         break;
     case DigiviceScreenTrain:
         digivice_train_tick(app);
+        break;
+    case DigiviceScreenExpedition:
+    case DigiviceScreenMap:
+    case DigiviceScreenHike:
+    case DigiviceScreenMidway:
+    case DigiviceScreenGate:
+        digivice_expedition_tick(app);
         break;
     case DigiviceScreenEncounter:
         digivice_encounter_tick(app);
@@ -398,6 +415,7 @@ int32_t digivice_app(void* p) {
         digivice_app_set_screen(app, DigiviceScreenMain);
         digivice_app_refresh(app);
         digivice_app_notice(app, DigiviceStrMenuFeed);
+        if(app->screen == DigiviceScreenMain) digivice_expedition_auto_start(app);
     } else {
         FURI_LOG_E(TAG, "Digivice service is not running");
         digivice_app_set_screen(app, DigiviceScreenError);

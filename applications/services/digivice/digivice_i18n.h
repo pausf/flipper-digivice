@@ -32,8 +32,6 @@ typedef enum {
     DigiviceStrNoticeNothingToClean,
     DigiviceStrNoticeHealthy,
     DigiviceStrNoticeFull,
-    DigiviceStrNoticeNoVirux,
-    DigiviceStrNoticeHackerOnly,
 
     DigiviceStrFeedHunger,
     DigiviceStrFeedYum,
