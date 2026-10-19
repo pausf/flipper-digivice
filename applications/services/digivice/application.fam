@@ -13,6 +13,7 @@ App(
     sources=[
         "digivice_srv.c",
         "digivice_rules.c",
+        "digivice_expedition.c",
         "digivice_notify.c",
         "digivice_draw.c",
         "digivice_i18n.c",

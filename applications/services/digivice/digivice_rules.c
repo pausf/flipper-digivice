@@ -1,5 +1,6 @@
 #include "digivice_rules.h"
 #include "digivice_config.h"
+#include "digivice_expedition.h"
 
 #include <string.h>
 
@@ -316,6 +317,8 @@ static uint32_t awake_step(const DigiviceState* s, uint32_t step) {
 }
 
 static void awake_advance(DigiviceState* s, uint32_t step, uint32_t t_end) {
+    // Paces first: they use the state the step started with, like the care accumulators.
+    digivice_expedition_walk(s, step, t_end);
     bool poops = pooping(s);
     if(s->hunger > 0) s->hunger_acc_s += step;
     // Doubled decay can overshoot by under `rate` seconds; the remainder is carried, not lost.
@@ -408,6 +411,7 @@ void digivice_rules_tick(DigiviceState* s, uint32_t now) {
     if(s->virux_type != DigiviceTypeNone && now >= s->virux_expires) {
         s->virux_type = DigiviceTypeNone;
     }
+    digivice_expedition_expire(s, now);
 
     if(s->form == DigiviceFormVirubyte && s->corruption == 0 && s->clean_since != 0 &&
        now >= s->clean_since && now - s->clean_since >= DIGIVICE_CORRUPTION_RECOVERY_S) {
@@ -571,6 +575,10 @@ bool digivice_rules_is_spawn_deed(DolphinDeed deed) {
            deed == DolphinDeedSubGhzFrequencyAnalyzer;
 }
 
+void digivice_rules_add_corruption(DigiviceState* s, int32_t delta, uint32_t now) {
+    set_corruption(s, (int32_t)s->corruption + delta, now);
+}
+
 bool digivice_rules_virux_active(const DigiviceState* s, uint32_t now) {
     return s->virux_type != DigiviceTypeNone && now < s->virux_expires;
 }
@@ -588,14 +596,18 @@ bool digivice_rules_on_deed(
     if(type == DigiviceTypeNone) return false;
     add_u16(&s->data[type], 1);
 
-    bool eligible = digivice_rules_is_spawn_deed(deed) &&
-                    digivice_rules_stage(s) >= DigiviceStageRookie &&
-                    !digivice_rules_virux_active(s, now);
-    if(!eligible || rng_pct >= DIGIVICE_SPAWN_PCT) return false;
-
-    s->virux_type = type;
-    s->virux_expires = now + DIGIVICE_VIRUX_TTL_S;
-    return true;
+    bool spawn_deed = digivice_rules_is_spawn_deed(deed);
+    // A VIRUX never joins a pending trail encounter: one encounter at a time.
+    bool eligible = spawn_deed && digivice_rules_stage(s) >= DigiviceStageRookie &&
+                    !digivice_rules_virux_active(s, now) &&
+                    !digivice_expedition_trail_pending(s, now);
+    bool spawned = eligible && rng_pct < DIGIVICE_SPAWN_PCT;
+    if(spawned) {
+        s->virux_type = type;
+        s->virux_expires = now + DIGIVICE_VIRUX_TTL_S;
+    }
+    if(spawn_deed) digivice_expedition_scan(s, now);
+    return spawned;
 }
 
 bool digivice_rules_evolve(DigiviceState* s, uint32_t now) {

@@ -299,6 +299,8 @@ void digivice_rules_battle_result(DigiviceState* s, DigiviceBattleResult result,
 void digivice_rules_ack_evolution(DigiviceState* s);
 
 bool digivice_rules_virux_active(const DigiviceState* s, uint32_t now);
+/** Adds (or with a negative delta removes) corruption, with the Virubyte transform at 100. */
+void digivice_rules_add_corruption(DigiviceState* s, int32_t delta, uint32_t now);
 bool digivice_rules_glitchy(const DigiviceState* s);
 bool digivice_rules_attack_misses(const DigiviceState* s, uint8_t rng_pct);
 bool digivice_rules_timing_hit(uint8_t cursor, uint8_t zone_start);

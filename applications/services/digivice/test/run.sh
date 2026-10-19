@@ -6,9 +6,13 @@ services="$here/../.."
 app="$services/../main/digivice"
 out="${TMPDIR:-/tmp}"
 flags="-std=c11 -Wall -Wextra -Werror -I $services"
+rules="$here/../digivice_rules.c $here/../digivice_expedition.c"
 
-cc $flags "$here/digivice_rules_test.c" "$here/../digivice_rules.c" -o "$out/digivice_rules_test"
-"$out/digivice_rules_test"
+for name in rules expedition; do
+    # $rules is split on purpose: one argument per source file.
+    cc $flags "$here/digivice_${name}_test.c" $rules -o "$out/digivice_${name}_test"
+    "$out/digivice_${name}_test"
+done
 
 cc $flags "$here/digivice_i18n_test.c" "$here/../digivice_i18n.c" -o "$out/digivice_i18n_test"
 # Every digivice source must stay ASCII-only: accents live in digivice_i18n.c as escapes.
