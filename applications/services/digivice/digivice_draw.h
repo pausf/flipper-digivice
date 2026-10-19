@@ -215,6 +215,32 @@ void digivice_draw_evolution(
     int32_t top,
     DigiviceLang lang);
 
+// digivice_draw_scene.c: seeded area backgrounds, cached once per area.
+
+#define DIGIVICE_SCENE_W     192
+#define DIGIVICE_SCENE_DECOS 12
+
+/** About 420 bytes: allocate it on the app heap, never on a stack. */
+typedef struct {
+    uint32_t seed;
+    uint8_t area;
+    uint8_t far[DIGIVICE_SCENE_W]; /**< top row of the far layer per column */
+    uint8_t near[DIGIVICE_SCENE_W]; /**< top row of the near layer per column */
+    uint8_t deco_x[DIGIVICE_SCENE_DECOS]; /**< decoration columns, 0..DIGIVICE_SCENE_W-1 */
+    uint8_t deco_v[DIGIVICE_SCENE_DECOS]; /**< decoration variant 0..3 */
+} DigiviceScene;
+
+/** Builds the height profiles and decorations from the area's constant seed. */
+void digivice_scene_init(DigiviceScene* scene, uint8_t area);
+/** Draws the area background from row 9 down. `scroll` moves the near layer 1 px per unit;
+ * `day_minute` (0..1439, from the RTC) picks the day, dusk or night sky. */
+void digivice_draw_scene(
+    Canvas* canvas,
+    const DigiviceScene* scene,
+    uint32_t scroll,
+    uint32_t frame,
+    uint16_t day_minute);
+
 #ifdef __cplusplus
 }
 #endif
