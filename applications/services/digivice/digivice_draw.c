@@ -118,6 +118,18 @@ static void
     }
 }
 
+void digivice_draw_line(Canvas* canvas, int32_t x0, int32_t y0, int32_t x1, int32_t y1) {
+    dv_line(canvas, x0, y0, x1, y1);
+}
+
+void digivice_draw_box(Canvas* canvas, int32_t x, int32_t y, int32_t w, int32_t h) {
+    dv_box(canvas, x, y, w, h);
+}
+
+void digivice_draw_dot(Canvas* canvas, int32_t x, int32_t y) {
+    dv_dot(canvas, x, y);
+}
+
 void digivice_draw_text(Canvas* canvas, int32_t x, int32_t y, const char* text) {
     canvas_set_custom_u8g2_font(canvas, u8g2_font_4x6_tf);
     canvas_draw_str(canvas, x, y + 5, text);
@@ -571,6 +583,11 @@ const char* digivice_form_name(DigiviceForm form) {
 const char* digivice_type_name(DigiviceType type) {
     static const char* const names[DigiviceTypeCount] = {"NFC", "SUBGHZ", "IR", "USB"};
     return type < DigiviceTypeCount ? names[type] : "---";
+}
+
+const char* digivice_attr_name(DigiviceAttr attr, DigiviceLang lang) {
+    if(attr >= DigiviceAttrCount) attr = DigiviceAttrNulo;
+    return digivice_str(lang, (DigiviceStr)(DigiviceStrAttrPortador + attr));
 }
 
 static void dv_vertical_meter(

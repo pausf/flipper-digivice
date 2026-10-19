@@ -102,5 +102,12 @@
 #define DIGIVICE_SPRING_CORRUPTION_DROP 10
 #define DIGIVICE_SHORTCUT_WIN_PCT       50
 
+// Projectile sizes in px; the Baby fires 2x2, the area 8 boss a 9x5 beam.
+#define DIGIVICE_STAGE_SHOT      {2, 2, 3, 5}
+#define DIGIVICE_SHOT_ROOKIE_FOE 3
+#define DIGIVICE_SHOT_CHAMP_FOE  5
+#define DIGIVICE_SHOT_BOSS       7
+#define DIGIVICE_SHOT_BEAM       9
+
 // Cutscene length in frames of the 100 ms animation clock.
 #define DIGIVICE_EVO_FRAMES 50

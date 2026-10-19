@@ -2,7 +2,7 @@
 
 #include <gui/canvas.h>
 
-#include "digivice_rules.h"
+#include "digivice_expedition.h"
 #include "digivice_i18n.h"
 
 #ifdef __cplusplus
@@ -13,6 +13,7 @@ typedef enum {
     DigivicePoseIdle,
     DigivicePoseAttack,
     DigivicePoseSleep,
+    DigivicePoseHurt, /**< trail monsters and bosses only */
 } DigivicePose;
 
 /** Main screen icons, in screen order: top row then bottom row. */
@@ -31,6 +32,11 @@ typedef enum {
 /** Text helpers in the 4x6 Latin-1 HUD font; y is the top of the glyphs. Text is UTF-8. */
 void digivice_draw_text(Canvas* canvas, int32_t x, int32_t y, const char* text);
 uint16_t digivice_draw_text_width(Canvas* canvas, const char* text);
+
+/** Clipped primitives in the current colour: safe with any off-screen coordinate. */
+void digivice_draw_line(Canvas* canvas, int32_t x0, int32_t y0, int32_t x1, int32_t y1);
+void digivice_draw_box(Canvas* canvas, int32_t x, int32_t y, int32_t w, int32_t h);
+void digivice_draw_dot(Canvas* canvas, int32_t x, int32_t y);
 
 void digivice_draw_fill_ellipse(Canvas* canvas, int32_t cx, int32_t cy, int32_t rx, int32_t ry);
 void digivice_draw_fill_triangle(
@@ -129,6 +135,67 @@ void digivice_draw_dash_ring(Canvas* canvas, int32_t cx, int32_t cy, int32_t r, 
 
 const char* digivice_form_name(DigiviceForm form);
 const char* digivice_type_name(DigiviceType type);
+/** Translated attribute name. */
+const char* digivice_attr_name(DigiviceAttr attr, DigiviceLang lang);
+
+// digivice_draw_world.c: trail monsters, bosses, projectiles and battle effects.
+
+/** Trail monster centred on cx and standing on foot_y; `flip` makes it face left. */
+void digivice_draw_foe(
+    Canvas* canvas,
+    DigiviceFoe foe,
+    int32_t cx,
+    int32_t foot_y,
+    uint32_t frame,
+    DigivicePose pose,
+    bool flip,
+    bool silhouette);
+/** Area boss, at most 56x48, facing left. NEGATIVO (area 8) is `pet` drawn in negative. */
+void digivice_draw_boss(
+    Canvas* canvas,
+    uint8_t area,
+    DigiviceForm pet,
+    int32_t cx,
+    int32_t foot_y,
+    uint32_t frame,
+    bool silhouette);
+/** Projectile centred on (x, y) flying towards `dir` (+1 right, -1 left). `size` is 2, 3, 5,
+ * 7 (plus 2 for a Big charge) or DIGIVICE_SHOT_BEAM. The style follows the attribute. */
+void digivice_draw_shot(
+    Canvas* canvas,
+    DigiviceAttr attr,
+    int32_t x,
+    int32_t y,
+    uint8_t size,
+    int8_t dir,
+    uint32_t frame);
+/** 7x7 attribute icon, top-left at (x, y): wave, bolt, keyhole square, slashed circle. */
+void digivice_draw_attr_icon(Canvas* canvas, DigiviceAttr attr, int32_t x, int32_t y);
+/** Eight rays from 0.45 r to r around (cx, cy). */
+void digivice_draw_burst(Canvas* canvas, int32_t cx, int32_t cy, int32_t r);
+void digivice_draw_star5(Canvas* canvas, int32_t cx, int32_t cy);
+/** 5x9 shield, top-left at (x, y). */
+void digivice_draw_shield(Canvas* canvas, int32_t x, int32_t y);
+/** 9x11 speech bubble with a "!", top-left at (x, y). */
+void digivice_draw_exclam_bubble(Canvas* canvas, int32_t x, int32_t y);
+/** 7x7 bandage cross with a white outline, top-left at (x, y). */
+void digivice_draw_bandage(Canvas* canvas, int32_t x, int32_t y);
+/** XOR box: hit flashes and strobe frames. */
+void digivice_draw_invert(Canvas* canvas, int32_t x, int32_t y, int32_t w, int32_t h);
+/** 20-segment charge meter, 4 px segments on a 5 px pitch: zone hollow, cursor a tall bar. */
+void digivice_draw_charge_meter(
+    Canvas* canvas,
+    int32_t x,
+    int32_t y,
+    uint8_t zone_start,
+    uint8_t zone_w,
+    uint8_t cursor);
+/** 9x9 round OK button, top-left at (x, y). */
+void digivice_draw_ok_button(Canvas* canvas, int32_t x, int32_t y, bool down);
+/** 7x5 arrow, top-left at (x, y); hollow unless `on`. */
+void digivice_draw_arrow(Canvas* canvas, int32_t x, int32_t y, bool up, bool on);
+/** 7 px hazard tape band from row y, scrolling with `frame`. */
+void digivice_draw_hazard(Canvas* canvas, int32_t y, uint32_t frame);
 
 /** Full home screen. `now` is the RTC timestamp: it drives the VIRUX countdown and sleep. */
 void digivice_draw_home(
