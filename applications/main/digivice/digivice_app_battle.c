@@ -8,6 +8,7 @@
 // Frame marks of the 100 ms clock.
 #define ENCOUNTER_FRAMES 40
 #define LOCK_FRAMES      5 // the tier shows after OK, before the aim
+#define END_INPUT_FRAMES 8 // mashing OK during the finish must not skip the result screen
 #define SHOT_WINDUP      5
 #define SHOT_TRAVEL      4
 #define SHOT_IMPACT      5
@@ -371,6 +372,7 @@ void digivice_battle_input(DigiviceApp* app, const InputEvent* event) {
         }
         break;
     case DigiviceBattlePhaseEnd:
+        if(app->screen_frame < END_INPUT_FRAMES) break;
         if(event->key == InputKeyOk || event->key == InputKeyBack) battle_exit(app);
         break;
     default:
