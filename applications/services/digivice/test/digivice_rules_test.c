@@ -681,10 +681,263 @@ static void test_v2_defaults_and_layout(void) {
     CHECK(s.poop == 0 && s.sick == 0 && s.care_mistakes == 0 && s.doses_needed == 0);
     CHECK(s.poop_acc_s == 0 && s.poop_dirty_since == 0 && s.starving_since == 0);
     CHECK(s.sick_since == 0 && s.light_on_asleep_s == 0);
-    // The v1 file is 56 bytes; v2 appends 28 and keeps every v1 offset.
+    // The v1 file is 56 bytes, v2 appends 28 and v3 another 32, each keeping the older offsets.
     CHECK(sizeof(DigiviceStateV1) == 56);
-    CHECK(sizeof(DigiviceState) == 84);
+    CHECK(sizeof(DigiviceStateV2) == 84);
+    CHECK(sizeof(DigiviceState) == 116);
     CHECK(offsetof(DigiviceState, corrupt_acc_s) == offsetof(DigiviceStateV1, corrupt_acc_s));
+    CHECK(offsetof(DigiviceState, light_on_asleep_s) ==
+          offsetof(DigiviceStateV2, light_on_asleep_s));
+    CHECK(offsetof(DigiviceState, area) == sizeof(DigiviceStateV2));
+}
+
+static void check_v3_defaults(const DigiviceState* s) {
+    CHECK(s->area == 0 && s->cleared == 0 && s->enc_foe == DIGIVICE_ENC_NONE);
+    CHECK(s->mid_state == 0 && s->item == DigiviceItemNone && s->reserved3 == 0);
+    CHECK(s->hike_count == 0 && s->scan_count == 0 && s->paces_since_fight == 0);
+    CHECK(s->distance == 480 && s->distance == digivice_rules_area_length(0));
+    CHECK(s->pace_acc_s == 0 && s->enc_expires == 0 && s->bonus_window_start == 0);
+    CHECK(s->injured_until == 0);
+    CHECK(s->rng == ((s->last_tick ^ s->born_at ^ 0x9E3779B9UL) | 1UL));
+    CHECK(s->rng != 0);
+}
+
+static void test_v3_defaults(void) {
+    DigiviceState s = fresh(T0);
+    check_v3_defaults(&s);
+    s.area = 3;
+    s.cleared = 7;
+    s.item = DigiviceItemShield;
+    digivice_rules_reset(&s, T0 + 10);
+    check_v3_defaults(&s);
+}
+
+static void test_area_lengths(void) {
+    const uint16_t lengths[DIGIVICE_AREA_COUNT] = DIGIVICE_AREA_LENGTHS;
+    uint32_t total = 0;
+    for(uint8_t a = 0; a < DIGIVICE_AREA_COUNT; a++) {
+        CHECK(digivice_rules_area_length(a) == lengths[a]);
+        total += lengths[a];
+    }
+    CHECK(total == 7320);
+    CHECK(digivice_rules_area_length(0) == 480 && digivice_rules_area_length(7) == 1440);
+    CHECK(digivice_rules_area_length(200) == 1440);
+}
+
+static DigiviceStateV2 v2_fixture(void) {
+    DigiviceStateV2 v2;
+    memset(&v2, 0, sizeof(v2));
+    v2.form = DigiviceFormTagdrake;
+    v2.prev_form = DigiviceFormBytemon;
+    v2.evo_from = DigiviceFormNone;
+    v2.hunger = 2;
+    v2.mood = 3;
+    v2.corruption = 15;
+    v2.virux_type = DigiviceTypeSubGhz;
+    v2.strength = 17;
+    v2.wins = 4;
+    v2.losses = 5;
+    v2.data[0] = 31;
+    v2.data[1] = 32;
+    v2.data[2] = 33;
+    v2.data[3] = 34;
+    v2.exp = 777;
+    v2.virux_expires = T0 + 900;
+    v2.last_tick = T0 - 60;
+    v2.born_at = T0 - DAY(9);
+    v2.clean_since = 0;
+    v2.hunger_acc_s = 101;
+    v2.mood_acc_s = 102;
+    v2.corrupt_acc_s = 103;
+    v2.lang = DigiviceLangEn;
+    v2.mode = DigiviceModeHacker;
+    v2.poop = 2;
+    v2.sick = 1;
+    v2.care_mistakes = 3;
+    v2.light_on = 0;
+    v2.doses_needed = 2;
+    v2.poop_acc_s = 104;
+    v2.poop_dirty_since = T0 - H(2);
+    v2.starving_since = T0 - H(3);
+    v2.sick_since = T0 - H(4);
+    v2.light_on_asleep_s = 105;
+    return v2;
+}
+
+static void check_v2_prefix(const DigiviceState* s, const DigiviceStateV2* v2) {
+    CHECK(s->form == v2->form && s->prev_form == v2->prev_form && s->evo_from == v2->evo_from);
+    CHECK(s->hunger == v2->hunger && s->mood == v2->mood && s->corruption == v2->corruption);
+    CHECK(s->virux_type == v2->virux_type && s->virux_expires == v2->virux_expires);
+    CHECK(s->strength == v2->strength && s->wins == v2->wins && s->losses == v2->losses);
+    CHECK(memcmp(s->data, v2->data, sizeof(s->data)) == 0);
+    CHECK(s->exp == v2->exp && s->last_tick == v2->last_tick && s->born_at == v2->born_at);
+    CHECK(s->clean_since == v2->clean_since && s->hunger_acc_s == v2->hunger_acc_s);
+    CHECK(s->mood_acc_s == v2->mood_acc_s && s->corrupt_acc_s == v2->corrupt_acc_s);
+    CHECK(s->lang == v2->lang && s->mode == v2->mode && s->poop == v2->poop);
+    CHECK(s->sick == v2->sick && s->care_mistakes == v2->care_mistakes);
+    CHECK(s->light_on == v2->light_on && s->doses_needed == v2->doses_needed);
+    CHECK(s->poop_acc_s == v2->poop_acc_s && s->poop_dirty_since == v2->poop_dirty_since);
+    CHECK(s->starving_since == v2->starving_since && s->sick_since == v2->sick_since);
+    CHECK(s->light_on_asleep_s == v2->light_on_asleep_s);
+}
+
+static void test_migrate_v2_field_by_field(void) {
+    DigiviceStateV2 v2 = v2_fixture();
+    DigiviceState s;
+    memset(&s, 0xAA, sizeof(s));
+    digivice_rules_migrate_v2(&v2, &s);
+    check_v2_prefix(&s, &v2);
+    check_v3_defaults(&s);
+}
+
+static void test_migrate_chain_v1_to_v3(void) {
+    DigiviceStateV1 v1 = {
+        .form = DigiviceFormBeamdrake,
+        .prev_form = DigiviceFormBytemon,
+        .evo_from = DigiviceFormNone,
+        .hunger = 1,
+        .mood = 4,
+        .corruption = 0,
+        .virux_type = DigiviceTypeNone,
+        .strength = 9,
+        .wins = 2,
+        .losses = 1,
+        .data = {1, 2, 30, 4},
+        .exp = 400,
+        .virux_expires = 0,
+        .last_tick = T0,
+        .born_at = T0 - DAY(8),
+        .clean_since = T0 - DAY(1),
+    };
+    DigiviceStateV2 v2;
+    DigiviceState s;
+    digivice_rules_migrate_v1(&v1, &v2);
+    digivice_rules_migrate_v2(&v2, &s);
+    CHECK(s.form == DigiviceFormBeamdrake && s.exp == 400 && s.strength == 9);
+    CHECK(s.data[DigiviceTypeIr] == 30 && s.wins == 2 && s.losses == 1);
+    CHECK(s.last_tick == T0 && s.born_at == T0 - DAY(8));
+    CHECK(s.lang == DigiviceLangEs && s.mode == DigiviceModeNormal && s.light_on == 1);
+    check_v3_defaults(&s);
+}
+
+static void test_sanitize_clamps_v3(void) {
+    DigiviceState s = fresh(T0);
+    s.area = 9;
+    s.enc_foe = 2;
+    s.mid_state = 7;
+    s.item = 5;
+    s.distance = 60000;
+    s.hike_count = 200;
+    s.scan_count = 200;
+    s.paces_since_fight = 999;
+    s.rng = 0;
+    digivice_rules_sanitize(&s);
+    CHECK(s.area == 0 && s.enc_foe == DIGIVICE_ENC_NONE && s.mid_state == 2);
+    CHECK(s.item == DigiviceItemNone && s.distance == 480);
+    CHECK(s.hike_count == DIGIVICE_HIKE_CAP && s.scan_count == DIGIVICE_SCAN_CAP);
+    CHECK(s.paces_since_fight == DIGIVICE_ENCOUNTER_GUARANTEE && s.rng != 0);
+
+    // A distance inside the area length is kept; each in-range pool index is kept.
+    s.area = 7;
+    s.distance = 1440;
+    s.enc_foe = 1;
+    s.enc_expires = T0 + 60;
+    digivice_rules_sanitize(&s);
+    CHECK(s.distance == 1440 && s.enc_foe == 1 && s.enc_expires == T0 + 60);
+
+    // Both encounter slots set: the trail one goes.
+    s.virux_type = DigiviceTypeNfc;
+    s.virux_expires = T0 + 60;
+    digivice_rules_sanitize(&s);
+    CHECK(s.enc_foe == DIGIVICE_ENC_NONE && s.enc_expires == 0);
+    CHECK(s.virux_type == DigiviceTypeNfc);
+}
+
+static void test_same_visible_ignores_pace_bookkeeping(void) {
+    DigiviceState a = fresh(T0);
+    DigiviceState b = a;
+    b.pace_acc_s = 59;
+    b.paces_since_fight = 12;
+    b.rng ^= 0x1234;
+    b.hike_count = 10;
+    b.scan_count = 3;
+    b.bonus_window_start = T0;
+    b.distance = 300;
+    CHECK(digivice_rules_same_visible(&a, &b));
+    b.distance = 0;
+    CHECK(!digivice_rules_same_visible(&a, &b));
+    b = a;
+    b.enc_foe = 1;
+    CHECK(!digivice_rules_same_visible(&a, &b));
+    b = a;
+    b.mid_state = 1;
+    CHECK(!digivice_rules_same_visible(&a, &b));
+    b = a;
+    b.item = DigiviceItemShield;
+    CHECK(!digivice_rules_same_visible(&a, &b));
+    b = a;
+    b.injured_until = T0 + 3600;
+    CHECK(!digivice_rules_same_visible(&a, &b));
+}
+
+static void test_rng(void) {
+    DigiviceState a = fresh(T0);
+    DigiviceState b = a;
+    for(int i = 0; i < 100; i++) {
+        uint32_t x = digivice_rules_rng(&a);
+        CHECK(x != 0 && x == a.rng);
+        CHECK(digivice_rules_rng_pct(&b) == x % 100);
+    }
+    a.rng = 0;
+    CHECK(digivice_rules_rng(&a) != 0);
+    a.rng = 0x55;
+    digivice_rules_mix_entropy(&a, 0x55);
+    CHECK(a.rng == 1);
+    digivice_rules_mix_entropy(&a, 0xF0);
+    CHECK(a.rng == 0xF1);
+}
+
+static void test_attr_triangle(void) {
+    CHECK(digivice_rules_attr_adv(DigiviceAttrPortador, DigiviceAttrRuido) == 1);
+    CHECK(digivice_rules_attr_adv(DigiviceAttrRuido, DigiviceAttrCifrado) == 1);
+    CHECK(digivice_rules_attr_adv(DigiviceAttrCifrado, DigiviceAttrPortador) == 1);
+    CHECK(digivice_rules_attr_adv(DigiviceAttrRuido, DigiviceAttrPortador) == -1);
+    CHECK(digivice_rules_attr_adv(DigiviceAttrCifrado, DigiviceAttrRuido) == -1);
+    CHECK(digivice_rules_attr_adv(DigiviceAttrPortador, DigiviceAttrCifrado) == -1);
+    for(uint8_t a = 0; a < DigiviceAttrCount; a++) {
+        CHECK(digivice_rules_attr_adv(a, a) == 0);
+        CHECK(digivice_rules_attr_adv(a, DigiviceAttrNulo) == 0);
+        CHECK(digivice_rules_attr_adv(DigiviceAttrNulo, a) == 0);
+        CHECK(digivice_rules_attr_adv(a, 9) == 0 && digivice_rules_attr_adv(9, a) == 0);
+    }
+}
+
+static void test_form_and_type_attr(void) {
+    static const uint8_t expected[DigiviceFormVirubyte] = {
+        [DigiviceFormByteegg] = DigiviceAttrNulo,
+        [DigiviceFormBitling] = DigiviceAttrNulo,
+        [DigiviceFormBytemon] = DigiviceAttrNulo,
+        [DigiviceFormTagdrake] = DigiviceAttrCifrado,
+        [DigiviceFormWavedrake] = DigiviceAttrPortador,
+        [DigiviceFormBeamdrake] = DigiviceAttrRuido,
+        [DigiviceFormPlugdrake] = DigiviceAttrNulo,
+    };
+    DigiviceState s = fresh(T0);
+    for(uint8_t f = 0; f < DigiviceFormVirubyte; f++) {
+        s.form = f;
+        CHECK(digivice_rules_form_attr(&s) == expected[f]);
+    }
+    // Virubyte is static whatever it was before.
+    s.form = DigiviceFormVirubyte;
+    for(uint8_t f = 0; f < DigiviceFormVirubyte; f++) {
+        s.prev_form = f;
+        CHECK(digivice_rules_form_attr(&s) == DigiviceAttrRuido);
+    }
+    CHECK(digivice_rules_type_attr(DigiviceTypeNfc) == DigiviceAttrCifrado);
+    CHECK(digivice_rules_type_attr(DigiviceTypeSubGhz) == DigiviceAttrPortador);
+    CHECK(digivice_rules_type_attr(DigiviceTypeIr) == DigiviceAttrRuido);
+    CHECK(digivice_rules_type_attr(DigiviceTypeUsb) == DigiviceAttrNulo);
+    CHECK(digivice_rules_type_attr(DigiviceTypeNone) == DigiviceAttrNulo);
 }
 
 static void test_normal_mode_ignores_deeds(void) {
@@ -756,7 +1009,7 @@ static void test_migrate_v1_field_by_field(void) {
         .mood_acc_s = 1002,
         .corrupt_acc_s = 1003,
     };
-    DigiviceState s;
+    DigiviceStateV2 s;
     memset(&s, 0xAA, sizeof(s));
     digivice_rules_migrate_v1(&v1, &s);
     CHECK(s.form == DigiviceFormWavedrake);
@@ -1132,6 +1385,15 @@ int main(void) {
     test_deed_out_of_range_is_ignored();
     test_spawn_deed_when_ineligible_still_rewards();
     test_v2_defaults_and_layout();
+    test_v3_defaults();
+    test_area_lengths();
+    test_migrate_v2_field_by_field();
+    test_migrate_chain_v1_to_v3();
+    test_sanitize_clamps_v3();
+    test_same_visible_ignores_pace_bookkeeping();
+    test_rng();
+    test_attr_triangle();
+    test_form_and_type_attr();
     test_normal_mode_ignores_deeds();
     test_train_grants_exp_in_both_modes();
     test_train_refused_while_sick_or_asleep();

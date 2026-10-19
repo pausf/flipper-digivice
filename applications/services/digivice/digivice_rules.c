@@ -35,6 +35,30 @@ static void set_corruption(DigiviceState* s, int32_t value, uint32_t now) {
     }
 }
 
+static const uint16_t area_lengths[DIGIVICE_AREA_COUNT] = DIGIVICE_AREA_LENGTHS;
+
+uint16_t digivice_rules_area_length(uint8_t area) {
+    return area_lengths[area < DIGIVICE_AREA_COUNT ? area : DIGIVICE_AREA_COUNT - 1];
+}
+
+static void v3_defaults(DigiviceState* s) {
+    s->area = 0;
+    s->cleared = 0;
+    s->enc_foe = DIGIVICE_ENC_NONE;
+    s->mid_state = 0;
+    s->item = DigiviceItemNone;
+    s->hike_count = 0;
+    s->scan_count = 0;
+    s->reserved3 = 0;
+    s->distance = digivice_rules_area_length(0);
+    s->paces_since_fight = 0;
+    s->pace_acc_s = 0;
+    s->enc_expires = 0;
+    s->bonus_window_start = 0;
+    s->injured_until = 0;
+    s->rng = (s->last_tick ^ s->born_at ^ 0x9E3779B9UL) | 1UL;
+}
+
 void digivice_rules_init(DigiviceState* s, uint32_t now) {
     memset(s, 0, sizeof(DigiviceState));
     s->form = DigiviceFormByteegg;
@@ -49,6 +73,7 @@ void digivice_rules_init(DigiviceState* s, uint32_t now) {
     s->lang = DigiviceLangEs;
     s->mode = DigiviceModeNormal;
     s->light_on = 1;
+    v3_defaults(s);
 }
 
 void digivice_rules_reset(DigiviceState* s, uint32_t now) {
@@ -59,8 +84,8 @@ void digivice_rules_reset(DigiviceState* s, uint32_t now) {
     s->mode = mode;
 }
 
-void digivice_rules_migrate_v1(const DigiviceStateV1* v1, DigiviceState* s) {
-    memset(s, 0, sizeof(DigiviceState));
+void digivice_rules_migrate_v1(const DigiviceStateV1* v1, DigiviceStateV2* s) {
+    memset(s, 0, sizeof(DigiviceStateV2));
     s->form = v1->form;
     s->prev_form = v1->prev_form;
     s->evo_from = v1->evo_from;
@@ -86,9 +111,92 @@ void digivice_rules_migrate_v1(const DigiviceStateV1* v1, DigiviceState* s) {
     s->light_on = 1;
 }
 
+void digivice_rules_migrate_v2(const DigiviceStateV2* v2, DigiviceState* s) {
+    memset(s, 0, sizeof(DigiviceState));
+    // The v3 struct starts with the exact v2 layout (static_assert in digivice_rules.h).
+    memcpy(s, v2, sizeof(DigiviceStateV2));
+    v3_defaults(s);
+}
+
 void digivice_rules_sanitize(DigiviceState* s) {
     if(s->lang >= DigiviceLangCount) s->lang = DigiviceLangEs;
     if(s->mode >= DigiviceModeCount) s->mode = DigiviceModeNormal;
+    if(s->area >= DIGIVICE_AREA_COUNT) s->area = 0;
+    if(s->enc_foe > 1) s->enc_foe = DIGIVICE_ENC_NONE;
+    if(s->mid_state > 2) s->mid_state = 2;
+    if(s->item >= DigiviceItemCount) s->item = DigiviceItemNone;
+    uint16_t length = digivice_rules_area_length(s->area);
+    if(s->distance > length) s->distance = length;
+    if(s->hike_count > DIGIVICE_HIKE_CAP) s->hike_count = DIGIVICE_HIKE_CAP;
+    if(s->scan_count > DIGIVICE_SCAN_CAP) s->scan_count = DIGIVICE_SCAN_CAP;
+    if(s->paces_since_fight > DIGIVICE_ENCOUNTER_GUARANTEE) {
+        s->paces_since_fight = DIGIVICE_ENCOUNTER_GUARANTEE;
+    }
+    if(s->rng == 0) s->rng = 1;
+    // Only one encounter can be pending: the VIRUX keeps its slot.
+    if(s->virux_type != DigiviceTypeNone && s->enc_foe != DIGIVICE_ENC_NONE) {
+        s->enc_foe = DIGIVICE_ENC_NONE;
+        s->enc_expires = 0;
+    }
+}
+
+uint32_t digivice_rules_rng(DigiviceState* s) {
+    uint32_t x = s->rng ? s->rng : 1;
+    x ^= x << 13;
+    x ^= x >> 17;
+    x ^= x << 5;
+    s->rng = x;
+    return x;
+}
+
+uint8_t digivice_rules_rng_pct(DigiviceState* s) {
+    return (uint8_t)(digivice_rules_rng(s) % 100);
+}
+
+void digivice_rules_mix_entropy(DigiviceState* s, uint32_t entropy) {
+    s->rng ^= entropy;
+    if(s->rng == 0) s->rng = 1;
+}
+
+// The attribute each attribute beats; Nulo beats nothing and loses to nothing.
+static const uint8_t attr_beats[DigiviceAttrNulo] = {
+    [DigiviceAttrPortador] = DigiviceAttrRuido,
+    [DigiviceAttrRuido] = DigiviceAttrCifrado,
+    [DigiviceAttrCifrado] = DigiviceAttrPortador,
+};
+
+int8_t digivice_rules_attr_adv(uint8_t attacker, uint8_t defender) {
+    if(attacker >= DigiviceAttrNulo || defender >= DigiviceAttrNulo) return 0;
+    if(attr_beats[attacker] == defender) return 1;
+    if(attr_beats[defender] == attacker) return -1;
+    return 0;
+}
+
+DigiviceAttr digivice_rules_form_attr(const DigiviceState* s) {
+    switch(s->form) {
+    case DigiviceFormWavedrake:
+        return DigiviceAttrPortador;
+    case DigiviceFormTagdrake:
+        return DigiviceAttrCifrado;
+    case DigiviceFormBeamdrake:
+    case DigiviceFormVirubyte:
+        return DigiviceAttrRuido;
+    default:
+        return DigiviceAttrNulo;
+    }
+}
+
+DigiviceAttr digivice_rules_type_attr(DigiviceType type) {
+    switch(type) {
+    case DigiviceTypeNfc:
+        return DigiviceAttrCifrado;
+    case DigiviceTypeSubGhz:
+        return DigiviceAttrPortador;
+    case DigiviceTypeIr:
+        return DigiviceAttrRuido;
+    default:
+        return DigiviceAttrNulo;
+    }
 }
 
 bool digivice_rules_set_lang(DigiviceState* s, uint8_t lang) {
@@ -379,15 +487,23 @@ bool digivice_rules_timing_hit(uint8_t cursor, uint8_t zone_start) {
 }
 
 bool digivice_rules_same_visible(const DigiviceState* a, const DigiviceState* b) {
-    DigiviceState x = *a;
+    // One copy, not two: the service runs this on a 2 KB stack.
     DigiviceState y = *b;
-    x.last_tick = y.last_tick = 0;
-    x.hunger_acc_s = y.hunger_acc_s = 0;
-    x.mood_acc_s = y.mood_acc_s = 0;
-    x.corrupt_acc_s = y.corrupt_acc_s = 0;
-    x.poop_acc_s = y.poop_acc_s = 0;
-    x.light_on_asleep_s = y.light_on_asleep_s = 0;
-    return memcmp(&x, &y, sizeof(DigiviceState)) == 0;
+    y.last_tick = a->last_tick;
+    y.hunger_acc_s = a->hunger_acc_s;
+    y.mood_acc_s = a->mood_acc_s;
+    y.corrupt_acc_s = a->corrupt_acc_s;
+    y.poop_acc_s = a->poop_acc_s;
+    y.light_on_asleep_s = a->light_on_asleep_s;
+    y.pace_acc_s = a->pace_acc_s;
+    y.paces_since_fight = a->paces_since_fight;
+    y.rng = a->rng;
+    y.hike_count = a->hike_count;
+    y.scan_count = a->scan_count;
+    y.bonus_window_start = a->bonus_window_start;
+    // Paces are bookkeeping; only reaching the boss (distance 0) is visible.
+    if((a->distance == 0) == (b->distance == 0)) y.distance = a->distance;
+    return memcmp(a, &y, sizeof(DigiviceState)) == 0;
 }
 
 static const uint8_t champion_of[DigiviceTypeCount] = {

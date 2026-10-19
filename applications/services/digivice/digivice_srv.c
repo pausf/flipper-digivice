@@ -9,7 +9,8 @@
 
 #define DIGIVICE_STATE_PATH    INT_PATH(".digivice.state")
 #define DIGIVICE_STATE_MAGIC      0xD1
-#define DIGIVICE_STATE_VERSION    0x02
+#define DIGIVICE_STATE_VERSION    0x03
+#define DIGIVICE_STATE_VERSION_V2 0x02
 #define DIGIVICE_STATE_VERSION_V1 0x01
 
 #define DIGIVICE_QUEUE_SIZE 16
@@ -110,7 +111,7 @@ void digivice_ack_evolution(Digivice* digivice) {
 
 // Private
 
-/** Reads a v2 file, or a v1 file migrated to v2 (`migrated` is then set). */
+/** Reads a v3 file, or a v2 or v1 file migrated to v3 (`migrated` is then set). */
 static bool digivice_load_file(DigiviceState* loaded, bool* migrated) {
     uint8_t magic = 0;
     uint8_t version = 0;
@@ -127,7 +128,18 @@ static bool digivice_load_file(DigiviceState* loaded, bool* migrated) {
             DIGIVICE_STATE_MAGIC,
             DIGIVICE_STATE_VERSION);
     }
-    if(version == DIGIVICE_STATE_VERSION_V1 && size == sizeof(DigiviceStateV1)) {
+    // Old files go v1 -> v2 -> v3: at most the 56 B v1 and 84 B v2 copies share the stack.
+    DigiviceStateV2 v2;
+    if(version == DIGIVICE_STATE_VERSION_V2 && size == sizeof(DigiviceStateV2)) {
+        if(!saved_struct_load(
+               DIGIVICE_STATE_PATH,
+               &v2,
+               sizeof(DigiviceStateV2),
+               DIGIVICE_STATE_MAGIC,
+               DIGIVICE_STATE_VERSION_V2)) {
+            return false;
+        }
+    } else if(version == DIGIVICE_STATE_VERSION_V1 && size == sizeof(DigiviceStateV1)) {
         DigiviceStateV1 v1;
         if(!saved_struct_load(
                DIGIVICE_STATE_PATH,
@@ -137,11 +149,13 @@ static bool digivice_load_file(DigiviceState* loaded, bool* migrated) {
                DIGIVICE_STATE_VERSION_V1)) {
             return false;
         }
-        digivice_rules_migrate_v1(&v1, loaded);
-        *migrated = true;
-        return true;
+        digivice_rules_migrate_v1(&v1, &v2);
+    } else {
+        return false;
     }
-    return false;
+    digivice_rules_migrate_v2(&v2, loaded);
+    *migrated = true;
+    return true;
 }
 
 static void digivice_load(Digivice* digivice) {
@@ -155,19 +169,23 @@ static void digivice_load(Digivice* digivice) {
 
     furi_check(furi_mutex_acquire(digivice->mutex, FuriWaitForever) == FuriStatusOk);
     if(ok) {
-        // v1 time was never played under the v2 care rules: restart the clock so the first tick
-        // sees ~0 s elapsed instead of charging mistakes, poop and sickness for it.
+        // Time under an older firmware was never played under these rules: restart the clock so
+        // the first tick sees ~0 s elapsed instead of charging care, paces and encounters for it.
         if(migrated) loaded.last_tick = furi_hal_rtc_get_timestamp();
         digivice->state = loaded;
-        // A migrated pet is written back as v2 on the next flush.
+        // A migrated pet is written back as v3 on the next flush.
         digivice->dirty = migrated;
-        if(migrated) FURI_LOG_I(TAG, "Migrated the v1 state to v2");
+        if(migrated) FURI_LOG_I(TAG, "Migrated an older state to v3");
     } else {
         FURI_LOG_W(TAG, "No valid state, hatching a new egg");
         digivice_rules_init(&digivice->state, furi_hal_rtc_get_timestamp());
         digivice->dirty = true;
     }
     furi_mutex_release(digivice->mutex);
+    FURI_LOG_I(
+        TAG,
+        "Stack free after load: %lu",
+        (unsigned long)furi_thread_get_stack_space(furi_thread_get_current_id()));
     digivice->storage_ready = true;
     if(digivice->dirty)
         furi_event_loop_timer_start(digivice->flush_timer, DIGIVICE_FLUSH_S * 1000UL);
@@ -231,11 +249,18 @@ static void digivice_tick(void* context) {
     uint32_t now = furi_hal_rtc_get_timestamp();
     furi_check(furi_mutex_acquire(digivice->mutex, FuriWaitForever) == FuriStatusOk);
     DigiviceState before = digivice->state;
+    digivice_rules_mix_entropy(&digivice->state, furi_hal_random_get());
     digivice_rules_tick(&digivice->state, now);
     digivice_rules_evolve(&digivice->state, now);
     furi_mutex_release(digivice->mutex);
 
     digivice_changed(digivice, &before);
+    if(now > before.last_tick + 5UL * DIGIVICE_TICK_S) {
+        FURI_LOG_I(
+            TAG,
+            "Stack free after a catch-up tick: %lu",
+            (unsigned long)furi_thread_get_stack_space(furi_thread_get_current_id()));
+    }
 
     if(digivice_rules_bedtime_started(&digivice->state, before.last_tick, now)) {
         notification_message(digivice->notification, &digivice_sequence_bedtime);
@@ -267,6 +292,7 @@ static void digivice_process_message(FuriEventLoopObject* object, void* context)
     furi_check(furi_mutex_acquire(digivice->mutex, FuriWaitForever) == FuriStatusOk);
     DigiviceState before = digivice->state;
     DigiviceState* state = &digivice->state;
+    digivice_rules_mix_entropy(state, furi_hal_random_get());
 
     switch(message.type) {
     case DigiviceMessageTypeDeed:

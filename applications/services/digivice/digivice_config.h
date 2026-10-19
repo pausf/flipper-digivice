@@ -76,5 +76,12 @@
 #define DIGIVICE_CARE_FRAMES   30
 #define DIGIVICE_FEED_FRAMES   50
 
+// Expedition: 8 areas walked at 1 pace per awake minute.
+#define DIGIVICE_AREA_COUNT          8
+#define DIGIVICE_AREA_LENGTHS        {480, 600, 720, 840, 960, 1080, 1200, 1440}
+#define DIGIVICE_ENCOUNTER_GUARANTEE 50
+#define DIGIVICE_HIKE_CAP            60
+#define DIGIVICE_SCAN_CAP            30
+
 // Cutscene length in frames of the 100 ms animation clock.
 #define DIGIVICE_EVO_FRAMES 50
