@@ -199,7 +199,7 @@ static void deco(
         digivice_draw_line(canvas, x - 6, base - 4, x + 6, base - 4);
         digivice_draw_line(canvas, x - 6, base - 12, x - 6, base - 4);
         digivice_draw_line(canvas, x + 6, base - 12, x + 6, base - 4);
-        digivice_draw_text(canvas, x - 3, base - 11, v % 2 ? "01" : "10");
+        if(x >= 3 && x <= 120) digivice_draw_text(canvas, x - 3, base - 11, v % 2 ? "01" : "10");
         break;
     default: {
         // Floating shards of the null core, bobbing.
@@ -280,8 +280,7 @@ void digivice_draw_scene(
                               DIGIVICE_SCENE_W);
         if(x > 140) x -= DIGIVICE_SCENE_W;
         if(x < -12 || x > 140) continue;
-        int32_t base = x >= 0 && x < 128 ? scene->near[(scroll + (uint32_t)x) % DIGIVICE_SCENE_W] :
-                                           look->near_base;
+        int32_t base = scene->near[scene->deco_x[i]];
         deco(canvas, look, scene->deco_v[i], x, base, frame, dark);
     }
     canvas_set_color(canvas, ColorBlack);
