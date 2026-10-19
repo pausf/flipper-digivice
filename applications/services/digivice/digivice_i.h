@@ -39,6 +39,7 @@ typedef struct {
             uint8_t kind; /**< DigiviceEncounterKind */
             uint8_t result; /**< DigiviceBattleResult */
             bool shield_used;
+            uint32_t offered_expires;
         } battle;
         uint8_t value;
     };

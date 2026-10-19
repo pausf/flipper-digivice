@@ -59,7 +59,7 @@ static void test_power(void) {
     DigiviceState s = with_form(DigiviceFormByteegg);
     CHECK(digivice_rules_player_power(&s, T0) == 0);
     s.form = DigiviceFormBitling;
-    CHECK(digivice_rules_player_power(&s, T0) == 8);
+    CHECK(digivice_rules_player_power(&s, T0) == 10);
     s.form = DigiviceFormBytemon;
     CHECK(digivice_rules_player_power(&s, T0) == 20);
     s.form = DigiviceFormWavedrake;
@@ -274,7 +274,7 @@ static void test_battle_init(void) {
     DigiviceState baby = with_form(DigiviceFormBitling);
     baby.enc_foe = 0;
     digivice_battle_init(&b, &baby, DigiviceEncounterTrail, T0);
-    CHECK(b.player_power == 8 && b.player_shot == 2 && b.foe_power == 10);
+    CHECK(b.player_power == 10 && b.player_shot == 2 && b.foe_power == 10);
 }
 
 static void test_can_battle(void) {
@@ -303,7 +303,21 @@ static DigiviceReward finish(
     DigiviceBattleResult result,
     bool shield_used,
     uint8_t rng_pct) {
-    return digivice_rules_battle_result(s, kind, result, shield_used, rng_pct, T0);
+    return digivice_rules_battle_result(
+        s, kind, result, shield_used, s->enc_expires, rng_pct, T0);
+}
+
+static void test_stale_fight_keeps_newer_encounter(void) {
+    DigiviceState s = with_form(DigiviceFormTagdrake);
+    s.enc_foe = 1;
+    s.enc_expires = T0 + 500;
+    uint32_t started_with = T0 + 100;
+    digivice_rules_battle_result(
+        &s, DigiviceEncounterTrail, DigiviceBattleResultWin, false, started_with, 99, T0);
+    CHECK(s.enc_foe == 1 && s.enc_expires == T0 + 500);
+    digivice_rules_battle_result(
+        &s, DigiviceEncounterTrail, DigiviceBattleResultWin, false, T0 + 500, 99, T0);
+    CHECK(s.enc_foe == DIGIVICE_ENC_NONE && s.enc_expires == 0);
 }
 
 static void test_trail_rewards(void) {
@@ -378,6 +392,14 @@ static void test_defeat_penalties(void) {
     b.distance = 0;
     finish(&b, DigiviceEncounterBoss, DigiviceBattleResultLose, false, 0);
     CHECK(b.distance == 0 && digivice_expedition_boss_ready(&b));
+    // A Baby loses mood and gets hurt, but is not corrupted.
+    DigiviceState baby = with_form(DigiviceFormBitling);
+    baby.mood = 3;
+    baby.enc_foe = 0;
+    baby.enc_expires = T0 + 60;
+    finish(&baby, DigiviceEncounterTrail, DigiviceBattleResultLose, false, 0);
+    CHECK(baby.corruption == 0 && baby.mood == 2 && baby.losses == 1);
+    CHECK(baby.injured_until == T0 + DIGIVICE_INJURY_S);
     // A loss can push corruption to 100 and transform the pet.
     DigiviceState c = with_form(DigiviceFormBytemon);
     c.corruption = 90;
@@ -460,6 +482,7 @@ int main(void) {
     test_battle_init();
     test_can_battle();
     test_retreat();
+    test_stale_fight_keeps_newer_encounter();
     test_trail_rewards();
     test_boss_rewards();
     test_defeat_penalties();

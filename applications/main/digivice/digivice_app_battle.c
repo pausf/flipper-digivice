@@ -284,7 +284,11 @@ static void battle_finish(DigiviceApp* app, DigiviceBattleResult result) {
     app->result = (uint8_t)result;
     uint8_t cleared_before = app->state.cleared;
     app->reward = digivice_battle_finish(
-        app->digivice, (DigiviceEncounterKind)app->enc_kind, result, app->battle.shield_used);
+        app->digivice,
+        (DigiviceEncounterKind)app->enc_kind,
+        result,
+        app->battle.shield_used,
+        app->offered_expires);
     digivice_get_state(app->digivice, &app->state);
     app->streak_lost = result == DigiviceBattleResultLose &&
                        app->enc_kind != DigiviceEncounterVirux &&

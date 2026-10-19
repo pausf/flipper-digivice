@@ -110,12 +110,15 @@ DigiviceBattleOutcome digivice_battle_outcome(const DigiviceBattle* b);
 /** VIRUX and areas 1 to 4 allow a retreat; streak areas do not. */
 bool digivice_battle_retreat_allowed(const DigiviceState* s, DigiviceEncounterKind kind);
 
-/** Applies a finished battle and clears its encounter. `shield_used` drops the held Shield. */
+/** Applies a finished battle and clears its encounter. `shield_used` drops the held Shield.
+ * A trail encounter is only cleared when it still expires at `offered_expires`, the value the
+ * fight started with. */
 DigiviceReward digivice_rules_battle_result(
     DigiviceState* s,
     DigiviceEncounterKind kind,
     DigiviceBattleResult result,
     bool shield_used,
+    uint32_t offered_expires,
     uint8_t rng_pct,
     uint32_t now);
 

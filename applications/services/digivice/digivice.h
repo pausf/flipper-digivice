@@ -25,12 +25,14 @@ bool digivice_feed(Digivice* digivice);
 DigiviceResult digivice_train(Digivice* digivice, bool success);
 
 /** Thread safe, blocking. Applies a finished battle, clears its trail encounter or VIRUX and
- * returns the reward. `shield_used` drops the Shield the fight consumed. */
+ * returns the reward. `shield_used` drops the Shield the fight consumed; `offered_expires`
+ * is the trail encounter's expiry when the fight started. */
 DigiviceReward digivice_battle_finish(
     Digivice* digivice,
     DigiviceEncounterKind kind,
     DigiviceBattleResult result,
-    bool shield_used);
+    bool shield_used,
+    uint32_t offered_expires);
 
 /** Thread safe, blocking. NothingToClean when there was no poop. */
 DigiviceResult digivice_clean(Digivice* digivice);

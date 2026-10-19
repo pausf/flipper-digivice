@@ -137,13 +137,15 @@ DigiviceReward digivice_battle_finish(
     Digivice* digivice,
     DigiviceEncounterKind kind,
     DigiviceBattleResult result,
-    bool shield_used) {
+    bool shield_used,
+    uint32_t offered_expires) {
     furi_check(digivice);
     DigiviceReward reward = {.exp = 0, .item = DigiviceItemNone};
     DigiviceMessage message = {
         .type = DigiviceMessageTypeBattle,
         .output = &reward,
-        .battle = {.kind = (uint8_t)kind, .result = (uint8_t)result, .shield_used = shield_used},
+        .battle = {.kind = (uint8_t)kind, .result = (uint8_t)result, .shield_used = shield_used,
+            .offered_expires = offered_expires},
     };
     digivice_send_wait(digivice, &message);
     return reward;
@@ -398,6 +400,7 @@ static void digivice_process_message(FuriEventLoopObject* object, void* context)
             (DigiviceEncounterKind)message.battle.kind,
             (DigiviceBattleResult)message.battle.result,
             message.battle.shield_used,
+            message.battle.offered_expires,
             digivice_rules_rng_pct(state),
             now);
         digivice_rules_evolve(state, now);

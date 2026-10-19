@@ -121,7 +121,10 @@ bool digivice_expedition_area_unlocked(const DigiviceState* s, uint8_t area) {
 }
 
 bool digivice_expedition_can_walk(const DigiviceState* s) {
-    return digivice_rules_stage(s) >= DigiviceStageBaby && !s->sick && s->distance > 0;
+    if(digivice_rules_stage(s) < DigiviceStageBaby || s->sick) return false;
+    // A boss behind a closed gate keeps the trail alive: encounters go on while the pet grows.
+    return s->distance > 0 ||
+           (digivice_expedition_boss_ready(s) && !digivice_expedition_boss_gate_open(s));
 }
 
 bool digivice_expedition_trail_pending(const DigiviceState* s, uint32_t now) {
@@ -135,26 +138,30 @@ void digivice_expedition_expire(DigiviceState* s, uint32_t now) {
     }
 }
 
-// One pace at instant t: distance, midway, then the encounter roll.
-static void pace(DigiviceState* s, uint32_t t) {
+// One pace at instant t: distance, midway, then the encounter roll. Returns true when this
+// pace arrived at the boss. At distance 0 (closed gate) it is only the encounter roll.
+static bool pace(DigiviceState* s, uint32_t t) {
     digivice_expedition_expire(s, t);
-    s->distance--;
     if(s->paces_since_fight < DIGIVICE_ENCOUNTER_GUARANTEE) s->paces_since_fight++;
-    if(s->mid_state == 0 && s->distance <= digivice_rules_area_length(s->area) / 2) {
-        s->mid_state = 1;
+    if(s->distance > 0) {
+        s->distance--;
+        if(s->mid_state == 0 && s->distance <= digivice_rules_area_length(s->area) / 2) {
+            s->mid_state = 1;
+        }
+        if(s->distance == 0) {
+            // The boss is ready: no half-pace carried into the boss wait.
+            s->pace_acc_s = 0;
+            return true;
+        }
     }
-    if(s->distance == 0) {
-        // The boss is ready: no more rolls, and no half-pace carried into the boss wait.
-        s->pace_acc_s = 0;
-        return;
-    }
-    if(s->enc_foe != DIGIVICE_ENC_NONE || digivice_rules_virux_active(s, t)) return;
+    if(s->enc_foe != DIGIVICE_ENC_NONE || digivice_rules_virux_active(s, t)) return false;
     bool spawn = s->paces_since_fight >= DIGIVICE_ENCOUNTER_GUARANTEE ||
                  digivice_rules_rng(s) % 100 < DIGIVICE_ENCOUNTER_PCT;
-    if(!spawn) return;
+    if(!spawn) return false;
     s->enc_foe = (uint8_t)(digivice_rules_rng(s) % 2);
     s->enc_expires = t + DIGIVICE_ENCOUNTER_TTL_S;
     s->paces_since_fight = 0;
+    return false;
 }
 
 void digivice_expedition_walk(DigiviceState* s, uint32_t step, uint32_t t_end) {
@@ -162,8 +169,8 @@ void digivice_expedition_walk(DigiviceState* s, uint32_t step, uint32_t t_end) {
     uint32_t acc = s->pace_acc_s + step;
     s->pace_acc_s = acc % DIGIVICE_PACE_S;
     // Pace k happens when the carried awake seconds reach k minutes.
-    for(uint32_t k = 1; k <= acc / DIGIVICE_PACE_S && s->distance > 0; k++) {
-        pace(s, t_end - (acc - k * DIGIVICE_PACE_S));
+    for(uint32_t k = 1; k <= acc / DIGIVICE_PACE_S && digivice_expedition_can_walk(s); k++) {
+        if(pace(s, t_end - (acc - k * DIGIVICE_PACE_S))) break;
     }
 }
 
@@ -197,7 +204,7 @@ uint8_t digivice_expedition_hike_left(const DigiviceState* s, uint32_t now) {
 
 static uint8_t bonus_paces(DigiviceState* s, uint8_t want, uint32_t now) {
     uint8_t granted = 0;
-    while(granted < want && s->distance > 0) {
+    while(granted < want && digivice_expedition_can_walk(s)) {
         pace(s, now);
         granted++;
     }

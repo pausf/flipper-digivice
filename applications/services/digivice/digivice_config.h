@@ -49,7 +49,7 @@
 #define DIGIVICE_LIGHT_MISTAKE_S  3600UL
 
 // Battle. Indexed by DigiviceStage: egg, baby, rookie, champion. Multipliers are x10.
-#define DIGIVICE_STAGE_POWER       {0, 8, 20, 40}
+#define DIGIVICE_STAGE_POWER       {0, 10, 20, 40}
 #define DIGIVICE_VIRUX_POWER       {24, 24, 24, 46}
 #define DIGIVICE_STRENGTH_CAP      24
 #define DIGIVICE_CHARGE_X10        {6, 10, 15}

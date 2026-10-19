@@ -97,7 +97,7 @@ static void test_baby_walks_egg_and_sick_do_not(void) {
     digivice_rules_tick(&sick, T0 + 600);
     CHECK(sick.distance == 480);
 
-    DigiviceState boss = with_form(DigiviceFormBytemon);
+    DigiviceState boss = with_form(DigiviceFormTagdrake);
     boss.distance = 0;
     uint32_t rng = boss.rng;
     digivice_rules_tick(&boss, T0 + 600);
@@ -199,6 +199,69 @@ static void test_no_roll_while_pending(void) {
     CHECK(v.enc_foe == DIGIVICE_ENC_NONE);
 }
 
+static void test_closed_gate_keeps_the_trail_alive(void) {
+    // Bytemon is a Rookie: the area-1 boss waits behind the gate at distance 0.
+    DigiviceState s = with_form(DigiviceFormBytemon);
+    s.distance = 0;
+    s.paces_since_fight = 10;
+    s.rng = seed_with_pct(DIGIVICE_ENCOUNTER_PCT - 1);
+    digivice_rules_tick(&s, T0 + 60);
+    CHECK(s.distance == 0 && s.enc_foe <= 1);
+    CHECK(s.enc_expires == T0 + 60 + DIGIVICE_ENCOUNTER_TTL_S && s.paces_since_fight == 0);
+
+    // No roll while one is pending, and the 50-pace guarantee still holds.
+    DigiviceState g = with_form(DigiviceFormBytemon);
+    g.distance = 0;
+    g.paces_since_fight = DIGIVICE_ENCOUNTER_GUARANTEE - 1;
+    g.rng = seed_with_pct(99);
+    digivice_rules_tick(&g, T0 + 60);
+    CHECK(g.enc_foe <= 1 && g.distance == 0);
+
+    // Hike and scans count as paces for the roll, never moving the distance.
+    DigiviceState h = with_form(DigiviceFormBytemon);
+    h.distance = 0;
+    h.paces_since_fight = DIGIVICE_ENCOUNTER_GUARANTEE - 3;
+    h.rng = seed_with_pct(99);
+    CHECK(digivice_expedition_hike(&h, 3, T0) == 3);
+    CHECK(h.distance == 0 && h.enc_foe <= 1);
+    CHECK(digivice_expedition_scan(&h, T0) > 0 && h.distance == 0);
+
+    // Egg, sick and asleep pets still do not roll.
+    DigiviceState egg = with_form(DigiviceFormByteegg);
+    egg.distance = 0;
+    digivice_rules_tick(&egg, T0 + 600);
+    CHECK(egg.enc_foe == DIGIVICE_ENC_NONE && egg.paces_since_fight == 0);
+    DigiviceState sick = with_form(DigiviceFormBytemon);
+    sick.distance = 0;
+    sick.sick = 1;
+    sick.doses_needed = 1;
+    sick.paces_since_fight = DIGIVICE_ENCOUNTER_GUARANTEE;
+    digivice_rules_tick(&sick, T0 + 600);
+    CHECK(sick.enc_foe == DIGIVICE_ENC_NONE);
+}
+
+static void test_open_gate_boss_wait_spawns_no_trail(void) {
+    DigiviceState s = with_form(DigiviceFormTagdrake);
+    s.distance = 0;
+    s.paces_since_fight = DIGIVICE_ENCOUNTER_GUARANTEE;
+    digivice_rules_tick(&s, T0 + 600);
+    CHECK(s.enc_foe == DIGIVICE_ENC_NONE && s.distance == 0);
+    CHECK(digivice_expedition_boss_ready(&s) && digivice_rules_attention(&s, T0 + 600));
+    CHECK(digivice_expedition_hike(&s, 5, T0 + 600) == 0);
+}
+
+static void test_closed_gate_tick_equivalence(void) {
+    DigiviceState a = with_form(DigiviceFormBytemon);
+    a.distance = 0;
+    a.rng = 12345;
+    DigiviceState b = a;
+    for(uint32_t t = T0 + 60; t <= T0 + H(2); t += 60)
+        digivice_rules_tick(&a, t);
+    digivice_rules_tick(&b, T0 + H(2));
+    CHECK(a.enc_foe <= 1 || a.paces_since_fight > 0);
+    CHECK(memcmp(&a, &b, sizeof(a)) == 0);
+}
+
 static void test_pool_index_range(void) {
     bool seen[2] = {false, false};
     DigiviceState s = with_form(DigiviceFormBytemon);
@@ -291,7 +354,7 @@ static void test_hike_cap_and_window(void) {
     CHECK(digivice_expedition_hike(&egg, 10, T0) == 0);
 
     // The last paces of an area stop at the boss.
-    DigiviceState end = with_form(DigiviceFormBytemon);
+    DigiviceState end = with_form(DigiviceFormTagdrake);
     end.distance = 5;
     CHECK(digivice_expedition_hike(&end, 24, T0) == 5);
     CHECK(end.distance == 0 && end.hike_count == 5);
@@ -472,6 +535,9 @@ int main(void) {
     test_encounter_roll();
     test_guarantee_at_pace_50();
     test_no_roll_while_pending();
+    test_closed_gate_keeps_the_trail_alive();
+    test_open_gate_boss_wait_spawns_no_trail();
+    test_closed_gate_tick_equivalence();
     test_pool_index_range();
     test_encounter_expires_without_penalty();
     test_offline_catch_up_leaves_no_stale_encounter();

@@ -170,6 +170,7 @@ DigiviceReward digivice_rules_battle_result(
     DigiviceEncounterKind kind,
     DigiviceBattleResult result,
     bool shield_used,
+    uint32_t offered_expires,
     uint8_t rng_pct,
     uint32_t now) {
     DigiviceReward reward = {.exp = 0, .item = DigiviceItemNone};
@@ -196,15 +197,21 @@ DigiviceReward digivice_rules_battle_result(
         s->exp += reward.exp;
     } else if(result == DigiviceBattleResultLose) {
         inc_u16(&s->losses);
-        digivice_rules_add_corruption(s, DIGIVICE_CORRUPTION_LOSE_GAIN, now);
+        // A Baby has no defences yet: a loss hurts but does not corrupt.
+        if(digivice_rules_stage(s) >= DigiviceStageRookie) {
+            digivice_rules_add_corruption(s, DIGIVICE_CORRUPTION_LOSE_GAIN, now);
+        }
         if(s->mood > 0) s->mood--;
         s->injured_until = now + DIGIVICE_INJURY_S;
         if(kind != DigiviceEncounterVirux) digivice_expedition_streak_lost(s);
     }
 
     if(kind == DigiviceEncounterTrail) {
-        s->enc_foe = DIGIVICE_ENC_NONE;
-        s->enc_expires = 0;
+        // A long fight may have outlived its encounter and a newer one spawned meanwhile.
+        if(s->enc_expires == offered_expires) {
+            s->enc_foe = DIGIVICE_ENC_NONE;
+            s->enc_expires = 0;
+        }
     } else if(kind == DigiviceEncounterVirux) {
         s->virux_type = DigiviceTypeNone;
     }
