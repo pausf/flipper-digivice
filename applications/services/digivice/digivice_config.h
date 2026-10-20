@@ -129,5 +129,7 @@
 #define DIGIVICE_VIGOR_START   2
 #define DIGIVICE_VIGOR_DECAY_S (4UL * 3600UL)
 
+#define DIGIVICE_PROTEIN_STRENGTH 2
+
 // Calls: awake seconds a hunger or vigor call waits before it becomes a care mistake.
 #define DIGIVICE_CALL_WINDOW_S (10UL * 60UL)

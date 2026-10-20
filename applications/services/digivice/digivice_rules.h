@@ -67,6 +67,12 @@ typedef enum {
     DigiviceItemCount,
 } DigiviceItem;
 
+typedef enum {
+    DigiviceFoodMeat, /**< hunger +1 */
+    DigiviceFoodProtein, /**< vigor +1 and strength */
+    DigiviceFoodCount,
+} DigiviceFood;
+
 /** Battle attributes. Triangle: Portador > Ruido > Cifrado > Portador; Nulo is neutral. */
 typedef enum {
     DigiviceAttrPortador,
@@ -343,8 +349,8 @@ bool digivice_rules_on_deed(
 /** Advances at most one evolution stage. Returns true when the form changed. */
 bool digivice_rules_evolve(DigiviceState* s, uint32_t now);
 
-/** Returns false (and changes nothing) when hunger is already full. */
-bool digivice_rules_feed(DigiviceState* s, uint32_t now);
+/** Returns false when the food was refused: that is an overfeed, counted once per refill. */
+bool digivice_rules_feed(DigiviceState* s, DigiviceFood food, uint32_t now);
 DigiviceResult digivice_rules_can_train(const DigiviceState* s, uint32_t now);
 /** Refused while sick, asleep or still an Egg. */
 DigiviceResult digivice_rules_can_battle(const DigiviceState* s, uint32_t now);

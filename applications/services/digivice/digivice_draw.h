@@ -121,6 +121,13 @@ void digivice_draw_sweep(Canvas* canvas, int32_t x, int32_t top, int32_t bottom,
 void digivice_draw_syringe(Canvas* canvas, int32_t x, int32_t y, int32_t push);
 /** Data chip centred on (cx, cy); each of the 3 bites shrinks it, 3 bites draw nothing. */
 void digivice_draw_food(Canvas* canvas, int32_t cx, int32_t cy, uint8_t bites);
+/** Meat or protein capsule centred on (cx, cy); each of the 3 bites shrinks it, 3 draw nothing. */
+void digivice_draw_food_kind(
+    Canvas* canvas,
+    DigiviceFood food,
+    int32_t cx,
+    int32_t cy,
+    uint8_t bites);
 /** Dashed ellipse ring that rotates with `phase` (16 steps per turn). */
 void digivice_draw_dash_ring(Canvas* canvas, int32_t cx, int32_t cy, int32_t r, uint32_t phase);
 

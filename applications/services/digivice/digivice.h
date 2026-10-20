@@ -18,8 +18,8 @@ FuriPubSub* digivice_get_pubsub(Digivice* digivice);
 /** Copies the current state. Thread safe, never waits on the service queue. */
 void digivice_get_state(Digivice* digivice, DigiviceState* state);
 
-/** Thread safe, blocking. Returns false when the pet was already full. */
-bool digivice_feed(Digivice* digivice);
+/** Thread safe, blocking. Returns false when the food was refused (the pet is full of it). */
+bool digivice_feed(Digivice* digivice, DigiviceFood food);
 
 /** Thread safe, blocking. Refused (Sick, Asleep) without changing anything. */
 DigiviceResult digivice_train(Digivice* digivice, bool success);

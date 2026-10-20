@@ -147,15 +147,15 @@ static void test_feed(void) {
     DigiviceState s = rookie(T0);
     s.hunger = 2;
     s.corruption = 12;
-    CHECK(digivice_rules_feed(&s, T0));
+    CHECK(digivice_rules_feed(&s, DigiviceFoodMeat, T0));
     CHECK(s.hunger == 3);
     CHECK(s.corruption == 7);
     s.hunger = DIGIVICE_HUNGER_MAX;
-    CHECK(!digivice_rules_feed(&s, T0));
+    CHECK(!digivice_rules_feed(&s, DigiviceFoodMeat, T0));
     CHECK(s.corruption == 7);
     s.hunger = 0;
     s.corruption = 3;
-    digivice_rules_feed(&s, T0);
+    digivice_rules_feed(&s, DigiviceFoodMeat, T0);
     CHECK(s.corruption == 0);
 }
 
@@ -235,7 +235,7 @@ static void test_recovery_resets_when_corruption_returns(void) {
     s.hunger = 2;
     s.corruption = 5;
     s.clean_since = 0;
-    CHECK(digivice_rules_feed(&s, T0));
+    CHECK(digivice_rules_feed(&s, DigiviceFoodMeat, T0));
     CHECK(s.clean_since == T0);
     s.corruption = 0;
     s.hunger = 0;
@@ -245,7 +245,7 @@ static void test_recovery_resets_when_corruption_returns(void) {
 
     // Clean again at T1, 14 h after T0: the 24 h clock must restart there.
     uint32_t t1 = T0 + H(14);
-    CHECK(digivice_rules_feed(&s, t1));
+    CHECK(digivice_rules_feed(&s, DigiviceFoodMeat, t1));
     CHECK(s.corruption == 0);
     CHECK(s.clean_since == t1);
 
@@ -990,7 +990,7 @@ static void test_feeding_stops_the_starvation_clock(void) {
     s.hunger = 0;
     digivice_rules_tick(&s, T0 + 60);
     CHECK(s.starving_since == T0);
-    CHECK(digivice_rules_feed(&s, T0 + 120));
+    CHECK(digivice_rules_feed(&s, DigiviceFoodMeat, T0 + 120));
     CHECK(s.starving_since == 0);
 
     // Training can starve it again.
@@ -1197,7 +1197,75 @@ static void test_sanitize_v4_fields(void) {
     CHECK(s.vigor_acc_s == 0);
 }
 
+static void test_meat_fills_hunger_and_refuses_when_full(void) {
+    DigiviceState s = fresh(T0);
+    s.hunger = 3;
+    CHECK(digivice_rules_feed(&s, DigiviceFoodMeat, T0));
+    CHECK(s.hunger == DIGIVICE_HUNGER_MAX && s.overfeed == 0);
+    CHECK(!digivice_rules_feed(&s, DigiviceFoodMeat, T0));
+    CHECK(s.hunger == DIGIVICE_HUNGER_MAX && s.overfeed == 1);
+}
+
+static void test_refusal_counts_once_until_the_meter_drains(void) {
+    DigiviceState s = fresh(T0);
+    s.hunger = DIGIVICE_HUNGER_MAX;
+    CHECK(!digivice_rules_feed(&s, DigiviceFoodMeat, T0));
+    CHECK(!digivice_rules_feed(&s, DigiviceFoodMeat, T0));
+    CHECK(!digivice_rules_feed(&s, DigiviceFoodMeat, T0));
+    CHECK(s.overfeed == 1);
+    // One heart drains (a training costs one), the next refusal counts again.
+    CHECK(digivice_rules_train(&s, true, T0 + 3600) == DigiviceResultOk);
+    CHECK(digivice_rules_feed(&s, DigiviceFoodMeat, T0 + 3600));
+    CHECK(!digivice_rules_feed(&s, DigiviceFoodMeat, T0 + 3600));
+    CHECK(s.overfeed == 2);
+}
+
+static void test_protein_fills_vigor_and_strength(void) {
+    DigiviceState s = fresh(T0);
+    s.vigor = 3;
+    s.strength = 5;
+    CHECK(digivice_rules_feed(&s, DigiviceFoodProtein, T0));
+    CHECK(s.vigor == DIGIVICE_VIGOR_MAX && s.strength == 5 + DIGIVICE_PROTEIN_STRENGTH);
+    CHECK(s.hunger == fresh(T0).hunger);
+    CHECK(!digivice_rules_feed(&s, DigiviceFoodProtein, T0));
+    CHECK(s.overfeed == 1 && s.strength == 5 + DIGIVICE_PROTEIN_STRENGTH);
+}
+
+static void test_each_food_has_its_own_arm_bit(void) {
+    DigiviceState s = fresh(T0);
+    s.hunger = DIGIVICE_HUNGER_MAX;
+    s.vigor = DIGIVICE_VIGOR_MAX;
+    CHECK(!digivice_rules_feed(&s, DigiviceFoodMeat, T0));
+    CHECK(!digivice_rules_feed(&s, DigiviceFoodProtein, T0));
+    CHECK(s.overfeed == 2);
+}
+
+static void test_vigor_decays_one_heart_per_four_awake_hours(void) {
+    DigiviceState s = fresh(10 * 3600UL);
+    s.vigor = 3;
+    digivice_rules_tick(&s, 10 * 3600UL + DIGIVICE_VIGOR_DECAY_S);
+    CHECK(s.vigor == 2);
+    CHECK(s.feed_flags & DIGIVICE_FEED_ARM_VIGOR);
+}
+
+static void test_vigor_ticks_match_one_catch_up(void) {
+    DigiviceState a = fresh(8 * 3600UL);
+    DigiviceState b = a;
+    a.vigor = b.vigor = 4;
+    a.hunger = b.hunger = DIGIVICE_HUNGER_MAX;
+    uint32_t end = 8 * 3600UL + 5 * 3600UL;
+    for(uint32_t t = 8 * 3600UL + 60; t <= end; t += 60) digivice_rules_tick(&a, t);
+    digivice_rules_tick(&b, end);
+    CHECK(a.vigor == b.vigor && a.vigor_acc_s == b.vigor_acc_s);
+}
+
 int main(void) {
+    test_meat_fills_hunger_and_refuses_when_full();
+    test_refusal_counts_once_until_the_meter_drains();
+    test_protein_fills_vigor_and_strength();
+    test_each_food_has_its_own_arm_bit();
+    test_vigor_decays_one_heart_per_four_awake_hours();
+    test_vigor_ticks_match_one_catch_up();
     test_init();
     test_v4_layout();
     test_v4_defaults_on_init_and_reset();

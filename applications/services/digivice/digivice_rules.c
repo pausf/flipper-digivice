@@ -296,7 +296,13 @@ static void add_mistake(DigiviceState* s) {
 static void set_hunger(DigiviceState* s, uint8_t hunger, uint32_t now) {
     if(hunger == 0 && s->hunger > 0) s->starving_since = now;
     if(hunger > 0) s->starving_since = 0;
+    if(hunger < DIGIVICE_HUNGER_MAX) s->feed_flags |= DIGIVICE_FEED_ARM_HUNGER;
     s->hunger = hunger;
+}
+
+static void set_vigor(DigiviceState* s, uint8_t vigor) {
+    if(vigor < DIGIVICE_VIGOR_MAX) s->feed_flags |= DIGIVICE_FEED_ARM_VIGOR;
+    s->vigor = vigor;
 }
 
 static bool corrupting(const DigiviceState* s) {
@@ -339,6 +345,7 @@ static uint32_t next_due(const DigiviceState* s, uint32_t t) {
 static uint32_t awake_step(const DigiviceState* s, uint32_t step) {
     uint32_t rate = mood_rate(s);
     if(s->hunger > 0) step = min_u32(step, DIGIVICE_HUNGER_DECAY_S - s->hunger_acc_s);
+    if(s->vigor > 0) step = min_u32(step, DIGIVICE_VIGOR_DECAY_S - s->vigor_acc_s);
     // Rounded up, so a doubled decay lands on or just past its boundary, never short of it.
     if(s->mood > 0) {
         step = min_u32(step, (DIGIVICE_MOOD_DECAY_S - s->mood_acc_s + rate - 1) / rate);
@@ -353,6 +360,7 @@ static void awake_advance(DigiviceState* s, uint32_t step, uint32_t t_end) {
     digivice_expedition_walk(s, step, t_end);
     bool poops = pooping(s);
     if(s->hunger > 0) s->hunger_acc_s += step;
+    if(s->vigor > 0) s->vigor_acc_s += step;
     // Doubled decay can overshoot by under `rate` seconds; the remainder is carried, not lost.
     if(s->mood > 0) s->mood_acc_s += step * mood_rate(s);
     if(corrupting(s)) s->corrupt_acc_s += step;
@@ -361,6 +369,10 @@ static void awake_advance(DigiviceState* s, uint32_t step, uint32_t t_end) {
     if(s->hunger_acc_s >= DIGIVICE_HUNGER_DECAY_S) {
         s->hunger_acc_s = 0;
         set_hunger(s, s->hunger - 1, t_end);
+    }
+    if(s->vigor_acc_s >= DIGIVICE_VIGOR_DECAY_S) {
+        s->vigor_acc_s = 0;
+        set_vigor(s, s->vigor - 1);
     }
     if(s->mood_acc_s >= DIGIVICE_MOOD_DECAY_S) {
         s->mood_acc_s -= DIGIVICE_MOOD_DECAY_S;
@@ -454,9 +466,23 @@ void digivice_rules_tick(DigiviceState* s, uint32_t now) {
     s->last_tick = now;
 }
 
-bool digivice_rules_feed(DigiviceState* s, uint32_t now) {
-    if(s->hunger >= DIGIVICE_HUNGER_MAX) return false;
-    set_hunger(s, s->hunger + 1, now);
+bool digivice_rules_feed(DigiviceState* s, DigiviceFood food, uint32_t now) {
+    bool meat = food == DigiviceFoodMeat;
+    uint8_t arm = meat ? DIGIVICE_FEED_ARM_HUNGER : DIGIVICE_FEED_ARM_VIGOR;
+    uint8_t level = meat ? s->hunger : s->vigor;
+    uint8_t max = meat ? DIGIVICE_HUNGER_MAX : DIGIVICE_VIGOR_MAX;
+    if(level >= max) {
+        // A heart must drain before the next refusal counts.
+        if((s->feed_flags & arm) && s->overfeed < UINT8_MAX) s->overfeed++;
+        s->feed_flags &= (uint8_t)~arm;
+        return false;
+    }
+    if(meat) {
+        set_hunger(s, s->hunger + 1, now);
+    } else {
+        set_vigor(s, s->vigor + 1);
+        add_u16(&s->strength, DIGIVICE_PROTEIN_STRENGTH);
+    }
     set_corruption(s, (int32_t)s->corruption - DIGIVICE_CORRUPTION_FEED_DROP, now);
     return true;
 }

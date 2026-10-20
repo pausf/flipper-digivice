@@ -914,6 +914,38 @@ void digivice_draw_food(Canvas* canvas, int32_t cx, int32_t cy, uint8_t bites) {
     }
 }
 
+void digivice_draw_food_kind(
+    Canvas* canvas,
+    DigiviceFood food,
+    int32_t cx,
+    int32_t cy,
+    uint8_t bites) {
+    if(bites >= 3) return;
+    canvas_set_color(canvas, ColorBlack);
+    if(food == DigiviceFoodProtein) {
+        // Capsule: two halves, one white. The mouth is on the left, so it is eaten from there.
+        int32_t w = 14 - bites * 4;
+        int32_t x = cx + 7 - w;
+        dv_box(canvas, x + 2, cy - 4, w - 4 > 0 ? w - 4 : 1, 9);
+        digivice_draw_fill_ellipse(canvas, x + 3, cy, 3, 4);
+        digivice_draw_fill_ellipse(canvas, x + w - 4, cy, 3, 4);
+        canvas_set_color(canvas, ColorWhite);
+        dv_box(canvas, cx + 1, cy - 2, w / 2 > 1 ? w / 2 - 1 : 1, 5);
+        canvas_set_color(canvas, ColorBlack);
+        return;
+    }
+    // Meat: a round steak with a bone end, shrinking from the mouth side.
+    int32_t rx = 5 - bites;
+    digivice_draw_fill_ellipse(canvas, cx + 5 - rx, cy, rx, 4);
+    canvas_set_color(canvas, ColorWhite);
+    dv_box(canvas, cx + 6 - rx, cy - 1, 2, 2);
+    canvas_set_color(canvas, ColorBlack);
+    if(bites == 0) {
+        dv_box(canvas, cx + 6, cy - 3, 3, 2);
+        dv_box(canvas, cx + 6, cy + 2, 3, 2);
+    }
+}
+
 void digivice_draw_sparkle(Canvas* canvas, int32_t x, int32_t y, int32_t size) {
     dv_sparkle(canvas, x, y, size);
 }

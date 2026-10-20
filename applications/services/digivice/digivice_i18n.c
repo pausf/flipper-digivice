@@ -33,6 +33,9 @@ static const char* const strings_es[DigiviceStrCount] = {
 
     [DigiviceStrFeedHunger] = "HAMBRE",
     [DigiviceStrFeedYum] = EXCL_INV N_TILDE "AM!",
+    [DigiviceStrFeedMeat] = "CARNE",
+    [DigiviceStrFeedProtein] = "PROTE" I_ACUTE "NA",
+    [DigiviceStrFeedVigor] = "FUERZA",
 
     [DigiviceStrTrainHint] = EXCL_INV "OK EN LA ZONA!",
     [DigiviceStrTrainHit] = "FUERZA +1  " A_ACUTE "NIMO +1",
@@ -189,6 +192,9 @@ static const char* const strings_en[DigiviceStrCount] = {
 
     [DigiviceStrFeedHunger] = "HUNGER",
     [DigiviceStrFeedYum] = "YUM!",
+    [DigiviceStrFeedMeat] = "MEAT",
+    [DigiviceStrFeedProtein] = "PROTEIN",
+    [DigiviceStrFeedVigor] = "STRENGTH",
 
     [DigiviceStrTrainHint] = "OK IN THE ZONE!",
     [DigiviceStrTrainHit] = "STR +1  MOOD +1",
@@ -363,6 +369,9 @@ static const uint8_t budgets[DigiviceStrCount] = {
 
     [DigiviceStrFeedHunger] = SLOT_SHORT,
     [DigiviceStrFeedYum] = SLOT_SHORT,
+    [DigiviceStrFeedMeat] = SLOT_SHORT,
+    [DigiviceStrFeedProtein] = SLOT_SHORT,
+    [DigiviceStrFeedVigor] = SLOT_SHORT,
 
     [DigiviceStrTrainHint] = SLOT_ROW,
     [DigiviceStrTrainHit] = SLOT_ROW,

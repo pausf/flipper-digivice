@@ -35,6 +35,9 @@ typedef enum {
 
     DigiviceStrFeedHunger,
     DigiviceStrFeedYum,
+    DigiviceStrFeedMeat,
+    DigiviceStrFeedProtein,
+    DigiviceStrFeedVigor,
 
     DigiviceStrTrainHint,
     DigiviceStrTrainHit,

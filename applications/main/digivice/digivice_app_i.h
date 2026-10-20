@@ -86,7 +86,9 @@ typedef struct {
     uint32_t care_frame;
     uint8_t care_poop; /**< piles on screen before the clean wave wipes them */
 
-    uint8_t feed_from; /**< hunger before the meal, so the hearts can fill up */
+    uint8_t feed_from; /**< meter value before the meal, so the hearts can fill up */
+    uint8_t feed_food; /**< DigiviceFood on the picker or on the plate */
+    uint8_t feed_phase; /**< 0 pick, 1 eat, 2 refused */
 
     uint8_t setting;
     uint8_t confirm; /**< 0 = none, 1 = "SURE?", 2 = "REALLY?" */

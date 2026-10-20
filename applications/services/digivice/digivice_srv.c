@@ -41,10 +41,11 @@ static void digivice_send_wait(Digivice* digivice, DigiviceMessage* message) {
     furi_event_flag_free(message->flag);
 }
 
-bool digivice_feed(Digivice* digivice) {
+bool digivice_feed(Digivice* digivice, DigiviceFood food) {
     furi_check(digivice);
     bool fed = false;
-    DigiviceMessage message = {.type = DigiviceMessageTypeFeed, .result = &fed};
+    DigiviceMessage message = {
+        .type = DigiviceMessageTypeFeed, .result = &fed, .value = (uint8_t)food};
     digivice_send_wait(digivice, &message);
     return fed;
 }
@@ -391,7 +392,10 @@ static void digivice_process_message(FuriEventLoopObject* object, void* context)
         }
         break;
     case DigiviceMessageTypeFeed:
-        *message.result = digivice_rules_feed(state, now);
+        *message.result = digivice_rules_feed(
+            state,
+            message.value < DigiviceFoodCount ? (DigiviceFood)message.value : DigiviceFoodMeat,
+            now);
         break;
     case DigiviceMessageTypeTrain:
         *message.outcome = digivice_rules_train(state, message.success, now);
