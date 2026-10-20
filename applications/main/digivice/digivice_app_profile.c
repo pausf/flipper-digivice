@@ -1,5 +1,6 @@
 #include "digivice_app_i.h"
 
+#include <furi_hal.h>
 #include <stdio.h>
 
 #define BAR_SEGMENTS 12

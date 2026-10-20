@@ -5,7 +5,7 @@
 
 static const DigiviceRosterEntry roster[DigiviceFormCount] = {
     [DigiviceFormByteegg] = E("BYTEEGG", DigiviceStageEgg, DigiviceAttrNulo, DIGIVICE_HATCH_S),
-    // Legacy v1 to v3 forms: they only exist until Task 9 maps them at load.
+    // Legacy v1 to v3 forms: they never evolve and only exist for old saves.
     [DigiviceFormBitling] = E("BITLING", DigiviceStageBaby, DigiviceAttrNulo, 0),
     [DigiviceFormBytemon] = E("BYTEMON", DigiviceStageRookie, DigiviceAttrNulo, 0),
     [DigiviceFormTagdrake] = E("TAGDRAKE", DigiviceStageChampion, DigiviceAttrCifrado, 0),
