@@ -6,15 +6,15 @@ services="$here/../.."
 app="$services/../main/digivice"
 out="${TMPDIR:-/tmp}"
 flags="-std=c11 -Wall -Wextra -Werror -I $services"
-rules="$here/../digivice_rules.c $here/../digivice_roster.c $here/../digivice_expedition.c $here/../digivice_battle.c $here/../digivice_evolution.c $here/../digivice_homage.c $here/../digivice_city.c"
+rules="$here/../digivice_rules.c $here/../digivice_roster.c $here/../digivice_expedition.c $here/../digivice_battle.c $here/../digivice_evolution.c $here/../digivice_homage.c $here/../digivice_city.c $here/../digivice_moves.c $here/../digivice_duel.c"
 
-for name in rules expedition battle roster evolution homage city; do
+for name in rules expedition battle roster evolution homage city moves duel; do
     # $rules is split on purpose: one argument per source file.
     cc $flags "$here/digivice_${name}_test.c" $rules -o "$out/digivice_${name}_test"
     "$out/digivice_${name}_test"
 done
 
-for name in rules expedition battle homage city; do
+for name in rules expedition battle homage city duel; do
     # The partners compile out: every suite must still pass.
     cc $flags -DDIGIVICE_EASTER_EGGS=0 "$here/digivice_${name}_test.c" $rules \
         -o "$out/digivice_${name}_off_test"

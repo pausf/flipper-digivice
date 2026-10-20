@@ -17,6 +17,8 @@ App(
         "digivice_evolution.c",
         "digivice_expedition.c",
         "digivice_battle.c",
+        "digivice_moves.c",
+        "digivice_duel.c",
         "digivice_notify.c",
         "digivice_draw.c",
         "digivice_draw_world.c",

@@ -180,3 +180,26 @@
 #define DIGIVICE_CAPTURE_MAX_PCT  95
 #define DIGIVICE_FRIEND_EXP       15
 #define DIGIVICE_CAPTURE_FRAMES   60
+
+// v3.4 duel: turn-based battle. A fighter is built from one power number P (the v3.1 powers).
+#define DIGIVICE_LEVEL_BASE       20
+#define DIGIVICE_LEVEL_DIV        6 // level = 20 + P / 6
+#define DIGIVICE_HP_MULT          2
+#define DIGIVICE_HP_BASE          10 // hp = 2 * level + 10
+#define DIGIVICE_STAT_BASE        100 // atk = def = 100 + P
+#define DIGIVICE_SPD_BASE         10 // spd = 10 + P / 2 + 2 * vigor
+#define DIGIVICE_VIGOR_SPD        2
+#define DIGIVICE_ADV_X100         150
+#define DIGIVICE_DIS_X100         67
+#define DIGIVICE_STAB_X100        120
+#define DIGIVICE_CRIT_X100        150
+#define DIGIVICE_CRIT_ODDS        16 // 1 in 16 without the timing bonus
+#define DIGIVICE_ROLL_MIN         85 // damage roll 85..100 percent
+#define DIGIVICE_STAGE_MAX        2 // ATK or DEF can be lowered twice
+#define DIGIVICE_STAGE_X100       {100, 80, 64}
+#define DIGIVICE_CHARGE_X         2
+#define DIGIVICE_GLITCH_SKIP_PCT  25
+#define DIGIVICE_HEAL_LOW_PCT     35
+#define DIGIVICE_TURN_CAP         20
+#define DIGIVICE_AI_ATTACK_BASE   10
+#define DIGIVICE_FOE_POWER_PCT    85 // trail foes, bosses and city monsters; retune on the device
