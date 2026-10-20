@@ -74,7 +74,90 @@ static void hm_blob(const HmPen* p, uint32_t frame, DigivicePose pose) {
     hm_eye(p, 2, 0, pose);
 }
 
-static const HmDraw hm_table[DIGIVICE_HOMAGE_COUNT] = {0};
+// 0: upright saurian with a big head, a long snout, a belly patch and a thick tail.
+static void hm_agumon(const HmPen* p, uint32_t frame, DigivicePose pose) {
+    int32_t b = (int32_t)((frame / 3) % 2);
+    hm_ink(p, false);
+    hm_tri(p, -6, 3, -15, 9 + b, -6, 9); // tail
+    hm_ell(p, -1, 4, 6, 7 - b); // body
+    hm_ell(p, 3, -6, 7, 6); // head
+    hm_ell(p, 9, -4, 4, 3); // snout
+    hm_box(p, -5, 10, 4, 3); // feet
+    hm_box(p, 0, 10, 4, 3);
+    hm_line(p, 4, 1, 8, 3); // arm
+    hm_dot(p, 9, 3);
+    hm_dot(p, 9, 4);
+    hm_ink(p, true);
+    hm_ell(p, 1, 5, 3, 4); // belly
+    hm_eye(p, 2, -8, pose);
+    hm_eye(p, 6, -8, pose);
+    hm_ink(p, true);
+    if(pose == DigivicePoseAttack) {
+        hm_ell(p, 9, -3, 3, 2);
+    } else {
+        hm_line(p, 6, -3, 11, -3);
+    }
+    hm_ink(p, false);
+    hm_line(p, -1, 4, 3, 4); // belly stripes
+    hm_line(p, -1, 6, 3, 6);
+}
+
+// 5: low seal with a spike mohawk, flippers and a fluke tail.
+static void hm_gomamon(const HmPen* p, uint32_t frame, DigivicePose pose) {
+    int32_t w = (int32_t)((frame / 3) % 2);
+    hm_ink(p, false);
+    hm_tri(p, -12, 4, -17, -1 - w, -15, 8); // fluke
+    hm_ell(p, -2, 5, 12, 6); // body
+    hm_ell(p, 8, -1, 6, 5); // head
+    for(int32_t i = 0; i < 4; i++) { // mohawk, back to front
+        hm_tri(p, 3 + i * 2, -4, 5 + i * 2, -4, 4 + i * 2, -9 + (i % 2));
+    }
+    hm_ell(p, -7, 11, 3, 1); // flippers
+    hm_ell(p, 4, 11, 3, 1);
+    hm_line(p, 14, 0, 17, -1); // whiskers
+    hm_line(p, 14, 2, 17, 3);
+    hm_ink(p, true);
+    hm_ell(p, 0, 8, 6, 3); // belly
+    hm_line(p, -8, 2, -6, 5); // body markings
+    hm_line(p, -4, 1, -2, 4);
+    hm_eye(p, 7, -3, pose);
+    if(pose == DigivicePoseAttack) {
+        hm_ell(p, 13, 1, 2, 2);
+    } else {
+        hm_line(p, 11, 1, 14, 1);
+    }
+    hm_ink(p, false);
+}
+
+// 6: flying ball with big bat-wing ears that flap.
+static void hm_patamon(const HmPen* p, uint32_t frame, DigivicePose pose) {
+    int32_t fl = (int32_t)((frame / 2) % 2) * 2;
+    hm_ink(p, false);
+    hm_tri(p, -4, -6, -14, -11 - fl, -11, 0); // left ear
+    hm_tri(p, -11, 0, -8, 5, -4, 1);
+    hm_tri(p, 4, -6, 14, -11 - fl, 11, 0); // right ear
+    hm_tri(p, 11, 0, 8, 5, 4, 1);
+    hm_ell(p, 0, 3, 8, 8); // body
+    hm_ell(p, -4, 11, 3, 1); // feet
+    hm_ell(p, 4, 11, 3, 1);
+    hm_ink(p, true);
+    hm_ell(p, 0, 7, 4, 3); // belly
+    hm_eye(p, -4, -1, pose);
+    hm_eye(p, 2, -1, pose);
+    hm_ink(p, true);
+    if(pose == DigivicePoseAttack) {
+        hm_ell(p, 0, 4, 3, 2);
+    } else {
+        hm_line(p, -2, 3, 2, 3);
+    }
+    hm_ink(p, false);
+}
+
+static const HmDraw hm_table[DIGIVICE_HOMAGE_COUNT] = {
+    [0] = hm_agumon,
+    [5] = hm_gomamon,
+    [6] = hm_patamon,
+};
 
 bool digivice_draw_homage(
     Canvas* canvas,
