@@ -23,6 +23,8 @@ typedef enum {
     DigiviceMessageTypeHike,
     DigiviceMessageTypeSelectArea,
     DigiviceMessageTypeMidway,
+    DigiviceMessageTypeSetCity,
+    DigiviceMessageTypeSetCompanion,
 } DigiviceMessageType;
 
 typedef struct {

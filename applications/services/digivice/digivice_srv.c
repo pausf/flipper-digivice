@@ -9,7 +9,8 @@
 
 #define DIGIVICE_STATE_PATH    INT_PATH(".digivice.state")
 #define DIGIVICE_STATE_MAGIC      0xD1
-#define DIGIVICE_STATE_VERSION    0x04
+#define DIGIVICE_STATE_VERSION    0x05
+#define DIGIVICE_STATE_VERSION_V4 0x04
 #define DIGIVICE_STATE_VERSION_V3 0x03
 #define DIGIVICE_STATE_VERSION_V2 0x02
 #define DIGIVICE_STATE_VERSION_V1 0x01
@@ -93,6 +94,18 @@ void digivice_set_mode(Digivice* digivice, DigiviceMode mode) {
     digivice_send_wait(digivice, &message);
 }
 
+void digivice_set_city(Digivice* digivice, uint8_t city) {
+    furi_check(digivice);
+    DigiviceMessage message = {.type = DigiviceMessageTypeSetCity, .value = city};
+    digivice_send_wait(digivice, &message);
+}
+
+void digivice_set_companion(Digivice* digivice, uint8_t id) {
+    furi_check(digivice);
+    DigiviceMessage message = {.type = DigiviceMessageTypeSetCompanion, .value = id};
+    digivice_send_wait(digivice, &message);
+}
+
 void digivice_reset(Digivice* digivice) {
     furi_check(digivice);
     DigiviceMessage message = {.type = DigiviceMessageTypeReset};
@@ -161,12 +174,14 @@ void digivice_ack_evolution(Digivice* digivice) {
 
 // Private
 
-/** Reads a v4 file, or a v3, v2 or v1 file migrated to v4 (`migrated` is then set). */
-static bool digivice_load_file(DigiviceState* loaded, bool* migrated) {
+/** Reads a v5 file, or an older one migrated to v5 (`migrated` is then set; `older_rules` when
+ * the file predates v4, whose rules differ from the current ones). */
+static bool digivice_load_file(DigiviceState* loaded, bool* migrated, bool* older_rules) {
     uint8_t magic = 0;
     uint8_t version = 0;
     size_t size = 0;
     *migrated = false;
+    *older_rules = false;
     if(!saved_struct_get_metadata(DIGIVICE_STATE_PATH, &magic, &version, &size)) return false;
     if(magic != DIGIVICE_STATE_MAGIC) return false;
 
@@ -177,6 +192,20 @@ static bool digivice_load_file(DigiviceState* loaded, bool* migrated) {
             sizeof(DigiviceState),
             DIGIVICE_STATE_MAGIC,
             DIGIVICE_STATE_VERSION);
+    }
+    if(version == DIGIVICE_STATE_VERSION_V4 && size == sizeof(DigiviceStateV4)) {
+        DigiviceStateV4 v4;
+        if(!saved_struct_load(
+               DIGIVICE_STATE_PATH,
+               &v4,
+               sizeof(DigiviceStateV4),
+               DIGIVICE_STATE_MAGIC,
+               DIGIVICE_STATE_VERSION_V4)) {
+            return false;
+        }
+        digivice_rules_migrate_v4(&v4, loaded);
+        *migrated = true;
+        return true;
     }
     if(version == DIGIVICE_STATE_VERSION_V3 && size == sizeof(DigiviceStateV3)) {
         DigiviceStateV3 v3;
@@ -190,9 +219,10 @@ static bool digivice_load_file(DigiviceState* loaded, bool* migrated) {
         }
         digivice_rules_migrate_v3(&v3, loaded);
         *migrated = true;
+        *older_rules = true;
         return true;
     }
-    // Older files go v1 -> v2 -> v4: at most the 56 B v1 and 84 B v2 copies share the stack.
+    // Older files go v1 -> v2 -> v5: at most the 56 B v1 and 84 B v2 copies share the stack.
     DigiviceStateV2 v2;
     if(version == DIGIVICE_STATE_VERSION_V2 && size == sizeof(DigiviceStateV2)) {
         if(!saved_struct_load(
@@ -219,13 +249,15 @@ static bool digivice_load_file(DigiviceState* loaded, bool* migrated) {
     }
     digivice_rules_migrate_v2(&v2, loaded);
     *migrated = true;
+    *older_rules = true;
     return true;
 }
 
 static void digivice_load(Digivice* digivice) {
     DigiviceState loaded;
     bool migrated = false;
-    bool ok = digivice_load_file(&loaded, &migrated);
+    bool older_rules = false;
+    bool ok = digivice_load_file(&loaded, &migrated, &older_rules);
     if(ok && (loaded.form >= DigiviceFormCount || loaded.prev_form >= DigiviceFormCount)) {
         ok = false;
     }
@@ -240,12 +272,12 @@ static void digivice_load(Digivice* digivice) {
         if(migrated) {
             uint32_t now = furi_hal_rtc_get_timestamp();
             loaded.last_tick = now;
-            loaded.stage_since = now;
+            if(older_rules) loaded.stage_since = now;
         }
         digivice->state = loaded;
-        // A migrated pet is written back as v4 on the next flush.
+        // A migrated pet is written back as v5 on the next flush.
         digivice->dirty = migrated || upgraded;
-        if(migrated) FURI_LOG_I(TAG, "Migrated an older state to v4");
+        if(migrated) FURI_LOG_I(TAG, "Migrated an older state to v5");
         if(upgraded) FURI_LOG_I(TAG, "Moved a legacy form onto the v3.2 tree");
     } else {
         FURI_LOG_W(TAG, "No valid state, hatching a new egg");
@@ -422,6 +454,12 @@ static void digivice_process_message(FuriEventLoopObject* object, void* context)
         break;
     case DigiviceMessageTypeSetMode:
         digivice_rules_set_mode(state, message.value);
+        break;
+    case DigiviceMessageTypeSetCity:
+        digivice_rules_set_city(state, message.value);
+        break;
+    case DigiviceMessageTypeSetCompanion:
+        digivice_rules_set_companion(state, message.value);
         break;
     case DigiviceMessageTypeReset:
         digivice_rules_reset(state, now);

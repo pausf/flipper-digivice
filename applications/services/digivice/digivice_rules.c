@@ -79,11 +79,51 @@ static void v4_defaults(DigiviceState* s, uint32_t stage_since) {
     s->vigor_acc_s = 0;
 }
 
+static void v5_defaults(DigiviceState* s) {
+    s->caught = 0;
+    s->companion = DIGIVICE_COMPANION_NONE;
+    s->city = 0;
+    s->special_count = 0;
+    memset(s->reserved5, 0, sizeof(s->reserved5));
+}
+
+void digivice_rules_migrate_v4(const DigiviceStateV4* v4, DigiviceState* s) {
+    memset(s, 0, sizeof(*s));
+    // The v5 struct starts with the exact v4 layout (static_assert in digivice_rules.h).
+    memcpy(s, v4, sizeof(*v4));
+    v5_defaults(s);
+}
+
+bool digivice_rules_enc_valid(uint8_t code) {
+    if(code == DIGIVICE_ENC_NONE || code <= 1) return true;
+    if(code >= DIGIVICE_ENC_HOMAGE && code < DIGIVICE_ENC_HOMAGE + DIGIVICE_HOMAGE_COUNT) {
+        return DIGIVICE_EASTER_EGGS != 0;
+    }
+    return code >= DIGIVICE_ENC_CITY && code < DIGIVICE_ENC_CITY + DIGIVICE_CITY_COUNT;
+}
+
+bool digivice_rules_set_city(DigiviceState* s, uint8_t city) {
+    if(city > DIGIVICE_CITY_COUNT) return false;
+    s->city = city;
+    return true;
+}
+
+bool digivice_rules_set_companion(DigiviceState* s, uint8_t id) {
+    if(id != DIGIVICE_COMPANION_NONE) {
+        if(!DIGIVICE_EASTER_EGGS || id >= DIGIVICE_HOMAGE_COUNT || !(s->caught & (1U << id))) {
+            return false;
+        }
+    }
+    s->companion = id;
+    return true;
+}
+
 void digivice_rules_migrate_v3(const DigiviceStateV3* v3, DigiviceState* s) {
     memset(s, 0, sizeof(*s));
     // The v4 struct starts with the exact v3 layout (static_assert in digivice_rules.h).
     memcpy(s, v3, sizeof(*v3));
     v4_defaults(s, v3->last_tick);
+    v5_defaults(s);
     s->vigor = DIGIVICE_VIGOR_MAX;
 }
 
@@ -103,14 +143,21 @@ void digivice_rules_init(DigiviceState* s, uint32_t now) {
     s->light_on = 1;
     v3_defaults(s);
     v4_defaults(s, now);
+    v5_defaults(s);
 }
 
 void digivice_rules_reset(DigiviceState* s, uint32_t now) {
     uint8_t lang = s->lang;
     uint8_t mode = s->mode;
+    uint8_t city = s->city;
+    uint16_t caught = s->caught;
+    uint8_t companion = s->companion;
     digivice_rules_init(s, now);
     s->lang = lang;
     s->mode = mode;
+    s->city = city;
+    s->caught = caught;
+    s->companion = companion;
 }
 
 void digivice_rules_migrate_v1(const DigiviceStateV1* v1, DigiviceStateV2* s) {
@@ -146,6 +193,7 @@ void digivice_rules_migrate_v2(const DigiviceStateV2* v2, DigiviceState* s) {
     memcpy(s, v2, sizeof(DigiviceStateV2));
     v3_defaults(s);
     v4_defaults(s, s->last_tick);
+    v5_defaults(s);
     s->vigor = DIGIVICE_VIGOR_MAX;
 }
 
@@ -159,7 +207,13 @@ void digivice_rules_sanitize(DigiviceState* s) {
     if(s->vigor_acc_s >= DIGIVICE_VIGOR_DECAY_S) s->vigor_acc_s = 0;
     if(s->mode >= DigiviceModeCount) s->mode = DigiviceModeNormal;
     if(s->area >= DIGIVICE_AREA_COUNT) s->area = 0;
-    if(s->enc_foe > 1) s->enc_foe = DIGIVICE_ENC_NONE;
+    if(!digivice_rules_enc_valid(s->enc_foe)) s->enc_foe = DIGIVICE_ENC_NONE;
+    s->caught &= DIGIVICE_HOMAGE_MASK;
+    if(s->companion >= DIGIVICE_HOMAGE_COUNT || !(s->caught & (1U << s->companion))) {
+        s->companion = DIGIVICE_COMPANION_NONE;
+    }
+    if(s->city > DIGIVICE_CITY_COUNT) s->city = 0;
+    if(s->special_count > DIGIVICE_HOMAGE_GUARANTEE) s->special_count = DIGIVICE_HOMAGE_GUARANTEE;
     if(s->mid_state > 2) s->mid_state = 2;
     if(s->item >= DigiviceItemCount) s->item = DigiviceItemNone;
     uint16_t length = digivice_rules_area_length(s->area);

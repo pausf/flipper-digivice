@@ -402,7 +402,7 @@ static void test_v2_defaults_and_layout(void) {
     // The v1 file is 56 bytes, v2 appends 28 and v3 another 32, each keeping the older offsets.
     CHECK(sizeof(DigiviceStateV1) == 56);
     CHECK(sizeof(DigiviceStateV2) == 84);
-    CHECK(sizeof(DigiviceState) == 140);
+    CHECK(sizeof(DigiviceState) == 148);
     CHECK(offsetof(DigiviceState, corrupt_acc_s) == offsetof(DigiviceStateV1, corrupt_acc_s));
     CHECK(offsetof(DigiviceState, light_on_asleep_s) ==
           offsetof(DigiviceStateV2, light_on_asleep_s));
@@ -1072,7 +1072,7 @@ static void test_60s_ticks_match_one_tick_with_care(void) {
 
 static void test_v4_layout(void) {
     CHECK(sizeof(DigiviceStateV3) == 116);
-    CHECK(sizeof(DigiviceState) == 140);
+    CHECK(sizeof(DigiviceState) == 148);
     CHECK(offsetof(DigiviceState, vigor) == sizeof(DigiviceStateV3));
     CHECK(offsetof(DigiviceState, rng) == offsetof(DigiviceStateV3, rng));
 }
@@ -1526,6 +1526,119 @@ static void test_the_neglected_bitling_survives_the_update(void) {
     CHECK(s.form == DigiviceFormOrejin && s.evo_from == DigiviceFormPipo);
 }
 
+static void test_v5_layout(void) {
+    CHECK(sizeof(DigiviceStateV4) == 140);
+    CHECK(sizeof(DigiviceState) == 148);
+    CHECK(offsetof(DigiviceState, caught) == sizeof(DigiviceStateV4));
+    CHECK(offsetof(DigiviceState, vigor) == offsetof(DigiviceStateV4, vigor));
+    CHECK(offsetof(DigiviceState, rng) == offsetof(DigiviceStateV4, rng));
+}
+
+static void check_v5_defaults(const DigiviceState* s) {
+    CHECK(s->caught == 0);
+    CHECK(s->companion == DIGIVICE_COMPANION_NONE);
+    CHECK(s->city == 0);
+    CHECK(s->special_count == 0);
+    CHECK(s->reserved5[0] == 0 && s->reserved5[1] == 0 && s->reserved5[2] == 0);
+}
+
+static void test_v5_defaults_on_init(void) {
+    DigiviceState s = fresh(T0);
+    check_v5_defaults(&s);
+}
+
+static void test_migrate_v4_keeps_everything(void) {
+    DigiviceState src = fresh(T0);
+    src.form = DigiviceFormAriete;
+    src.vigor = 3;
+    src.evo_mistakes = 2;
+    src.stage_since = T0 - 100;
+    src.rng = 0xDEADBEEFUL;
+    DigiviceStateV4 v4;
+    memcpy(&v4, &src, sizeof(v4));
+    DigiviceState out;
+    memset(&out, 0xA5, sizeof(out));
+    digivice_rules_migrate_v4(&v4, &out);
+    CHECK(memcmp(&out, &v4, sizeof(v4)) == 0);
+    check_v5_defaults(&out);
+}
+
+static void test_older_migrations_apply_v5_defaults(void) {
+    DigiviceStateV2 v2 = v2_fixture();
+    DigiviceState out;
+    digivice_rules_migrate_v2(&v2, &out);
+    check_v5_defaults(&out);
+    DigiviceState src = fresh(T0);
+    DigiviceStateV3 v3;
+    memcpy(&v3, &src, sizeof(v3));
+    memset(&out, 0xA5, sizeof(out));
+    digivice_rules_migrate_v3(&v3, &out);
+    check_v5_defaults(&out);
+}
+
+static void test_enc_valid(void) {
+    CHECK(digivice_rules_enc_valid(DIGIVICE_ENC_NONE));
+    CHECK(digivice_rules_enc_valid(0) && digivice_rules_enc_valid(1));
+    CHECK(!digivice_rules_enc_valid(2));
+    CHECK(!digivice_rules_enc_valid(DIGIVICE_ENC_HOMAGE - 1));
+    CHECK(digivice_rules_enc_valid(DIGIVICE_ENC_HOMAGE) == (DIGIVICE_EASTER_EGGS != 0));
+    CHECK(
+        digivice_rules_enc_valid(DIGIVICE_ENC_HOMAGE + DIGIVICE_HOMAGE_COUNT - 1) ==
+        (DIGIVICE_EASTER_EGGS != 0));
+    CHECK(!digivice_rules_enc_valid(DIGIVICE_ENC_HOMAGE + DIGIVICE_HOMAGE_COUNT));
+    CHECK(digivice_rules_enc_valid(DIGIVICE_ENC_CITY));
+    CHECK(digivice_rules_enc_valid(DIGIVICE_ENC_CITY + DIGIVICE_CITY_COUNT - 1));
+    CHECK(!digivice_rules_enc_valid(DIGIVICE_ENC_CITY + DIGIVICE_CITY_COUNT));
+}
+
+static void test_sanitize_v5_fields(void) {
+    DigiviceState s = fresh(T0);
+    s.caught = 0xFFFF;
+    s.companion = 4;
+    s.city = 9;
+    s.special_count = 77;
+    s.enc_foe = 0x3F;
+    s.enc_expires = T0 + 100;
+    digivice_rules_sanitize(&s);
+    CHECK(s.caught == DIGIVICE_HOMAGE_MASK);
+    CHECK(s.companion == 4);
+    CHECK(s.city == 0);
+    CHECK(s.special_count == DIGIVICE_HOMAGE_GUARANTEE);
+    CHECK(s.enc_foe == DIGIVICE_ENC_NONE);
+    s.caught = 0x0003;
+    s.companion = 4;
+    digivice_rules_sanitize(&s);
+    CHECK(s.companion == DIGIVICE_COMPANION_NONE);
+    s.companion = 200;
+    digivice_rules_sanitize(&s);
+    CHECK(s.companion == DIGIVICE_COMPANION_NONE);
+}
+
+static void test_set_city_and_companion(void) {
+    DigiviceState s = fresh(T0);
+    CHECK(digivice_rules_set_city(&s, 3) && s.city == 3);
+    CHECK(digivice_rules_set_city(&s, 0) && s.city == 0);
+    CHECK(!digivice_rules_set_city(&s, DIGIVICE_CITY_COUNT + 1) && s.city == 0);
+    CHECK(!digivice_rules_set_companion(&s, 2));
+    s.caught = 1U << 2;
+    CHECK(digivice_rules_set_companion(&s, 2) == (DIGIVICE_EASTER_EGGS != 0));
+    CHECK(digivice_rules_set_companion(&s, DIGIVICE_COMPANION_NONE) || !DIGIVICE_EASTER_EGGS);
+    CHECK(!digivice_rules_set_companion(&s, 9));
+}
+
+static void test_reset_keeps_the_nest_and_city(void) {
+    DigiviceState s = fresh(T0);
+    s.caught = 0x0005;
+    s.companion = 2;
+    s.city = 4;
+    s.special_count = 3;
+    s.lang = DigiviceLangEn;
+    digivice_rules_reset(&s, T0 + 50);
+    CHECK(s.caught == 0x0005 && s.companion == 2 && s.city == 4);
+    CHECK(s.lang == DigiviceLangEn);
+    CHECK(s.special_count == 0);
+}
+
 int main(void) {
     test_stage_and_attr_come_from_the_roster();
     test_egg_hatches_into_a_baby_of_either_line();
@@ -1561,6 +1674,14 @@ int main(void) {
     test_catchup_tick_charges_no_call_mistake();
     test_vigor_call_does_not_count_for_sickness();
     test_migrate_v3_keeps_everything();
+    test_v5_layout();
+    test_v5_defaults_on_init();
+    test_migrate_v4_keeps_everything();
+    test_older_migrations_apply_v5_defaults();
+    test_enc_valid();
+    test_sanitize_v5_fields();
+    test_set_city_and_companion();
+    test_reset_keeps_the_nest_and_city();
     test_migrate_v2_applies_v4_defaults();
     test_sanitize_v4_fields();
     test_hunger_decays_every_2h();

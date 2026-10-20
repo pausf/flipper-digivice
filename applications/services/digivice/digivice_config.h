@@ -152,3 +152,13 @@
 #define DIGIVICE_EVO_MEGA_MISTAKES  1
 #define DIGIVICE_EVO_MEGA_BATTLES   10
 #define DIGIVICE_EVO_MEGA_PCT       80
+
+// v3.3 easter eggs (private build). 0 compiles the homage partners out: they never appear.
+#ifndef DIGIVICE_EASTER_EGGS
+#define DIGIVICE_EASTER_EGGS 1
+#endif
+
+#define DIGIVICE_HOMAGE_COUNT     9
+#define DIGIVICE_HOMAGE_MASK      0x01FF
+#define DIGIVICE_CITY_COUNT       5
+#define DIGIVICE_HOMAGE_GUARANTEE 4 // last index of the odds table (Task 3)

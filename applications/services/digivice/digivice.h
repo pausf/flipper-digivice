@@ -47,6 +47,11 @@ DigiviceResult digivice_toggle_light(Digivice* digivice);
 void digivice_set_lang(Digivice* digivice, DigiviceLang lang);
 void digivice_set_mode(Digivice* digivice, DigiviceMode mode);
 
+/** Thread safe, blocking. Out-of-range values are ignored. 0 = no city. */
+void digivice_set_city(Digivice* digivice, uint8_t city);
+/** Thread safe, blocking. Ignored unless the partner is caught (or DIGIVICE_COMPANION_NONE). */
+void digivice_set_companion(Digivice* digivice, uint8_t id);
+
 /** Thread safe, blocking. Replaces the pet with a fresh egg; language and mode stay. */
 void digivice_reset(Digivice* digivice);
 
