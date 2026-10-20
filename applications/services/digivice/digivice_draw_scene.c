@@ -65,13 +65,19 @@ static void profile(uint8_t* out, uint8_t base, uint8_t amp, uint32_t* rng) {
     }
 }
 
-void digivice_scene_init(DigiviceScene* scene, uint8_t area) {
+void digivice_scene_init(DigiviceScene* scene, uint8_t area, uint8_t city) {
     if(area >= DIGIVICE_AREA_COUNT) area = DIGIVICE_AREA_COUNT - 1;
     const DvLook* look = &looks[area];
     scene->area = area;
-    scene->seed = 0xD1610UL ^ ((uint32_t)area * 0x9E37UL);
+    scene->city = city <= DIGIVICE_CITY_COUNT ? city : 0;
+    scene->seed = 0xD1610UL ^ ((uint32_t)area * 0x9E37UL) ^ ((uint32_t)scene->city * 0x7F4A7C15UL);
     uint32_t rng = scene->seed;
-    profile(scene->far, look->far_base, look->far_amp, &rng);
+    if(scene->city) {
+        // Building tops: 31..41, so the blocks stay under the landmarks.
+        profile(scene->far, 36, 5, &rng);
+    } else {
+        profile(scene->far, look->far_base, look->far_amp, &rng);
+    }
     profile(scene->near, look->near_base, look->near_amp, &rng);
     for(uint32_t i = 0; i < DIGIVICE_SCENE_DECOS; i++) {
         scene->deco_x[i] = (uint8_t)(i * 16 + scene_rng(&rng) % 12);
@@ -224,7 +230,7 @@ void digivice_draw_scene(
     bool night = day_minute >= 20 * 60 || day_minute < 6 * 60;
     bool dusk = !night && (day_minute >= 18 * 60 || day_minute < 7 * 60 + 30);
     // The null core is a negative world: always drawn with the night palette.
-    bool dark = night || scene->area == DIGIVICE_AREA_COUNT - 1;
+    bool dark = night || (!scene->city && scene->area == DIGIVICE_AREA_COUNT - 1);
 
     if(dark) {
         sky_night(canvas, scene, frame, (uint8_t)(look->far_base - SKY_TOP - 2));
@@ -232,6 +238,13 @@ void digivice_draw_scene(
         sky_dusk(canvas, (uint8_t)(look->far_base - 1));
     } else {
         sky_day(canvas, scroll);
+    }
+
+    if(scene->city) {
+        // A city is always lit by the real clock: no Null Core negative world.
+        digivice_draw_city(canvas, scene, scroll, frame, night);
+        canvas_set_color(canvas, ColorBlack);
+        return;
     }
 
     Color ink = dark ? ColorWhite : ColorBlack;

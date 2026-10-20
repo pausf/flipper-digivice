@@ -76,9 +76,9 @@ void digivice_app_set_screen(DigiviceApp* app, DigiviceScreen screen) {
 const DigiviceScene* digivice_app_scene(DigiviceApp* app) {
     if(!app->scene) {
         app->scene = malloc(sizeof(DigiviceScene));
-        digivice_scene_init(app->scene, app->state.area);
-    } else if(app->scene->area != app->state.area) {
-        digivice_scene_init(app->scene, app->state.area);
+        digivice_scene_init(app->scene, app->state.area, app->state.city);
+    } else if(app->scene->area != app->state.area || app->scene->city != app->state.city) {
+        digivice_scene_init(app->scene, app->state.area, app->state.city);
     }
     return app->scene;
 }

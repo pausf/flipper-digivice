@@ -260,6 +260,7 @@ void digivice_draw_evolution(
 typedef struct {
     uint32_t seed;
     uint8_t area;
+    uint8_t city; /**< 0 = area scenery, 1..5 = city skyline */
     uint8_t far[DIGIVICE_SCENE_W]; /**< top row of the far layer per column */
     uint8_t near[DIGIVICE_SCENE_W]; /**< top row of the near layer per column */
     uint8_t deco_x[DIGIVICE_SCENE_DECOS]; /**< decoration columns, 0..DIGIVICE_SCENE_W-1 */
@@ -267,7 +268,7 @@ typedef struct {
 } DigiviceScene;
 
 /** Builds the height profiles and decorations from the area's constant seed. */
-void digivice_scene_init(DigiviceScene* scene, uint8_t area);
+void digivice_scene_init(DigiviceScene* scene, uint8_t area, uint8_t city);
 /** Draws the area background from row 9 down. `scroll` moves the near layer 1 px per unit;
  * `day_minute` (0..1439, from the RTC) picks the day, dusk or night sky. */
 void digivice_draw_scene(
@@ -276,6 +277,13 @@ void digivice_draw_scene(
     uint32_t scroll,
     uint32_t frame,
     uint16_t day_minute);
+/** City skyline: far blocks, two landmarks and the street. `dark` = night palette. */
+void digivice_draw_city(
+    Canvas* canvas,
+    const DigiviceScene* scene,
+    uint32_t scroll,
+    uint32_t frame,
+    bool dark);
 
 #ifdef __cplusplus
 }
