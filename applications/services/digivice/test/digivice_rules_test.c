@@ -871,6 +871,22 @@ static void test_clean(void) {
     CHECK(s.mood == DIGIVICE_MOOD_MAX);
 }
 
+// Live 60 s ticks: only they charge an ignored call (a catch-up tick drops it).
+static void tick_live(DigiviceState* s, uint32_t to) {
+    while(s->last_tick < to) {
+        uint32_t next = s->last_tick + 60;
+        digivice_rules_tick(s, next < to ? next : to);
+    }
+}
+
+// A catch-up tick drops ignored calls, so equivalence checks skip the call-driven sickness.
+static bool same_clocks(const DigiviceState* a, const DigiviceState* b) {
+    return a->poop == b->poop && a->poop_dirty_since == b->poop_dirty_since &&
+           a->hunger == b->hunger && a->vigor == b->vigor && a->mood == b->mood &&
+           a->corruption == b->corruption && a->light_on == b->light_on &&
+           a->starving_since == b->starving_since && a->last_tick == b->last_tick;
+}
+
 static void test_60s_ticks_lose_no_poop(void) {
     // 08:00 -> 20:00, all awake: four poops land on the same seconds either way.
     DigiviceState a = baby(T0);
@@ -879,7 +895,7 @@ static void test_60s_ticks_lose_no_poop(void) {
         digivice_rules_tick(&a, t);
     digivice_rules_tick(&b, T0 + H(12));
     CHECK(a.poop == 4);
-    CHECK(memcmp(&a, &b, sizeof(a)) == 0);
+    CHECK(same_clocks(&a, &b));
 }
 
 #define NIGHT(day) (DAY(day) + H(23))
@@ -900,7 +916,6 @@ static void test_sick_from_24h_of_starvation(void) {
     // An egg has no poop or light mistakes, so only starvation can make it sick.
     DigiviceState s = fresh(T0);
     s.hunger = 1;
-    s.vigor = 0; // an empty vigor meter would call and add a mistake of its own
     digivice_rules_tick(&s, T0 + H(2));
     CHECK(s.hunger == 0 && s.starving_since == T0 + H(2));
     // Wall time: the night in between counts.
@@ -1052,7 +1067,7 @@ static void test_60s_ticks_match_one_tick_with_care(void) {
         digivice_rules_tick(&a, t);
     digivice_rules_tick(&b, T0 + H(30));
     CHECK(a.sick == 1 && a.care_mistakes >= DIGIVICE_SICK_MISTAKES);
-    CHECK(memcmp(&a, &b, sizeof(a)) == 0);
+    CHECK(same_clocks(&a, &b));
 }
 
 static void test_v4_layout(void) {
@@ -1062,8 +1077,8 @@ static void test_v4_layout(void) {
     CHECK(offsetof(DigiviceState, rng) == offsetof(DigiviceStateV3, rng));
 }
 
-static void check_v4_defaults(const DigiviceState* s, uint32_t stage_since) {
-    CHECK(s->vigor == DIGIVICE_VIGOR_START);
+static void check_v4_defaults(const DigiviceState* s, uint32_t stage_since, uint8_t vigor) {
+    CHECK(s->vigor == vigor);
     CHECK(s->call_flags == 0);
     CHECK(s->feed_flags == (DIGIVICE_FEED_ARM_HUNGER | DIGIVICE_FEED_ARM_VIGOR));
     CHECK(s->evo_mistakes == 0 && s->train_count == 0 && s->battles == 0);
@@ -1074,11 +1089,11 @@ static void check_v4_defaults(const DigiviceState* s, uint32_t stage_since) {
 
 static void test_v4_defaults_on_init_and_reset(void) {
     DigiviceState s = fresh(T0);
-    check_v4_defaults(&s, T0);
+    check_v4_defaults(&s, T0, DIGIVICE_VIGOR_START);
     s.vigor = 0;
     s.overfeed = 9;
     digivice_rules_reset(&s, T0 + 50);
-    check_v4_defaults(&s, T0 + 50);
+    check_v4_defaults(&s, T0 + 50, DIGIVICE_VIGOR_START);
 }
 
 static void test_migrate_v3_keeps_everything(void) {
@@ -1096,14 +1111,14 @@ static void test_migrate_v3_keeps_everything(void) {
     memset(&out, 0xA5, sizeof(out));
     digivice_rules_migrate_v3(&v3, &out);
     CHECK(memcmp(&out, &v3, sizeof(v3)) == 0);
-    check_v4_defaults(&out, v3.last_tick);
+    check_v4_defaults(&out, v3.last_tick, DIGIVICE_VIGOR_MAX);
 }
 
 static void test_migrate_v2_applies_v4_defaults(void) {
     DigiviceStateV2 v2 = v2_fixture();
     DigiviceState out;
     digivice_rules_migrate_v2(&v2, &out);
-    check_v4_defaults(&out, v2.last_tick);
+    check_v4_defaults(&out, v2.last_tick, DIGIVICE_VIGOR_MAX);
 }
 
 static void test_sanitize_v4_fields(void) {
@@ -1120,6 +1135,44 @@ static void test_sanitize_v4_fields(void) {
     CHECK(s.feed_flags == (DIGIVICE_FEED_ARM_HUNGER | DIGIVICE_FEED_ARM_VIGOR));
     CHECK(s.call_hunger_s == DIGIVICE_CALL_WINDOW_S && s.call_vigor_s == DIGIVICE_CALL_WINDOW_S);
     CHECK(s.vigor_acc_s == 0);
+}
+
+static void test_sanitize_clamps_a_future_stage_since(void) {
+    DigiviceState s = fresh(T0);
+    s.stage_since = T0 + 999999UL;
+    digivice_rules_sanitize(&s);
+    CHECK(s.stage_since == s.last_tick);
+}
+
+static void test_catchup_tick_charges_no_call_mistake(void) {
+    DigiviceState s = fresh(10 * 3600UL);
+    s.hunger = 0;
+    s.vigor = 0;
+    s.starving_since = 10 * 3600UL;
+    s.call_flags = DIGIVICE_CALL_HUNGER | DIGIVICE_CALL_VIGOR;
+    digivice_rules_tick(&s, 16 * 3600UL);
+    CHECK(s.evo_mistakes == 0);
+    CHECK(s.call_hunger_s == 0 && s.call_vigor_s == 0);
+
+    // Normal 60 s ticks still charge the call once the window passes.
+    DigiviceState n = fresh(10 * 3600UL);
+    n.hunger = 0;
+    n.starving_since = 10 * 3600UL;
+    n.call_flags = DIGIVICE_CALL_HUNGER;
+    for(uint32_t t = 60; t <= DIGIVICE_CALL_WINDOW_S + 60; t += 60) {
+        digivice_rules_tick(&n, 10 * 3600UL + t);
+    }
+    CHECK(n.evo_mistakes == 1);
+}
+
+static void test_vigor_call_does_not_count_for_sickness(void) {
+    DigiviceState s = fresh(10 * 3600UL);
+    s.vigor = 0;
+    s.call_flags = DIGIVICE_CALL_VIGOR;
+    uint8_t care = s.care_mistakes;
+    tick_live(&s, 10 * 3600UL + DIGIVICE_CALL_WINDOW_S);
+    CHECK(s.evo_mistakes == 1);
+    CHECK(s.care_mistakes == care);
 }
 
 static void test_meat_fills_hunger_and_refuses_when_full(void) {
@@ -1225,11 +1278,11 @@ static void test_ignored_hunger_call_is_one_mistake(void) {
     s.call_flags = DIGIVICE_CALL_HUNGER;
     s.call_hunger_s = 0;
     s.vigor = 4;
-    digivice_rules_tick(&s, 10 * 3600UL + DIGIVICE_CALL_WINDOW_S);
+    tick_live(&s, 10 * 3600UL + DIGIVICE_CALL_WINDOW_S);
     CHECK(!(s.call_flags & DIGIVICE_CALL_HUNGER));
     CHECK(s.evo_mistakes == 1 && s.care_mistakes == 1);
     // No second call from the same empty meter.
-    digivice_rules_tick(&s, 10 * 3600UL + 3 * DIGIVICE_CALL_WINDOW_S);
+    tick_live(&s, 10 * 3600UL + 3 * DIGIVICE_CALL_WINDOW_S);
     CHECK(s.evo_mistakes == 1);
 }
 
@@ -1263,7 +1316,7 @@ static void test_two_calls_at_once_cost_two_mistakes(void) {
     s.vigor = 0;
     s.starving_since = 10 * 3600UL;
     s.call_flags = DIGIVICE_CALL_HUNGER | DIGIVICE_CALL_VIGOR;
-    digivice_rules_tick(&s, 10 * 3600UL + DIGIVICE_CALL_WINDOW_S);
+    tick_live(&s, 10 * 3600UL + DIGIVICE_CALL_WINDOW_S);
     CHECK(s.evo_mistakes == 2);
 }
 
@@ -1288,7 +1341,7 @@ static void test_poop_and_light_no_longer_hurt_the_evolution(void) {
     CHECK(s.evo_mistakes == 0);
 }
 
-static void test_call_ticks_match_one_catch_up(void) {
+static void test_call_live_ticks_charge_what_a_catch_up_drops(void) {
     DigiviceState a = fresh(10 * 3600UL);
     a.hunger = 0;
     a.starving_since = 10 * 3600UL;
@@ -1299,8 +1352,9 @@ static void test_call_ticks_match_one_catch_up(void) {
         digivice_rules_tick(&a, t);
     }
     digivice_rules_tick(&b, 10 * 3600UL + 1200);
-    CHECK(a.evo_mistakes == b.evo_mistakes && a.call_flags == b.call_flags);
-    CHECK(a.call_hunger_s == b.call_hunger_s);
+    // The catch-up drops the call unheard; the live ticks charge it.
+    CHECK(a.evo_mistakes == 1 && b.evo_mistakes == 0);
+    CHECK(b.call_hunger_s == 0);
 }
 
 static void test_night_owl_counts_the_light_left_on(void) {
@@ -1491,7 +1545,7 @@ int main(void) {
     test_two_calls_at_once_cost_two_mistakes();
     test_a_sleeping_pet_does_not_burn_the_window();
     test_poop_and_light_no_longer_hurt_the_evolution();
-    test_call_ticks_match_one_catch_up();
+    test_call_live_ticks_charge_what_a_catch_up_drops();
     test_night_owl_counts_the_light_left_on();
     test_count_battle_ignores_nothing_and_saturates();
     test_meat_fills_hunger_and_refuses_when_full();
@@ -1503,6 +1557,9 @@ int main(void) {
     test_init();
     test_v4_layout();
     test_v4_defaults_on_init_and_reset();
+    test_sanitize_clamps_a_future_stage_since();
+    test_catchup_tick_charges_no_call_mistake();
+    test_vigor_call_does_not_count_for_sickness();
     test_migrate_v3_keeps_everything();
     test_migrate_v2_applies_v4_defaults();
     test_sanitize_v4_fields();

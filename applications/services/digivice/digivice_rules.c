@@ -84,6 +84,7 @@ void digivice_rules_migrate_v3(const DigiviceStateV3* v3, DigiviceState* s) {
     // The v4 struct starts with the exact v3 layout (static_assert in digivice_rules.h).
     memcpy(s, v3, sizeof(*v3));
     v4_defaults(s, v3->last_tick);
+    s->vigor = DIGIVICE_VIGOR_MAX;
 }
 
 void digivice_rules_init(DigiviceState* s, uint32_t now) {
@@ -145,6 +146,7 @@ void digivice_rules_migrate_v2(const DigiviceStateV2* v2, DigiviceState* s) {
     memcpy(s, v2, sizeof(DigiviceStateV2));
     v3_defaults(s);
     v4_defaults(s, s->last_tick);
+    s->vigor = DIGIVICE_VIGOR_MAX;
 }
 
 void digivice_rules_sanitize(DigiviceState* s) {
@@ -168,6 +170,7 @@ void digivice_rules_sanitize(DigiviceState* s) {
         s->paces_since_fight = DIGIVICE_ENCOUNTER_GUARANTEE;
     }
     if(s->rng == 0) s->rng = 1;
+    if(s->stage_since > s->last_tick) s->stage_since = s->last_tick;
     // Only one encounter can be pending: the VIRUX keeps its slot.
     if(s->virux_type != DigiviceTypeNone && s->enc_foe != DIGIVICE_ENC_NONE) {
         s->enc_foe = DIGIVICE_ENC_NONE;
@@ -292,7 +295,7 @@ static void add_mistake(DigiviceState* s) {
     bump(&s->care_mistakes);
 }
 
-// An ignored call is the only care mistake that counts for the evolution.
+// An ignored hunger call is the only care mistake that counts for the evolution.
 static void add_call_mistake(DigiviceState* s) {
     bump(&s->care_mistakes);
     bump(&s->evo_mistakes);
@@ -368,7 +371,8 @@ static uint32_t awake_step(const DigiviceState* s, uint32_t step) {
     return step;
 }
 
-static void awake_advance(DigiviceState* s, uint32_t step, uint32_t t_end) {
+// `catchup`: the device was off for this tick, so a call that expired in it was never heard.
+static void awake_advance(DigiviceState* s, uint32_t step, uint32_t t_end, bool catchup) {
     // Paces first: they use the state the step started with, like the care accumulators.
     digivice_expedition_walk(s, step, t_end);
     bool poops = pooping(s);
@@ -377,12 +381,13 @@ static void awake_advance(DigiviceState* s, uint32_t step, uint32_t t_end) {
     if(s->call_hunger_s >= DIGIVICE_CALL_WINDOW_S) {
         s->call_flags &= (uint8_t)~DIGIVICE_CALL_HUNGER;
         s->call_hunger_s = 0;
-        add_call_mistake(s);
+        if(!catchup) add_call_mistake(s);
     }
     if(s->call_vigor_s >= DIGIVICE_CALL_WINDOW_S) {
         s->call_flags &= (uint8_t)~DIGIVICE_CALL_VIGOR;
         s->call_vigor_s = 0;
-        add_call_mistake(s);
+        // Vigor calls count for the evolution only: they must not make the pet sick.
+        if(!catchup) bump(&s->evo_mistakes);
     }
     if(s->hunger > 0) s->hunger_acc_s += step;
     if(s->vigor > 0) s->vigor_acc_s += step;
@@ -428,7 +433,7 @@ static void asleep_advance(DigiviceState* s, uint32_t step) {
 }
 
 // One clock hour (or less) that is entirely awake or entirely asleep.
-static void run_segment(DigiviceState* s, uint32_t t, uint32_t to, bool asleep) {
+static void run_segment(DigiviceState* s, uint32_t t, uint32_t to, bool asleep, bool catchup) {
     if(!asleep) {
         // The light comes back on when the sleep window ends.
         s->light_on = 1;
@@ -448,7 +453,7 @@ static void run_segment(DigiviceState* s, uint32_t t, uint32_t to, bool asleep) 
         if(asleep) {
             asleep_advance(s, step);
         } else {
-            awake_advance(s, step, t + step);
+            awake_advance(s, step, t + step, catchup);
         }
         t += step;
     }
@@ -459,6 +464,7 @@ void digivice_rules_tick(DigiviceState* s, uint32_t now) {
     uint32_t elapsed = now > prev ? now - prev : 0;
     elapsed = min_u32(elapsed, DIGIVICE_ELAPSED_MAX_S);
     uint32_t t = now - elapsed;
+    bool catchup = elapsed > 2UL * DIGIVICE_TICK_S;
 
     // A migrated or hand-edited state can be at 0 hunger without a start time.
     if(s->hunger == 0 && s->starving_since == 0) s->starving_since = t;
@@ -467,10 +473,14 @@ void digivice_rules_tick(DigiviceState* s, uint32_t now) {
     // catch-up tick end in the same state.
     while(t < now) {
         uint32_t next = min_u32((t / 3600UL + 1UL) * 3600UL, now);
-        run_segment(s, t, next, digivice_rules_is_asleep(t));
+        run_segment(s, t, next, digivice_rules_is_asleep(t), catchup);
         t = next;
     }
     apply_due(s, now);
+    if(catchup) {
+        s->call_hunger_s = 0;
+        s->call_vigor_s = 0;
+    }
 
     // The second dose is due once, when this tick's window crosses sick_since + 12 h.
     uint32_t two_doses_at = s->sick_since + DIGIVICE_SICK_TWO_DOSES_S;

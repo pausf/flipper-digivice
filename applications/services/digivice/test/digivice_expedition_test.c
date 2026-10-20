@@ -122,7 +122,9 @@ static void test_one_hour_tick_matches_sixty_minute_ticks(void) {
         digivice_rules_tick(&a, t);
     digivice_rules_tick(&b, T0 + H(10));
     CHECK(a.distance == b.distance && a.distance < 480);
-    CHECK(memcmp(&a, &b, sizeof(a)) == 0);
+    // A catch-up drops ignored calls, so only the walk state is compared.
+    CHECK(a.rng == b.rng && a.paces_since_fight == b.paces_since_fight);
+    CHECK(a.pace_acc_s == b.pace_acc_s && a.enc_foe == b.enc_foe && a.enc_expires == b.enc_expires);
 }
 
 static void test_48h_catch_up_is_clamped(void) {
