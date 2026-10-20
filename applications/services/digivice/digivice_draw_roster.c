@@ -211,6 +211,139 @@ static void mon_buhoscan(const DvPen* p, uint32_t frame, DigivicePose pose) {
     pen_ink(p, false);
 }
 
+// Ultimate, Portador: a knight with an antenna lance and a wave shield.
+static void mon_lanzero(const DvPen* p, uint32_t frame, DigivicePose pose) {
+    int32_t bob = pose == DigivicePoseIdle && (frame / 4) % 2 ? 1 : 0;
+    pen_ink(p, false);
+    pen_line(p, 10, 8, 20, -19);
+    pen_line(p, 11, 8, 21, -19);
+    pen_tri(p, 18, -17, 22, -17, 21, -23);
+    pen_box(p, -7, 8, 5, 12);
+    pen_box(p, 1, 8, 5, 12);
+    pen_box(p, -9, 19, 8, 3);
+    pen_box(p, 1, 19, 8, 3);
+    pen_box(p, -7, -8 + bob, 14, 16 - bob);
+    pen_box(p, 8, -4 + bob, 4, 9);
+    pen_ell(p, 0, -13 + bob, 6, 6);
+    pen_line(p, 0, -19 + bob, 2, -22 + bob);
+    pen_ell(p, -12, 2 + bob, 6, 9);
+    pen_ink(p, true);
+    pen_box(p, -5, -15 + bob, 11, 4);
+    pen_ink(p, false);
+    pen_eye(p, 1, -15 + bob, pose);
+    pen_ink(p, true);
+    pen_box(p, -5, -15 + bob, 4, 2);
+    for(int32_t x = -16; x <= -8; x++)
+        pen_dot(p, x, 2 + bob + (((x + (int32_t)frame / 2) % 4) < 2 ? -2 : 2));
+    pen_ink(p, false);
+    pen_dot(p, 2, -22 + bob);
+}
+
+// Ultimate, Ruido: a long-necked wyvern whose wings crackle.
+static void mon_wyvolt(const DvPen* p, uint32_t frame, DigivicePose pose) {
+    int32_t bob = pose == DigivicePoseIdle && (frame / 4) % 2 ? 1 : 0;
+    int32_t j = (int32_t)(frame % 2);
+    pen_ink(p, false);
+    pen_tri(p, -4, 0, -24, -14 + j * 2, -8, -22 + j * 2);
+    pen_tri(p, -4, 2, -24, -4 + j * 2, -10, 10);
+    pen_tri(p, -8, 12, -10, 18, -24, 22);
+    pen_ell(p, -2, 8 + bob, 9, 8);
+    pen_ell(p, 5, 0 + bob, 4, 4);
+    pen_ell(p, 9, -7 + bob, 3, 4);
+    pen_ell(p, 13, -13 + bob, 6, 4);
+    pen_tri(p, 16, -15 + bob, 26, -10 + bob, 16, -9 + bob);
+    pen_tri(p, 8, -16 + bob, 12, -17 + bob, 6, -22 + bob);
+    pen_box(p, -8, 14, 4, 8);
+    pen_box(p, 2, 14, 4, 8);
+    pen_eye(p, 12, -15 + bob, pose);
+    pen_ink(p, true);
+    pen_line(p, -3, 3, -20, -12 + j * 2);
+    pen_line(p, -3, 4, -20, -3 + j * 2);
+    for(int32_t y = 7; y < 16; y += 3) pen_line(p, -2, y + bob, 4, y + bob);
+    pen_ink(p, false);
+    if(j) {
+        pen_line(p, -24, -6, -21, -9);
+        pen_line(p, -21, -9, -18, -5);
+        pen_line(p, -18, -5, -15, -8);
+    }
+}
+
+// Ultimate, Ruido: a crowned mud king with tentacle arms and a falling drip.
+static void mon_fangorey(const DvPen* p, uint32_t frame, DigivicePose pose) {
+    int32_t bob = pose == DigivicePoseIdle && (frame / 4) % 2 ? 1 : 0;
+    pen_ink(p, false);
+    pen_ell(p, 0, 17, 22, 4);
+    for(int32_t sd = -1; sd <= 1; sd += 2)
+        for(int32_t i = 0; i < 4; i++) {
+            int32_t y = 4 + i * 3 + (int32_t)((frame / 3 + (uint32_t)i) % 2);
+            pen_ell(p, sd * (12 + i * 3), y, 3 - i / 2, 3 - i / 2);
+        }
+    pen_ell(p, 0, 4 + bob, 13, 11 - bob);
+    pen_box(p, -8, -12 + bob, 17, 4);
+    for(int32_t i = 0; i < 3; i++) {
+        int32_t x = -8 + i * 6;
+        pen_tri(p, x, -12 + bob, x + 4, -12 + bob, x + 2, -19 + bob);
+    }
+    pen_eye(p, -6, -1 + bob, pose);
+    pen_eye(p, 4, -1 + bob, pose);
+    pen_ink(p, true);
+    pen_line(p, -8, 10 + bob, 8, 10 + bob);
+    for(int32_t x = -4; x <= 4; x += 2) pen_dot(p, x, 6 + bob + (x & 2 ? 0 : 1));
+    pen_ink(p, false);
+    pen_dot(p, -14, 11 + (int32_t)(frame % 6));
+    pen_dot(p, 12, 11 + (int32_t)((frame + 3) % 6));
+}
+
+// Ultimate, Cifrado: a vault titan with a safe door and a turning dial.
+static void mon_bovedax(const DvPen* p, uint32_t frame, DigivicePose pose) {
+    static const int8_t hand[8][2] = {
+        {0, -4}, {3, -3}, {4, 0}, {3, 3}, {0, 4}, {-3, 3}, {-4, 0}, {-3, -3}};
+    uint32_t k = (frame / 2) % 8;
+    pen_ink(p, false);
+    pen_box(p, -12, 8, 7, 12);
+    pen_box(p, 5, 8, 7, 12);
+    pen_box(p, -21, -9, 6, 20);
+    pen_box(p, 15, -9, 6, 20);
+    pen_box(p, -22, 10, 8, 6);
+    pen_box(p, 14, 10, 8, 6);
+    pen_box(p, -14, -10, 28, 20);
+    pen_box(p, -6, -19, 12, 9);
+    pen_ink(p, true);
+    pen_ell(p, 0, 0, 8, 8);
+    pen_ink(p, false);
+    pen_ell(p, 0, 0, 7, 7);
+    pen_ink(p, true);
+    pen_ell(p, 0, 0, 5, 5);
+    pen_ink(p, false);
+    pen_line(p, 0, 0, hand[k][0], hand[k][1]);
+    pen_dot(p, 0, 0);
+    pen_ink(p, true);
+    pen_dot(p, -12, -8);
+    pen_dot(p, 11, -8);
+    pen_dot(p, -12, 8);
+    pen_dot(p, 11, 8);
+    pen_ink(p, false);
+    pen_eye(p, -4, -17, pose);
+    pen_eye(p, 1, -17, pose);
+}
+
+// Ultimate, Nulo: a scrap colossus drawn in outline, with a hollow V torso and one eye.
+static void mon_koloso(const DvPen* p, uint32_t frame, DigivicePose pose) {
+    int32_t sway = pose == DigivicePoseIdle && (frame / 5) % 2 ? 1 : 0;
+    pen_ink(p, false);
+    pen_box(p, -14, -12 + sway, 28, 4);
+    pen_line(p, -14, -9 + sway, 0, 10);
+    pen_line(p, 14, -9 + sway, 0, 10);
+    pen_line(p, -13, -9 + sway, 0, 9);
+    pen_line(p, 13, -9 + sway, 0, 9);
+    pen_box(p, -20, -10 + sway, 5, 22);
+    pen_box(p, 15, -10 + sway, 5, 14);
+    pen_box(p, -6, 8, 4, 12);
+    pen_box(p, 3, 8, 4, 12);
+    pen_ell(p, 0, -18 + sway, 5, 4);
+    pen_eye(p, -1, -19 + sway, pose);
+}
+
 static const MonDraw mon_table[DigiviceFormCount] = {
     [DigiviceFormPipo] = mon_pipo,
     [DigiviceFormChispi] = mon_chispi,
@@ -222,6 +355,11 @@ static const MonDraw mon_table[DigiviceFormCount] = {
     [DigiviceFormVampixel] = mon_vampixel,
     [DigiviceFormCerrojo] = mon_cerrojo,
     [DigiviceFormBuhoscan] = mon_buhoscan,
+    [DigiviceFormLanzero] = mon_lanzero,
+    [DigiviceFormWyvolt] = mon_wyvolt,
+    [DigiviceFormFangorey] = mon_fangorey,
+    [DigiviceFormBovedax] = mon_bovedax,
+    [DigiviceFormKoloso] = mon_koloso,
 };
 
 static DigiviceFoe foe_of(DigiviceForm form, bool* known) {
