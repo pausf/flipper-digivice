@@ -1274,8 +1274,51 @@ static void test_stage_and_attr_come_from_the_roster(void) {
     CHECK(digivice_rules_form_attr(&s) == DigiviceAttrRuido);
 }
 
+static void test_training_counts_successes_only(void) {
+    DigiviceState s = fresh(10 * 3600UL);
+    s.hunger = DIGIVICE_HUNGER_MAX;
+    CHECK(digivice_rules_train(&s, true, 10 * 3600UL) == DigiviceResultOk);
+    CHECK(digivice_rules_train(&s, false, 10 * 3600UL) == DigiviceResultOk);
+    CHECK(s.train_count == 1);
+}
+
+static void test_poop_mistake_counts_for_the_evolution_for_now(void) {
+    DigiviceState s = fresh(8 * 3600UL);
+    s.poop = 1;
+    s.poop_dirty_since = 8 * 3600UL;
+    digivice_rules_tick(&s, 8 * 3600UL + DIGIVICE_POOP_MISTAKE_S);
+    CHECK(s.care_mistakes >= 1 && s.evo_mistakes >= 1);
+}
+
+static void test_night_owl_counts_the_light_left_on(void) {
+    DigiviceState s = fresh(22 * 3600UL);
+    s.form = DigiviceFormKorno;
+    s.hunger = DIGIVICE_HUNGER_MAX;
+    digivice_rules_tick(&s, 23 * 3600UL + 1800UL); // asleep from 23:00, light on
+    CHECK(s.night_owl == 0);
+    digivice_rules_tick(&s, 24 * 3600UL + 120UL);
+    CHECK(s.night_owl == 1);
+    digivice_rules_tick(&s, 24 * 3600UL + 5 * 3600UL);
+    CHECK(s.night_owl == 1); // once per sleep window
+}
+
+static void test_count_battle_ignores_nothing_and_saturates(void) {
+    DigiviceState s = fresh(T0);
+    digivice_rules_count_battle(&s, true);
+    digivice_rules_count_battle(&s, false);
+    CHECK(s.battles == 2 && s.wins_stage == 1);
+    s.battles = 255;
+    s.wins_stage = 255;
+    digivice_rules_count_battle(&s, true);
+    CHECK(s.battles == 255 && s.wins_stage == 255);
+}
+
 int main(void) {
     test_stage_and_attr_come_from_the_roster();
+    test_training_counts_successes_only();
+    test_poop_mistake_counts_for_the_evolution_for_now();
+    test_night_owl_counts_the_light_left_on();
+    test_count_battle_ignores_nothing_and_saturates();
     test_meat_fills_hunger_and_refuses_when_full();
     test_refusal_counts_once_until_the_meter_drains();
     test_protein_fills_vigor_and_strength();

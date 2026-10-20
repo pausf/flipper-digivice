@@ -273,8 +273,18 @@ static uint32_t until(uint32_t t, uint32_t deadline) {
     return deadline > t ? deadline - t : 0;
 }
 
+static void bump(uint8_t* counter) {
+    if(*counter < UINT8_MAX) (*counter)++;
+}
+
+void digivice_rules_count_battle(DigiviceState* s, bool won) {
+    bump(&s->battles);
+    if(won) bump(&s->wins_stage);
+}
+
 static void add_mistake(DigiviceState* s) {
-    if(s->care_mistakes < UINT8_MAX) s->care_mistakes++;
+    bump(&s->care_mistakes);
+    bump(&s->evo_mistakes);
 }
 
 static void set_hunger(DigiviceState* s, uint8_t hunger, uint32_t now) {
@@ -381,6 +391,7 @@ static void asleep_advance(DigiviceState* s, uint32_t step) {
     // Crossing the threshold, not being past it, makes this once per sleep window.
     if(before < DIGIVICE_LIGHT_MISTAKE_S && s->light_on_asleep_s >= DIGIVICE_LIGHT_MISTAKE_S) {
         add_mistake(s);
+        bump(&s->night_owl);
         if(s->mood > 0) s->mood--;
     }
 }
@@ -491,6 +502,7 @@ DigiviceResult digivice_rules_train(DigiviceState* s, bool success, uint32_t now
     s->exp += success ? DIGIVICE_TRAIN_EXP_OK : DIGIVICE_TRAIN_EXP_FAIL;
     if(!success) return DigiviceResultOk;
     add_u16(&s->strength, 1);
+    bump(&s->train_count);
     if(s->mood < DIGIVICE_MOOD_MAX) s->mood++;
     set_corruption(s, (int32_t)s->corruption - DIGIVICE_CORRUPTION_TRAIN_DROP, now);
     return DigiviceResultOk;

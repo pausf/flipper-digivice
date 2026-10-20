@@ -174,6 +174,9 @@ DigiviceReward digivice_rules_battle_result(
     uint8_t rng_pct,
     uint32_t now) {
     DigiviceReward reward = {.exp = 0, .item = DigiviceItemNone};
+    if(result == DigiviceBattleResultWin || result == DigiviceBattleResultLose) {
+        digivice_rules_count_battle(s, result == DigiviceBattleResultWin);
+    }
     if(shield_used && s->item == DigiviceItemShield) s->item = DigiviceItemNone;
     uint8_t area = s->area < DIGIVICE_AREA_COUNT ? s->area : DIGIVICE_AREA_COUNT - 1;
 

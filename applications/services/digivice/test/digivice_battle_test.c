@@ -482,6 +482,15 @@ static void test_stage_tables_cover_every_stage(void) {
     CHECK(shot[DigiviceStageMega] == DIGIVICE_SHOT_BEAM && shot[DigiviceStageUltimate] == 7);
 }
 
+static void test_battle_result_counts_win_and_lose_but_not_fled_or_draw(void) {
+    DigiviceState s = with_form(DigiviceFormTagdrake);
+    digivice_rules_battle_result(&s, DigiviceEncounterTrail, DigiviceBattleResultWin, false, 0, 99, T0);
+    digivice_rules_battle_result(&s, DigiviceEncounterTrail, DigiviceBattleResultLose, false, 0, 99, T0);
+    digivice_rules_battle_result(&s, DigiviceEncounterTrail, DigiviceBattleResultFled, false, 0, 99, T0);
+    digivice_rules_battle_result(&s, DigiviceEncounterTrail, DigiviceBattleResultDraw, false, 0, 99, T0);
+    CHECK(s.battles == 2 && s.wins_stage == 1);
+}
+
 int main(void) {
     test_stage_tables_cover_every_stage();
     test_hit_pct();
@@ -498,6 +507,7 @@ int main(void) {
     test_retreat();
     test_stale_fight_keeps_newer_encounter();
     test_trail_rewards();
+    test_battle_result_counts_win_and_lose_but_not_fled_or_draw();
     test_boss_rewards();
     test_defeat_penalties();
     test_virux_rewards();

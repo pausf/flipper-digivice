@@ -365,6 +365,9 @@ uint32_t digivice_rules_awake_seconds(uint32_t from, uint32_t to);
  * while the light is still on and the pet is past Egg. Call with the state after the tick. */
 bool digivice_rules_bedtime_started(const DigiviceState* s, uint32_t prev, uint32_t now);
 
+/** Counts a Win or Lose for the evolution counters (saturating). */
+void digivice_rules_count_battle(DigiviceState* s, bool won);
+
 /** Applies time-based rules from s->last_tick to now. */
 void digivice_rules_tick(DigiviceState* s, uint32_t now);
 
