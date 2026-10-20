@@ -2,24 +2,10 @@
 #include "digivice_config.h"
 #include "digivice_city.h"
 
-#include <string.h>
-
 static const uint16_t stage_power[DigiviceStageCount] = DIGIVICE_STAGE_POWER;
-static const uint8_t stage_shot[DigiviceStageCount] = DIGIVICE_STAGE_SHOT;
-static const uint16_t virux_power[DigiviceStageCount] = DIGIVICE_VIRUX_POWER;
-static const uint8_t charge_x10[DigiviceChargeCount] = DIGIVICE_CHARGE_X10;
 
 static void inc_u16(uint16_t* value) {
     if(*value < UINT16_MAX) (*value)++;
-}
-
-uint8_t digivice_rules_hit_pct(uint16_t p, uint16_t q, int8_t adv) {
-    uint32_t sum = (uint32_t)p + q;
-    int32_t pct = sum ? (int32_t)((200UL * p + sum) / (2UL * sum)) : 50;
-    pct += DIGIVICE_ATTR_PCT * adv;
-    if(pct < DIGIVICE_HIT_MIN_PCT) pct = DIGIVICE_HIT_MIN_PCT;
-    if(pct > DIGIVICE_HIT_MAX_PCT) pct = DIGIVICE_HIT_MAX_PCT;
-    return (uint8_t)pct;
 }
 
 bool digivice_rules_injured(const DigiviceState* s, uint32_t now) {
@@ -31,11 +17,6 @@ uint16_t digivice_rules_player_power(const DigiviceState* s, uint32_t now) {
     uint16_t power = stage_power[digivice_rules_stage(s)] + strength;
     if(digivice_rules_injured(s, now)) power = power * 3 / 4;
     return power;
-}
-
-uint16_t digivice_rules_charged_power(uint16_t power, DigiviceCharge tier) {
-    if(tier >= DigiviceChargeCount) tier = DigiviceChargeNormal;
-    return (uint16_t)((uint32_t)power * charge_x10[tier] / 10);
 }
 
 uint8_t digivice_rules_charge_zone_w(uint16_t strength) {
@@ -64,108 +45,6 @@ DigiviceCharge digivice_rules_charge_tier(uint8_t cursor, uint8_t zone_start, ui
         return DigiviceChargeNormal;
     }
     return DigiviceChargeSmall;
-}
-
-uint8_t digivice_rules_guard_at(uint8_t g0, uint32_t frame) {
-    return (uint8_t)((g0 ^ (frame / DIGIVICE_GUARD_FLIP_FRAMES)) & 1);
-}
-
-bool digivice_rules_shot_blocked(uint8_t aim, uint8_t g0, uint32_t press_frame) {
-    return aim == digivice_rules_guard_at(g0, press_frame + DIGIVICE_IMPACT_LAG_FRAMES);
-}
-
-void digivice_battle_init(
-    DigiviceBattle* b,
-    const DigiviceState* s,
-    DigiviceEncounterKind kind,
-    uint32_t now) {
-    memset(b, 0, sizeof(DigiviceBattle));
-    DigiviceStage stage = digivice_rules_stage(s);
-    b->kind = kind;
-    b->player_attr = digivice_rules_form_attr(s);
-    b->player_power = digivice_rules_player_power(s, now);
-    b->player_shot = stage_shot[stage];
-    b->shield = s->item == DigiviceItemShield;
-    b->glitchy = digivice_rules_glitchy(s);
-
-    if(kind == DigiviceEncounterBoss) {
-        b->foe = s->area;
-        b->foe_attr = digivice_expedition_boss_attr(s->area);
-        b->foe_power = digivice_expedition_boss_power(s->area);
-        b->foe_shot = s->area == DIGIVICE_AREA_COUNT - 1 ? DIGIVICE_SHOT_BEAM : DIGIVICE_SHOT_BOSS;
-    } else if(kind == DigiviceEncounterVirux) {
-        b->foe = s->virux_type;
-        b->foe_attr = digivice_rules_type_attr((DigiviceType)s->virux_type);
-        b->foe_power = virux_power[stage];
-        b->foe_shot = b->player_shot;
-    } else if(digivice_homage_code(s->enc_foe)) {
-        b->foe_class = DigiviceFoeClassHomage;
-        b->foe = (uint8_t)(s->enc_foe - DIGIVICE_ENC_HOMAGE);
-        b->foe_attr = digivice_homage_attr(b->foe);
-        b->foe_power = (uint16_t)(stage_power[stage] * DIGIVICE_HOMAGE_X10 / 10);
-        b->foe_shot = b->player_shot;
-    } else if(digivice_city_code(s->enc_foe)) {
-        b->foe_class = DigiviceFoeClassCity;
-        b->foe = (uint8_t)(s->enc_foe - DIGIVICE_ENC_CITY);
-        b->foe_attr = digivice_city_monster_attr(b->foe);
-        b->foe_power = digivice_city_monster_power(s->area);
-        b->foe_shot = DIGIVICE_SHOT_CHAMP_FOE;
-    } else {
-        DigiviceFoe foe = digivice_expedition_pool_foe(s->area, s->enc_foe <= 1 ? s->enc_foe : 0);
-        b->foe = foe;
-        b->foe_attr = digivice_expedition_foe_attr(foe);
-        b->foe_power = digivice_expedition_foe_power(s->area, foe);
-        b->foe_shot = digivice_expedition_foe_champion(foe) ? DIGIVICE_SHOT_CHAMP_FOE :
-                                                              DIGIVICE_SHOT_ROOKIE_FOE;
-    }
-}
-
-DigiviceShot digivice_battle_player_shot(
-    DigiviceBattle* b,
-    DigiviceCharge tier,
-    bool blocked,
-    uint8_t miss_roll,
-    uint8_t hit_roll) {
-    uint8_t pct = digivice_rules_hit_pct(
-        digivice_rules_charged_power(b->player_power, tier),
-        b->foe_power,
-        digivice_rules_attr_adv(b->player_attr, b->foe_attr));
-    if(blocked) {
-        pct /= 2;
-        if(pct < DIGIVICE_BLOCK_MIN_PCT) pct = DIGIVICE_BLOCK_MIN_PCT;
-    }
-    bool corrupt_miss = b->glitchy && miss_roll < DIGIVICE_CORRUPTION_MISS_PCT;
-    bool hit = !corrupt_miss && hit_roll < pct;
-    if(hit) b->player_hits++;
-    if(blocked) return hit ? DigiviceShotGuardBroken : DigiviceShotBlocked;
-    return hit ? DigiviceShotHit : DigiviceShotDodge;
-}
-
-DigiviceShot digivice_battle_foe_shot(DigiviceBattle* b, uint8_t hit_roll) {
-    uint8_t pct = digivice_rules_hit_pct(
-        b->foe_power, b->player_power, digivice_rules_attr_adv(b->foe_attr, b->player_attr));
-    DigiviceShot shot = DigiviceShotDodge;
-    if(hit_roll < pct) {
-        if(b->shield) {
-            b->shield = false;
-            b->shield_used = true;
-            shot = DigiviceShotShielded;
-        } else {
-            b->foe_hits++;
-            shot = DigiviceShotHit;
-        }
-    }
-    b->round++;
-    return shot;
-}
-
-DigiviceBattleOutcome digivice_battle_outcome(const DigiviceBattle* b) {
-    if(b->player_hits >= DIGIVICE_HITS_TO_WIN) return DigiviceBattleWon;
-    if(b->foe_hits >= DIGIVICE_HITS_TO_WIN) return DigiviceBattleLost;
-    if(b->round < DIGIVICE_ROUND_CAP) return DigiviceBattleOngoing;
-    if(b->player_hits > b->foe_hits) return DigiviceBattleWon;
-    if(b->foe_hits > b->player_hits) return DigiviceBattleLost;
-    return DigiviceBattleDrawn;
 }
 
 bool digivice_battle_retreat_allowed(const DigiviceState* s, DigiviceEncounterKind kind) {

@@ -30,32 +30,6 @@ static DigiviceState with_form(uint8_t form) {
     return s;
 }
 
-// A battle with fixed powers and attributes, as the hit-chance table in the spec.
-static DigiviceBattle duel(uint16_t p, uint8_t pa, uint16_t q, uint8_t qa) {
-    DigiviceBattle b;
-    memset(&b, 0, sizeof(b));
-    b.player_power = p;
-    b.player_attr = pa;
-    b.foe_power = q;
-    b.foe_attr = qa;
-    return b;
-}
-
-static void test_hit_pct(void) {
-    CHECK(digivice_rules_hit_pct(20, 10, 0) == 67);
-    CHECK(digivice_rules_hit_pct(30, 10, 0) == 75);
-    CHECK(digivice_rules_hit_pct(64, 59, 1) == 57);
-    CHECK(digivice_rules_hit_pct(59, 64, -1) == 43);
-    CHECK(digivice_rules_hit_pct(64, 131, 0) == 33);
-    CHECK(digivice_rules_hit_pct(50, 50, 1) == 55);
-    CHECK(digivice_rules_hit_pct(50, 50, -1) == 45);
-    CHECK(digivice_rules_hit_pct(100, 1, 0) == DIGIVICE_HIT_MAX_PCT);
-    CHECK(digivice_rules_hit_pct(100, 1, 1) == DIGIVICE_HIT_MAX_PCT);
-    CHECK(digivice_rules_hit_pct(1, 100, 0) == DIGIVICE_HIT_MIN_PCT);
-    CHECK(digivice_rules_hit_pct(1, 100, -1) == DIGIVICE_HIT_MIN_PCT);
-    CHECK(digivice_rules_hit_pct(0, 0, 0) == 50);
-}
-
 static void test_power(void) {
     DigiviceState s = with_form(DigiviceFormByteegg);
     CHECK(digivice_rules_player_power(&s, T0) == 0);
@@ -79,10 +53,6 @@ static void test_power(void) {
     s.form = DigiviceFormVirubyte;
     s.prev_form = DigiviceFormTagdrake;
     CHECK(digivice_rules_player_power(&s, T0) == 64);
-
-    CHECK(digivice_rules_charged_power(20, DigiviceChargeSmall) == 12);
-    CHECK(digivice_rules_charged_power(20, DigiviceChargeNormal) == 20);
-    CHECK(digivice_rules_charged_power(20, DigiviceChargeBig) == 30);
 }
 
 static void test_charge(void) {
@@ -119,163 +89,6 @@ static void test_charge(void) {
     CHECK(digivice_rules_meter_cursor(20) == 18);
     CHECK(digivice_rules_meter_cursor(38) == 0);
     CHECK(digivice_rules_meter_cursor(DIGIVICE_CHARGE_FRAMES) == 8);
-}
-
-static void test_guard(void) {
-    static const uint32_t frames[5] = {0, 4, 5, 9, 10};
-    static const uint8_t from_high[5] = {0, 0, 1, 1, 0};
-    for(int i = 0; i < 5; i++) {
-        CHECK(digivice_rules_guard_at(DigiviceAimHigh, frames[i]) == from_high[i]);
-        CHECK(digivice_rules_guard_at(DigiviceAimLow, frames[i]) == !from_high[i]);
-    }
-    // Sampled 5 frames after the press: aiming high at frame 0 meets the low guard.
-    CHECK(!digivice_rules_shot_blocked(DigiviceAimHigh, DigiviceAimHigh, 0));
-    CHECK(digivice_rules_shot_blocked(DigiviceAimLow, DigiviceAimHigh, 0));
-    CHECK(digivice_rules_shot_blocked(DigiviceAimHigh, DigiviceAimHigh, 5));
-    CHECK(!digivice_rules_shot_blocked(DigiviceAimHigh, DigiviceAimHigh, 4));
-}
-
-static void test_shot_outcomes(void) {
-    // P 20 vs Q 10: 67% unblocked, 33% blocked.
-    DigiviceBattle b = duel(20, DigiviceAttrNulo, 10, DigiviceAttrNulo);
-    CHECK(digivice_battle_player_shot(&b, DigiviceChargeNormal, false, 99, 66) ==
-          DigiviceShotHit);
-    CHECK(digivice_battle_player_shot(&b, DigiviceChargeNormal, false, 99, 67) ==
-          DigiviceShotDodge);
-    CHECK(digivice_battle_player_shot(&b, DigiviceChargeNormal, true, 99, 32) ==
-          DigiviceShotGuardBroken);
-    CHECK(digivice_battle_player_shot(&b, DigiviceChargeNormal, true, 99, 33) ==
-          DigiviceShotBlocked);
-    CHECK(b.player_hits == 2);
-    // Big charge: P 30, 75%.
-    CHECK(digivice_battle_player_shot(&b, DigiviceChargeBig, false, 99, 74) == DigiviceShotHit);
-
-    // A blocked shot never drops below 5%.
-    DigiviceBattle weak = duel(1, DigiviceAttrNulo, 100, DigiviceAttrNulo);
-    CHECK(digivice_battle_player_shot(&weak, DigiviceChargeNormal, true, 99, 4) ==
-          DigiviceShotGuardBroken);
-    CHECK(digivice_battle_player_shot(&weak, DigiviceChargeNormal, true, 99, 5) ==
-          DigiviceShotBlocked);
-
-    // A glitchy pet first rolls the 25% corruption miss.
-    DigiviceBattle g = duel(100, DigiviceAttrNulo, 1, DigiviceAttrNulo);
-    g.glitchy = true;
-    CHECK(digivice_battle_player_shot(&g, DigiviceChargeNormal, false, 24, 0) ==
-          DigiviceShotDodge);
-    CHECK(digivice_battle_player_shot(&g, DigiviceChargeNormal, false, 25, 0) ==
-          DigiviceShotHit);
-    CHECK(digivice_battle_player_shot(&g, DigiviceChargeNormal, true, 24, 0) ==
-          DigiviceShotBlocked);
-}
-
-static void test_foe_turn_symmetry(void) {
-    // Wavedrake (Portador, 64) against a Ruido foe of 59: 57% one way, 43% the other.
-    DigiviceBattle b = duel(64, DigiviceAttrPortador, 59, DigiviceAttrRuido);
-    CHECK(digivice_battle_player_shot(&b, DigiviceChargeNormal, false, 99, 56) ==
-          DigiviceShotHit);
-    CHECK(digivice_battle_player_shot(&b, DigiviceChargeNormal, false, 99, 57) ==
-          DigiviceShotDodge);
-    CHECK(digivice_battle_foe_shot(&b, 42) == DigiviceShotHit);
-    CHECK(digivice_battle_foe_shot(&b, 43) == DigiviceShotDodge);
-    CHECK(b.foe_hits == 1 && b.round == 2);
-    // The foe uses the uncharged power: a Big charge last turn changes nothing.
-    digivice_battle_player_shot(&b, DigiviceChargeBig, false, 99, 99);
-    CHECK(digivice_battle_foe_shot(&b, 43) == DigiviceShotDodge);
-}
-
-static DigiviceBattleOutcome play(DigiviceBattle* b, const char* script) {
-    // 'p' player hit, 'f' foe hit, '-' a miss on that side, in turn order.
-    bool player_turn = true;
-    for(const char* c = script; *c; c++) {
-        if(player_turn) {
-            digivice_battle_player_shot(b, DigiviceChargeNormal, false, 99, *c == 'p' ? 0 : 99);
-        } else {
-            digivice_battle_foe_shot(b, *c == 'f' ? 0 : 99);
-        }
-        player_turn = !player_turn;
-        if(digivice_battle_outcome(b) != DigiviceBattleOngoing) break;
-    }
-    return digivice_battle_outcome(b);
-}
-
-static void test_three_hits(void) {
-    DigiviceBattle b = duel(40, DigiviceAttrNulo, 40, DigiviceAttrNulo);
-    CHECK(play(&b, "p-p-p") == DigiviceBattleWon && b.player_hits == 3 && b.round == 2);
-
-    b = duel(40, DigiviceAttrNulo, 40, DigiviceAttrNulo);
-    CHECK(play(&b, "pfpfp") == DigiviceBattleWon && b.foe_hits == 2);
-
-    b = duel(40, DigiviceAttrNulo, 40, DigiviceAttrNulo);
-    CHECK(play(&b, "pfpf-f") == DigiviceBattleLost && b.player_hits == 2 && b.foe_hits == 3);
-
-    // The battle ends at the shot that reaches 3: the foe never gets its turn.
-    b = duel(40, DigiviceAttrNulo, 40, DigiviceAttrNulo);
-    play(&b, "p-p-p");
-    CHECK(b.round == 2 && digivice_battle_outcome(&b) == DigiviceBattleWon);
-}
-
-static void test_round_cap(void) {
-    DigiviceBattle b = duel(40, DigiviceAttrNulo, 40, DigiviceAttrNulo);
-    CHECK(play(&b, "--------------------") == DigiviceBattleDrawn && b.round == 10);
-    b = duel(40, DigiviceAttrNulo, 40, DigiviceAttrNulo);
-    CHECK(play(&b, "p-------------------") == DigiviceBattleWon && b.round == 10);
-    b = duel(40, DigiviceAttrNulo, 40, DigiviceAttrNulo);
-    CHECK(play(&b, "pf-f----------------") == DigiviceBattleLost && b.round == 10);
-    b = duel(40, DigiviceAttrNulo, 40, DigiviceAttrNulo);
-    CHECK(play(&b, "pfpf----------------") == DigiviceBattleDrawn);
-    b = duel(40, DigiviceAttrNulo, 40, DigiviceAttrNulo);
-    CHECK(play(&b, "------------------") == DigiviceBattleOngoing && b.round == 9);
-}
-
-static void test_shield_cancels_first_hit(void) {
-    DigiviceBattle b = duel(40, DigiviceAttrNulo, 40, DigiviceAttrNulo);
-    b.shield = true;
-    CHECK(digivice_battle_foe_shot(&b, 0) == DigiviceShotShielded);
-    CHECK(b.foe_hits == 0 && !b.shield && b.shield_used);
-    CHECK(digivice_battle_foe_shot(&b, 0) == DigiviceShotHit && b.foe_hits == 1);
-    // A miss leaves the Shield up.
-    DigiviceBattle c = duel(40, DigiviceAttrNulo, 40, DigiviceAttrNulo);
-    c.shield = true;
-    CHECK(digivice_battle_foe_shot(&c, 99) == DigiviceShotDodge && c.shield);
-}
-
-static void test_battle_init(void) {
-    DigiviceState s = with_form(DigiviceFormWavedrake);
-    s.strength = 24;
-    s.area = 4;
-    s.enc_foe = 0;
-    s.item = DigiviceItemShield;
-    DigiviceBattle b;
-    digivice_battle_init(&b, &s, DigiviceEncounterTrail, T0);
-    CHECK(b.foe == DigiviceFoeFuzzcan && b.foe_attr == DigiviceAttrRuido);
-    CHECK(b.foe_power == 59 && b.foe_shot == DIGIVICE_SHOT_CHAMP_FOE);
-    CHECK(b.player_power == 64 && b.player_attr == DigiviceAttrPortador);
-    CHECK(b.player_shot == 5 && b.shield && !b.glitchy && b.player_hits == 0);
-    s.enc_foe = 1;
-    digivice_battle_init(&b, &s, DigiviceEncounterTrail, T0);
-    CHECK(b.foe == DigiviceFoeKorno && b.foe_power == 46 && b.foe_shot == 3);
-
-    digivice_battle_init(&b, &s, DigiviceEncounterBoss, T0);
-    CHECK(b.foe == 4 && b.foe_power == 64 && b.foe_shot == DIGIVICE_SHOT_BOSS);
-    s.area = 7;
-    digivice_battle_init(&b, &s, DigiviceEncounterBoss, T0);
-    CHECK(b.foe_power == 131 && b.foe_shot == DIGIVICE_SHOT_BEAM);
-
-    DigiviceState r = with_form(DigiviceFormBytemon);
-    r.virux_type = DigiviceTypeSubGhz;
-    r.corruption = 60;
-    digivice_battle_init(&b, &r, DigiviceEncounterVirux, T0);
-    CHECK(b.foe_power == 24 && b.foe_attr == DigiviceAttrPortador && b.foe_shot == 3);
-    CHECK(b.player_shot == 3 && b.glitchy && !b.shield);
-    r.form = DigiviceFormTagdrake;
-    digivice_battle_init(&b, &r, DigiviceEncounterVirux, T0);
-    CHECK(b.foe_power == 46 && b.foe_shot == 5);
-
-    // The Baby fights trail foes with a 2x2 shot.
-    DigiviceState baby = with_form(DigiviceFormBitling);
-    baby.enc_foe = 0;
-    digivice_battle_init(&b, &baby, DigiviceEncounterTrail, T0);
-    CHECK(b.player_power == 10 && b.player_shot == 2 && b.foe_power == 10);
 }
 
 static void test_can_battle(void) {
@@ -493,18 +306,11 @@ static void test_battle_result_counts_win_and_lose_but_not_fled_or_draw(void) {
 }
 
 #if DIGIVICE_EASTER_EGGS
-static void test_partner_battle_init_and_result(void) {
+static void test_partner_result(void) {
     DigiviceState s = with_form(DigiviceFormKorno);
     s.mood = 4;
     s.enc_foe = DIGIVICE_ENC_HOMAGE + 2;
     s.enc_expires = T0 + 1000;
-    DigiviceBattle b;
-    digivice_battle_init(&b, &s, DigiviceEncounterTrail, T0);
-    CHECK(b.foe_class == DigiviceFoeClassHomage && b.foe == 2);
-    CHECK(b.foe_power == 20 * DIGIVICE_HOMAGE_X10 / 10);
-    CHECK(b.foe_attr == digivice_homage_attr(2));
-    CHECK(b.foe_shot == b.player_shot);
-
     s.special_count = 3;
     DigiviceReward r = digivice_rules_battle_result(
         &s, DigiviceEncounterTrail, DigiviceBattleResultWin, false, T0 + 1000, 50, T0);
@@ -543,12 +349,6 @@ static void test_city_monster_battle(void) {
     s.area = 2;
     s.enc_foe = DIGIVICE_ENC_CITY + 1;
     s.enc_expires = T0 + 1000;
-    DigiviceBattle b;
-    digivice_battle_init(&b, &s, DigiviceEncounterTrail, T0);
-    CHECK(b.foe_class == DigiviceFoeClassCity && b.foe == 1);
-    CHECK(b.foe_attr == DigiviceAttrPortador);
-    CHECK(b.foe_power == digivice_city_monster_power(2));
-    CHECK(b.foe_shot == DIGIVICE_SHOT_CHAMP_FOE);
     DigiviceReward r = digivice_rules_battle_result(
         &s, DigiviceEncounterTrail, DigiviceBattleResultWin, false, T0 + 1000, 50, T0);
     CHECK(
@@ -561,16 +361,8 @@ static void test_city_monster_battle(void) {
 
 int main(void) {
     test_stage_tables_cover_every_stage();
-    test_hit_pct();
     test_power();
     test_charge();
-    test_guard();
-    test_shot_outcomes();
-    test_foe_turn_symmetry();
-    test_three_hits();
-    test_round_cap();
-    test_shield_cancels_first_hit();
-    test_battle_init();
     test_can_battle();
     test_retreat();
     test_stale_fight_keeps_newer_encounter();
@@ -583,7 +375,7 @@ int main(void) {
     test_draw_and_flee_change_nothing_else();
     test_city_monster_battle();
 #if DIGIVICE_EASTER_EGGS
-    test_partner_battle_init_and_result();
+    test_partner_result();
     test_partner_loss_and_counting();
 #endif
 

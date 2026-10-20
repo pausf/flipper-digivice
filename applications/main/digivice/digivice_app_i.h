@@ -7,6 +7,7 @@
 #include <digivice/digivice.h>
 #include <digivice/digivice_config.h>
 #include <digivice/digivice_draw.h>
+#include <digivice/digivice_duel.h>
 #include <digivice/digivice_homage.h>
 #include <digivice/digivice_city.h>
 #include <digivice/digivice_i18n.h>
@@ -56,10 +57,10 @@ typedef enum {
 } DigiviceSetting;
 
 typedef enum {
-    DigiviceBattlePhaseCharge,
-    DigiviceBattlePhaseAim,
-    DigiviceBattlePhasePlayerShot,
-    DigiviceBattlePhaseFoeShot,
+    DigiviceBattlePhaseMenu,
+    DigiviceBattlePhaseMoves,
+    DigiviceBattlePhaseTiming,
+    DigiviceBattlePhaseTurn,
     DigiviceBattlePhaseEnd,
 } DigiviceBattlePhase;
 
@@ -107,20 +108,25 @@ typedef struct {
 
     DigiviceScene* scene; /**< area background on the heap, freed when leaving the trail */
 
-    DigiviceBattle battle;
+    DigiviceDuel duel;
     DigiviceBattlePhase phase;
     uint8_t enc_kind; /**< DigiviceEncounterKind of the current fight */
     uint8_t enc_area; /**< area the fight started in */
     uint8_t zone_start;
     uint8_t zone_w;
-    uint8_t cursor; /**< charge meter cursor, frozen once locked */
+    uint8_t cursor; /**< timing bar cursor, frozen once locked */
     bool charge_locked;
-    uint8_t charge; /**< DigiviceCharge of the player's shot */
-    uint8_t guard0; /**< guard height at aim frame 0 */
-    uint8_t aim; /**< DigiviceAim of the player's shot, or the foe's height on its turn */
-    bool aim_locked;
-    uint32_t aim_frame; /**< aim-phase frame of the press: the guard is sampled 5 frames later */
-    uint8_t shot; /**< DigiviceShot on screen */
+    bool crit_bonus; /**< the timing bar's guaranteed critical hit, for the next player move */
+    uint8_t menu_sel;
+    uint8_t move_sel;
+    uint8_t turn_slot[DigiviceSideCount];
+    bool turn_item; /**< OBJETO: the pet's step is the Shield, the foe acts alone */
+    uint8_t turn_first; /**< DigiviceSide acting first */
+    uint8_t turn_done; /**< steps already played this turn */
+    DigiviceStep step; /**< the step on screen */
+    DigiviceStr msgs[4];
+    uint8_t msg_count;
+    uint16_t hp_shown[DigiviceSideCount]; /**< HP bars animate towards the real HP */
     uint8_t result; /**< DigiviceBattleResult once decided */
     DigiviceReward reward;
     bool streak_lost;
