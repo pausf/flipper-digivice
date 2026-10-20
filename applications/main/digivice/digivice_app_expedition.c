@@ -290,6 +290,16 @@ static void draw_trail(Canvas* canvas, DigiviceApp* app) {
 
     snprintf(text, sizeof(text), "D%04u", (unsigned)s->distance);
     draw_top_bar(canvas, area_name(app, s->area), text);
+    if(s->city && app->screen_frame < DIGIVICE_CITY_BANNER_FRAMES) {
+        char banner[32];
+        snprintf(
+            banner,
+            sizeof(banner),
+            "%s%s",
+            digivice_app_str(app, DigiviceStrCityEvent),
+            digivice_city_name(s->city));
+        digivice_draw_label(canvas, 12, banner);
+    }
     if(s->item == DigiviceItemShield) digivice_draw_shield(canvas, 92, 0);
     if(digivice_rules_injured(s, now)) digivice_draw_bandage(canvas, 82, 1);
 

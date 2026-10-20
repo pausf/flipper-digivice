@@ -3,6 +3,7 @@
 static const DigiviceStr setting_labels[DigiviceSettingCount] = {
     DigiviceStrSettingsLanguage,
     DigiviceStrSettingsMode,
+    DigiviceStrSettingsCity,
     DigiviceStrSettingsReset,
 };
 
@@ -19,6 +20,9 @@ static void digivice_settings_change(DigiviceApp* app) {
     } else if(app->setting == DigiviceSettingMode) {
         uint8_t mode = (app->state.mode + 1) % DigiviceModeCount;
         digivice_set_mode(app->digivice, (DigiviceMode)mode);
+    } else if(app->setting == DigiviceSettingCity) {
+        uint8_t city = (uint8_t)((app->state.city + 1) % (DIGIVICE_CITY_COUNT + 1));
+        digivice_set_city(app->digivice, city);
     }
     digivice_get_state(app->digivice, &app->state);
 }
@@ -80,6 +84,10 @@ static const char* digivice_settings_value(DigiviceApp* app, uint8_t setting) {
             app->state.mode == DigiviceModeHacker ? DigiviceStrModeHacker :
                                                     DigiviceStrModeNormal);
     }
+    if(setting == DigiviceSettingCity) {
+        return app->state.city ? digivice_city_name(app->state.city) :
+                                 digivice_app_str(app, DigiviceStrCityNone);
+    }
     return NULL;
 }
 
@@ -88,7 +96,7 @@ void digivice_settings_draw(Canvas* canvas, DigiviceApp* app) {
     digivice_app_draw_title(canvas, digivice_app_str(app, DigiviceStrMenuSettings));
 
     for(uint8_t i = 0; i < DigiviceSettingCount; i++) {
-        int32_t y = 17 + i * 13;
+        int32_t y = 15 + i * 11;
         digivice_draw_text(canvas, 8, y, digivice_app_str(app, setting_labels[i]));
         const char* value = digivice_settings_value(app, i);
         if(value) {

@@ -192,6 +192,9 @@ typedef enum {
     DigiviceStrNidoEmpty,
     DigiviceStrNidoPick,
     DigiviceStrNidoChosen,
+    DigiviceStrCityEvent,
+    DigiviceStrSettingsCity,
+    DigiviceStrCityNone,
 
     DigiviceStrCount,
 } DigiviceStr;

@@ -1,6 +1,7 @@
 #include "digivice_expedition.h"
 #include "digivice_config.h"
 #include "digivice_homage.h"
+#include "digivice_city.h"
 
 static const uint8_t pools[DIGIVICE_AREA_COUNT][2] = {
     {DigiviceFoeEstatik, DigiviceFoeKorno},
@@ -160,6 +161,7 @@ static bool pace(DigiviceState* s, uint32_t t) {
                  digivice_rules_rng(s) % 100 < DIGIVICE_ENCOUNTER_PCT;
     if(!spawn) return false;
     uint8_t code = digivice_homage_pick(s);
+    if(code == DIGIVICE_ENC_NONE) code = digivice_city_pick(s);
     if(code == DIGIVICE_ENC_NONE) code = (uint8_t)(digivice_rules_rng(s) % 2);
     s->enc_foe = code;
     s->enc_expires = t + DIGIVICE_ENCOUNTER_TTL_S;

@@ -48,7 +48,16 @@ static const char* foe_name(const DigiviceApp* app) {
     if(app->battle.foe_class == DigiviceFoeClassHomage) {
         return digivice_homage_name(app->battle.foe);
     }
+    if(app->battle.foe_class == DigiviceFoeClassCity) {
+        return digivice_city_monster_name(app->battle.foe);
+    }
     return digivice_expedition_foe_name((DigiviceFoe)app->battle.foe);
+}
+
+// Partners keep the gold special LEDs; city monsters use the attribute LED like any foe.
+static bool is_homage(const DigiviceApp* app) {
+    return app->enc_kind == DigiviceEncounterTrail &&
+           app->battle.foe_class == DigiviceFoeClassHomage;
 }
 
 static bool is_special(const DigiviceApp* app) {
@@ -67,6 +76,20 @@ static size_t utf8_prefix(const char* text, uint32_t glyphs) {
         i++;
     }
     return i;
+}
+
+// The lead-in banner of a special encounter; `text` holds the longest city line.
+static const char* special_banner(const DigiviceApp* app, char* text, size_t size) {
+    if(app->battle.foe_class == DigiviceFoeClassCity) {
+        snprintf(
+            text,
+            size,
+            "%s%s",
+            digivice_app_str(app, DigiviceStrCityEvent),
+            digivice_city_name(app->state.city));
+        return text;
+    }
+    return digivice_app_str(app, DigiviceStrEncSpecial);
 }
 
 static void foe_led(DigiviceApp* app) {
@@ -100,7 +123,7 @@ void digivice_encounter_start(DigiviceApp* app, DigiviceEncounterKind kind) {
     digivice_app_set_screen(app, DigiviceScreenEncounter);
     notification_message(
         app->notification,
-        is_special(app) ? &digivice_sequence_special : &digivice_sequence_encounter);
+        is_homage(app) ? &digivice_sequence_special : &digivice_sequence_encounter);
 }
 
 static void battle_set_phase(DigiviceApp* app, DigiviceBattlePhase phase) {
@@ -131,7 +154,7 @@ void digivice_encounter_input(DigiviceApp* app, const InputEvent* event) {
 void digivice_encounter_tick(DigiviceApp* app) {
     uint32_t f = app->screen_frame;
     if(f == 16) {
-        if(is_special(app)) {
+        if(is_homage(app)) {
             notification_message(app->notification, &digivice_sequence_special_hold);
         } else {
             foe_led(app);
@@ -184,6 +207,9 @@ static void draw_fighters(
         } else if(app->battle.foe_class == DigiviceFoeClassHomage) {
             digivice_draw_homage(
                 canvas, app->battle.foe, fx, fy, app->frame, foe_pose, true, false, false);
+        } else if(app->battle.foe_class == DigiviceFoeClassCity) {
+            digivice_draw_city_monster(
+                canvas, app->battle.foe, fx, fy, app->frame, foe_pose, true, false);
         } else {
             digivice_draw_foe(
                 canvas, (DigiviceFoe)app->battle.foe, fx, fy, app->frame, foe_pose, true, false);
@@ -206,6 +232,7 @@ void digivice_encounter_draw(Canvas* canvas, DigiviceApp* app) {
     uint32_t f = app->screen_frame;
     bool boss = app->enc_kind == DigiviceEncounterBoss;
     char line[48];
+    char banner[32];
 
     if(f < 16) {
         int32_t shake = boss && f < 8 ? (int32_t)(f / 2) % 3 - 1 : 0;
@@ -244,7 +271,7 @@ void digivice_encounter_draw(Canvas* canvas, DigiviceApp* app) {
             if(is_special(app)) {
                 digivice_draw_sparkle_ring(canvas, 34, PET_CY, 18, 12, app->frame);
                 if(f % 2 == 0) {
-                    digivice_draw_label(canvas, 28, digivice_app_str(app, DigiviceStrEncSpecial));
+                    digivice_draw_label(canvas, 28, special_banner(app, banner, sizeof(banner)));
                 }
             } else {
                 digivice_draw_exclam_bubble(canvas, 40, 14 - (int32_t)(f % 4 < 2));

@@ -1,5 +1,6 @@
 #include "digivice_battle.h"
 #include "digivice_config.h"
+#include "digivice_city.h"
 
 #include <string.h>
 
@@ -103,6 +104,12 @@ void digivice_battle_init(
         b->foe_attr = digivice_homage_attr(b->foe);
         b->foe_power = (uint16_t)(stage_power[stage] * DIGIVICE_HOMAGE_X10 / 10);
         b->foe_shot = b->player_shot;
+    } else if(digivice_city_code(s->enc_foe)) {
+        b->foe_class = DigiviceFoeClassCity;
+        b->foe = (uint8_t)(s->enc_foe - DIGIVICE_ENC_CITY);
+        b->foe_attr = digivice_city_monster_attr(b->foe);
+        b->foe_power = digivice_city_monster_power(s->area);
+        b->foe_shot = DIGIVICE_SHOT_CHAMP_FOE;
     } else {
         DigiviceFoe foe = digivice_expedition_pool_foe(s->area, s->enc_foe <= 1 ? s->enc_foe : 0);
         b->foe = foe;
@@ -182,6 +189,8 @@ DigiviceReward digivice_rules_battle_result(
     DigiviceReward reward = {.exp = 0, .item = DigiviceItemNone};
     bool homage = kind == DigiviceEncounterTrail && s->enc_expires == offered_expires &&
                   digivice_homage_code(s->enc_foe);
+    bool city = kind == DigiviceEncounterTrail && s->enc_expires == offered_expires &&
+                digivice_city_code(s->enc_foe);
     uint8_t partner = homage ? (uint8_t)(s->enc_foe - DIGIVICE_ENC_HOMAGE) : 0;
     if(result == DigiviceBattleResultWin || result == DigiviceBattleResultLose) {
         digivice_rules_count_battle(s, result == DigiviceBattleResultWin);
@@ -195,8 +204,8 @@ DigiviceReward digivice_rules_battle_result(
         if(kind == DigiviceEncounterTrail) {
             reward.exp = DIGIVICE_TRAIL_EXP_BASE + DIGIVICE_TRAIL_EXP_AREA * (area + 1);
             if(rng_pct < DIGIVICE_DROP_PCT) drop_shield(s, &reward);
+            if(homage || city) reward.exp *= DIGIVICE_SPECIAL_EXP_X;
             if(homage) {
-                reward.exp *= DIGIVICE_SPECIAL_EXP_X;
                 reward.partner = partner;
                 reward.capture = digivice_homage_resolve(s, partner, digivice_rules_rng_pct(s));
                 if(reward.capture == DigiviceCaptureFriend) reward.exp += DIGIVICE_FRIEND_EXP;

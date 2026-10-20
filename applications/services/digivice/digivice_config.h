@@ -170,6 +170,10 @@
 #define DIGIVICE_SPECIAL_MIN_STAGE 3 // Rookie
 #define DIGIVICE_SPECIAL_EXP_X     2
 
+// Cities (v3.3).
+#define DIGIVICE_CITY_PCT           30
+#define DIGIVICE_CITY_BANNER_FRAMES 30
+
 // Capture.
 #define DIGIVICE_CAPTURE_BASE_PCT 60
 #define DIGIVICE_CAPTURE_MOOD_PCT 5

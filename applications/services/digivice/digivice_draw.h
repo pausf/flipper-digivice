@@ -158,6 +158,19 @@ void digivice_draw_foe(
     bool flip,
     bool silhouette);
 
+// digivice_draw_city.c: city skylines and monsters.
+
+/** City monster `idx` (city - 1) standing on foot_y, facing right unless `flip`. */
+bool digivice_draw_city_monster(
+    Canvas* canvas,
+    uint8_t idx,
+    int32_t cx,
+    int32_t foot_y,
+    uint32_t frame,
+    DigivicePose pose,
+    bool flip,
+    bool silhouette);
+
 // digivice_homage_draw.c: homage partners (no names here, only ids).
 
 /** Homage partner `id` standing on foot_y, 24 px tall (12 px when `half`, for companions), facing

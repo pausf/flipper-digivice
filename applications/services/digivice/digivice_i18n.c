@@ -188,6 +188,9 @@ static const char* const strings_es[DigiviceStrCount] = {
     [DigiviceStrNidoEmpty] = "VAC" I_ACUTE "O: CAPTURA COMPA" N_TILDE "EROS",
     [DigiviceStrNidoPick] = "OK: COMPA" N_TILDE "ERO",
     [DigiviceStrNidoChosen] = "COMPA" N_TILDE "ERO",
+    [DigiviceStrCityEvent] = "EVENTO: ",
+    [DigiviceStrSettingsCity] = "CIUDAD",
+    [DigiviceStrCityNone] = "NINGUNA",
 };
 
 static const char* const strings_en[DigiviceStrCount] = {
@@ -364,6 +367,9 @@ static const char* const strings_en[DigiviceStrCount] = {
     [DigiviceStrNidoEmpty] = "EMPTY: CATCH PARTNERS",
     [DigiviceStrNidoPick] = "OK: COMPANION",
     [DigiviceStrNidoChosen] = "COMPANION",
+    [DigiviceStrCityEvent] = "EVENT: ",
+    [DigiviceStrSettingsCity] = "CITY",
+    [DigiviceStrCityNone] = "NONE",
 };
 
 // Slot widths in pixels, from the layouts in digivice_draw.c and the app screens.
@@ -562,6 +568,9 @@ static const uint8_t budgets[DigiviceStrCount] = {
     [DigiviceStrNidoEmpty] = SLOT_P30,
     [DigiviceStrNidoPick] = SLOT_P26,
     [DigiviceStrNidoChosen] = SLOT_H12,
+    [DigiviceStrCityEvent] = SLOT_P22,
+    [DigiviceStrSettingsCity] = SLOT_SHORT + 16,
+    [DigiviceStrCityNone] = SLOT_SHORT,
 };
 
 const char* digivice_str(DigiviceLang lang, DigiviceStr id) {

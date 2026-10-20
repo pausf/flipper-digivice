@@ -1,5 +1,6 @@
 // Host-side test for the battle rules. Run: applications/services/digivice/test/run.sh
 #include "../digivice_battle.h"
+#include "../digivice_city.h"
 #include "../digivice_config.h"
 
 #include <stdio.h>
@@ -537,6 +538,27 @@ static void test_partner_loss_and_counting(void) {
 }
 #endif
 
+static void test_city_monster_battle(void) {
+    DigiviceState s = with_form(DigiviceFormKorno);
+    s.area = 2;
+    s.enc_foe = DIGIVICE_ENC_CITY + 1;
+    s.enc_expires = T0 + 1000;
+    DigiviceBattle b;
+    digivice_battle_init(&b, &s, DigiviceEncounterTrail, T0);
+    CHECK(b.foe_class == DigiviceFoeClassCity && b.foe == 1);
+    CHECK(b.foe_attr == DigiviceAttrPortador);
+    CHECK(b.foe_power == digivice_city_monster_power(2));
+    CHECK(b.foe_shot == DIGIVICE_SHOT_CHAMP_FOE);
+    DigiviceReward r = digivice_rules_battle_result(
+        &s, DigiviceEncounterTrail, DigiviceBattleResultWin, false, T0 + 1000, 50, T0);
+    CHECK(
+        r.exp == (DIGIVICE_TRAIL_EXP_BASE + DIGIVICE_TRAIL_EXP_AREA * 3) * DIGIVICE_SPECIAL_EXP_X);
+    CHECK(r.capture == DigiviceCaptureNone);
+#if DIGIVICE_EASTER_EGGS
+    CHECK(s.special_count == 1); // a city fight counts as an ordinary battle
+#endif
+}
+
 int main(void) {
     test_stage_tables_cover_every_stage();
     test_hit_pct();
@@ -559,6 +581,7 @@ int main(void) {
     test_virux_rewards();
     test_win_without_virux_type_grants_exp_only();
     test_draw_and_flee_change_nothing_else();
+    test_city_monster_battle();
 #if DIGIVICE_EASTER_EGGS
     test_partner_battle_init_and_result();
     test_partner_loss_and_counting();
