@@ -14,6 +14,7 @@ App(
         "digivice_srv.c",
         "digivice_rules.c",
         "digivice_roster.c",
+        "digivice_evolution.c",
         "digivice_expedition.c",
         "digivice_battle.c",
         "digivice_notify.c",

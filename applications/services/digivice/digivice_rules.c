@@ -2,6 +2,7 @@
 #include "digivice_config.h"
 #include "digivice_expedition.h"
 #include "digivice_roster.h"
+#include "digivice_evolution.h"
 
 #include <string.h>
 
@@ -571,18 +572,18 @@ bool digivice_rules_same_visible(const DigiviceState* a, const DigiviceState* b)
     return memcmp(a, &y, sizeof(DigiviceState)) == 0;
 }
 
-static const uint8_t champion_of[DigiviceTypeCount] = {
-    [DigiviceTypeNfc] = DigiviceFormTagdrake,
-    [DigiviceTypeSubGhz] = DigiviceFormWavedrake,
-    [DigiviceTypeIr] = DigiviceFormBeamdrake,
-    [DigiviceTypeUsb] = DigiviceFormPlugdrake,
-};
-
 DigiviceType digivice_rules_player_type(const DigiviceState* s) {
-    for(uint8_t t = 0; t < DigiviceTypeCount; t++) {
-        if(champion_of[t] == s->form) return (DigiviceType)t;
+    if(digivice_rules_stage(s) < DigiviceStageChampion) return DigiviceTypeNone;
+    switch(digivice_rules_form_attr(s)) {
+    case DigiviceAttrCifrado:
+        return DigiviceTypeNfc;
+    case DigiviceAttrPortador:
+        return DigiviceTypeSubGhz;
+    case DigiviceAttrRuido:
+        return DigiviceTypeIr;
+    default:
+        return DigiviceTypeUsb;
     }
-    return DigiviceTypeNone;
 }
 
 DigiviceType digivice_rules_deed_type(DolphinDeed deed) {
@@ -671,36 +672,62 @@ bool digivice_rules_on_deed(
     return spawned;
 }
 
+// A real evolution: new clock, counters back to 0. The corruption transform uses evolve_to.
+static void reset_stage(DigiviceState* s, uint32_t now) {
+    s->stage_since = now;
+    s->train_count = 0;
+    s->battles = 0;
+    s->wins_stage = 0;
+    s->overfeed = 0;
+    s->night_owl = 0;
+    s->evo_mistakes = 0;
+}
+
 bool digivice_rules_evolve(DigiviceState* s, uint32_t now) {
     // The pending cutscene must be acknowledged first or it would be overwritten unseen.
     if(s->evo_from != DigiviceFormNone) return false;
-    switch(s->form) {
-    case DigiviceFormByteegg:
-        if(now >= s->born_at && now - s->born_at >= DIGIVICE_HATCH_S) {
-            evolve_to(s, DigiviceFormBitling);
-            return true;
-        }
-        return false;
-    case DigiviceFormBitling:
-        if(s->exp >= DIGIVICE_ROOKIE_EXP) {
-            evolve_to(s, DigiviceFormBytemon);
-            return true;
-        }
-        return false;
-    case DigiviceFormBytemon:
-        if(s->exp >= DIGIVICE_CHAMPION_EXP) {
-            // Strict > keeps the first type on ties: NFC, SUBGHZ, IR, USB.
-            uint8_t best = DigiviceTypeNfc;
-            for(uint8_t t = 1; t < DigiviceTypeCount; t++) {
-                if(s->data[t] > s->data[best]) best = t;
-            }
-            evolve_to(s, champion_of[best]);
-            return true;
-        }
-        return false;
-    default:
-        return false;
+    uint8_t next;
+    if(s->form == DigiviceFormByteegg) {
+        if(now < s->stage_since || now - s->stage_since < DIGIVICE_HATCH_S) return false;
+        next = digivice_rules_rng_pct(s) < 50 ? DigiviceFormPipo : DigiviceFormChispi;
+    } else {
+        next = digivice_evolution_next(s, now);
     }
+    if(next == DigiviceFormNone) return false;
+    evolve_to(s, next);
+    reset_stage(s, now);
+    return true;
+}
+
+static uint8_t upgrade_form(uint8_t form) {
+    switch(form) {
+    case DigiviceFormBitling:
+        return DigiviceFormPipo;
+    case DigiviceFormBytemon:
+        return DigiviceFormKorno;
+    case DigiviceFormTagdrake:
+        return DigiviceFormCerrojo;
+    case DigiviceFormWavedrake:
+        return DigiviceFormAriete;
+    case DigiviceFormBeamdrake:
+        return DigiviceFormFuzzcan;
+    case DigiviceFormPlugdrake:
+        return DigiviceFormChatarro;
+    default:
+        return form;
+    }
+}
+
+bool digivice_rules_upgrade_legacy(DigiviceState* s, uint32_t now) {
+    uint8_t form = upgrade_form(s->form);
+    uint8_t prev = upgrade_form(s->prev_form);
+    uint8_t from = upgrade_form(s->evo_from);
+    bool changed = form != s->form || prev != s->prev_form || from != s->evo_from;
+    s->form = form;
+    s->prev_form = prev;
+    s->evo_from = from;
+    if(changed) reset_stage(s, now);
+    return changed;
 }
 
 void digivice_rules_ack_evolution(DigiviceState* s) {

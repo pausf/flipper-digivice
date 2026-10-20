@@ -230,6 +230,8 @@ static void digivice_load(Digivice* digivice) {
         ok = false;
     }
     if(ok) digivice_rules_sanitize(&loaded);
+    bool upgraded = false;
+    if(ok) upgraded = digivice_rules_upgrade_legacy(&loaded, furi_hal_rtc_get_timestamp());
 
     furi_check(furi_mutex_acquire(digivice->mutex, FuriWaitForever) == FuriStatusOk);
     if(ok) {
@@ -242,8 +244,9 @@ static void digivice_load(Digivice* digivice) {
         }
         digivice->state = loaded;
         // A migrated pet is written back as v4 on the next flush.
-        digivice->dirty = migrated;
+        digivice->dirty = migrated || upgraded;
         if(migrated) FURI_LOG_I(TAG, "Migrated an older state to v4");
+        if(upgraded) FURI_LOG_I(TAG, "Moved a legacy form onto the v3.2 tree");
     } else {
         FURI_LOG_W(TAG, "No valid state, hatching a new egg");
         digivice_rules_init(&digivice->state, furi_hal_rtc_get_timestamp());

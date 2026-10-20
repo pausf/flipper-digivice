@@ -32,7 +32,6 @@ static DigiviceState fresh(uint32_t now) {
 static DigiviceState rookie(uint32_t now) {
     DigiviceState s = fresh(now);
     s.form = DigiviceFormBytemon;
-    s.exp = DIGIVICE_ROOKIE_EXP;
     return s;
 }
 
@@ -284,68 +283,6 @@ static void test_same_visible_ignores_bookkeeping(void) {
     CHECK(!digivice_rules_same_visible(&a, &b));
 }
 
-static void test_egg_hatches_after_300s(void) {
-    DigiviceState s = fresh(T0);
-    CHECK(!digivice_rules_evolve(&s, T0 + 299));
-    CHECK(s.form == DigiviceFormByteegg);
-    CHECK(digivice_rules_evolve(&s, T0 + 300));
-    CHECK(s.form == DigiviceFormBitling);
-    CHECK(s.evo_from == DigiviceFormByteegg);
-    digivice_rules_ack_evolution(&s);
-    CHECK(s.evo_from == DigiviceFormNone);
-}
-
-static void test_baby_to_rookie_at_50_exp(void) {
-    DigiviceState s = fresh(T0);
-    s.form = DigiviceFormBitling;
-    s.exp = 49;
-    CHECK(!digivice_rules_evolve(&s, T0));
-    s.exp = 50;
-    CHECK(digivice_rules_evolve(&s, T0));
-    CHECK(s.form == DigiviceFormBytemon);
-}
-
-static DigiviceForm champion_for(uint16_t nfc, uint16_t subghz, uint16_t ir, uint16_t usb) {
-    DigiviceState s = rookie(T0);
-    s.exp = DIGIVICE_CHAMPION_EXP;
-    s.data[DigiviceTypeNfc] = nfc;
-    s.data[DigiviceTypeSubGhz] = subghz;
-    s.data[DigiviceTypeIr] = ir;
-    s.data[DigiviceTypeUsb] = usb;
-    digivice_rules_evolve(&s, T0);
-    return (DigiviceForm)s.form;
-}
-
-static void test_champion_paths_and_ties(void) {
-    DigiviceState s = rookie(T0);
-    s.exp = DIGIVICE_CHAMPION_EXP - 1;
-    CHECK(!digivice_rules_evolve(&s, T0));
-
-    CHECK(champion_for(9, 1, 1, 1) == DigiviceFormTagdrake);
-    CHECK(champion_for(1, 9, 1, 1) == DigiviceFormWavedrake);
-    CHECK(champion_for(1, 1, 9, 1) == DigiviceFormBeamdrake);
-    CHECK(champion_for(1, 1, 1, 9) == DigiviceFormPlugdrake);
-    CHECK(champion_for(5, 5, 5, 5) == DigiviceFormTagdrake);
-    CHECK(champion_for(1, 5, 5, 5) == DigiviceFormWavedrake);
-    CHECK(champion_for(1, 1, 5, 5) == DigiviceFormBeamdrake);
-    CHECK(champion_for(0, 0, 0, 0) == DigiviceFormTagdrake);
-}
-
-static void test_evolution_waits_for_ack(void) {
-    DigiviceState s = fresh(T0);
-    s.form = DigiviceFormBitling;
-    s.exp = DIGIVICE_CHAMPION_EXP;
-    CHECK(digivice_rules_evolve(&s, T0));
-    CHECK(s.form == DigiviceFormBytemon);
-    CHECK(s.evo_from == DigiviceFormBitling);
-    CHECK(!digivice_rules_evolve(&s, T0));
-    CHECK(s.form == DigiviceFormBytemon);
-    CHECK(s.evo_from == DigiviceFormBitling);
-    digivice_rules_ack_evolution(&s);
-    CHECK(digivice_rules_evolve(&s, T0));
-    CHECK(s.evo_from == DigiviceFormBytemon);
-}
-
 static void test_champion_and_corrupt_do_not_evolve(void) {
     DigiviceState s = rookie(T0);
     s.form = DigiviceFormTagdrake;
@@ -422,19 +359,6 @@ static void test_spawn_rules(void) {
     c.prev_form = DigiviceFormBytemon;
     CHECK(digivice_rules_on_deed(&c, DolphinDeedSubGhzFrequencyAnalyzer, 1, T0, 0));
     CHECK(c.virux_type == DigiviceTypeSubGhz);
-}
-
-static void test_player_type_by_form(void) {
-    DigiviceState s = rookie(T0);
-    CHECK(digivice_rules_player_type(&s) == DigiviceTypeNone);
-    s.form = DigiviceFormTagdrake;
-    CHECK(digivice_rules_player_type(&s) == DigiviceTypeNfc);
-    s.form = DigiviceFormPlugdrake;
-    CHECK(digivice_rules_player_type(&s) == DigiviceTypeUsb);
-    s.form = DigiviceFormVirubyte;
-    s.prev_form = DigiviceFormPlugdrake;
-    CHECK(digivice_rules_player_type(&s) == DigiviceTypeNone);
-    CHECK(digivice_rules_stage(&s) == DigiviceStageChampion);
 }
 
 static void test_deed_out_of_range_is_ignored(void) {
@@ -1313,8 +1237,163 @@ static void test_count_battle_ignores_nothing_and_saturates(void) {
     CHECK(s.battles == 255 && s.wins_stage == 255);
 }
 
+static void test_egg_hatches_into_a_baby_of_either_line(void) {
+    DigiviceState s = fresh(T0);
+    CHECK(!digivice_rules_evolve(&s, T0 + DIGIVICE_HATCH_S - 1));
+    CHECK(digivice_rules_evolve(&s, T0 + DIGIVICE_HATCH_S));
+    CHECK(s.form == DigiviceFormPipo || s.form == DigiviceFormChispi);
+    CHECK(s.evo_from == DigiviceFormByteegg);
+    CHECK(s.stage_since == T0 + DIGIVICE_HATCH_S);
+}
+
+static void test_both_egg_lines_are_reachable(void) {
+    bool seen_pipo = false;
+    bool seen_chispi = false;
+    for(uint32_t seed = 1; seed < 60; seed++) {
+        DigiviceState s = fresh(T0);
+        s.rng = seed * 2654435761UL | 1UL;
+        digivice_rules_evolve(&s, T0 + DIGIVICE_HATCH_S);
+        seen_pipo |= s.form == DigiviceFormPipo;
+        seen_chispi |= s.form == DigiviceFormChispi;
+    }
+    CHECK(seen_pipo && seen_chispi);
+}
+
+static void test_evolution_resets_counters_and_keeps_lifetime_record(void) {
+    DigiviceState s = fresh(T0);
+    s.form = DigiviceFormPipo;
+    s.stage_since = T0;
+    s.train_count = 9;
+    s.battles = 4;
+    s.wins_stage = 3;
+    s.overfeed = 2;
+    s.night_owl = 1;
+    s.evo_mistakes = 5;
+    s.wins = 40;
+    s.losses = 12;
+    CHECK(digivice_rules_evolve(&s, T0 + DIGIVICE_EVO_BABY1_S));
+    CHECK(s.form == DigiviceFormOrejin);
+    CHECK(s.train_count == 0 && s.battles == 0 && s.wins_stage == 0);
+    CHECK(s.overfeed == 0 && s.night_owl == 0 && s.evo_mistakes == 0);
+    CHECK(s.wins == 40 && s.losses == 12);
+    CHECK(s.stage_since == T0 + DIGIVICE_EVO_BABY1_S);
+}
+
+static void test_a_pending_cutscene_blocks_the_next_evolution(void) {
+    DigiviceState s = fresh(T0);
+    s.form = DigiviceFormPipo;
+    s.stage_since = T0;
+    CHECK(digivice_rules_evolve(&s, T0 + DIGIVICE_EVO_BABY1_S));
+    uint32_t later = T0 + DIGIVICE_EVO_BABY1_S + DIGIVICE_EVO_BABY2_S;
+    CHECK(!digivice_rules_evolve(&s, later));
+    digivice_rules_ack_evolution(&s);
+    CHECK(digivice_rules_evolve(&s, later));
+}
+
+static void test_corruption_transform_does_not_reset_the_stage(void) {
+    DigiviceState s = fresh(T0);
+    s.form = DigiviceFormAriete;
+    s.stage_since = T0 - 5000;
+    s.train_count = 7;
+    digivice_rules_add_corruption(&s, DIGIVICE_CORRUPTION_MAX, T0);
+    CHECK(s.form == DigiviceFormVirubyte && s.prev_form == DigiviceFormAriete);
+    CHECK(s.stage_since == T0 - 5000 && s.train_count == 7);
+}
+
+static void test_legacy_forms_move_onto_the_new_tree(void) {
+    const uint8_t from[] = {
+        DigiviceFormBitling,   DigiviceFormBytemon,   DigiviceFormTagdrake,
+        DigiviceFormWavedrake, DigiviceFormBeamdrake, DigiviceFormPlugdrake,
+    };
+    const uint8_t to[] = {
+        DigiviceFormPipo,   DigiviceFormKorno,  DigiviceFormCerrojo,
+        DigiviceFormAriete, DigiviceFormFuzzcan, DigiviceFormChatarro,
+    };
+    for(size_t i = 0; i < sizeof(from); i++) {
+        DigiviceState s = fresh(T0);
+        s.form = from[i];
+        s.wins = 17;
+        CHECK(digivice_rules_upgrade_legacy(&s, T0 + 500));
+        CHECK(s.form == to[i]);
+        CHECK(s.stage_since == T0 + 500 && s.wins == 17);
+        CHECK(!digivice_rules_upgrade_legacy(&s, T0 + 600));
+        CHECK(s.stage_since == T0 + 500);
+    }
+}
+
+static void test_legacy_upgrade_keeps_attributes_and_maps_hidden_slots(void) {
+    DigiviceState s = fresh(T0);
+    s.form = DigiviceFormVirubyte;
+    s.prev_form = DigiviceFormTagdrake;
+    s.evo_from = DigiviceFormBytemon;
+    CHECK(digivice_rules_upgrade_legacy(&s, T0 + 5));
+    CHECK(s.form == DigiviceFormVirubyte);
+    CHECK(s.prev_form == DigiviceFormCerrojo && s.evo_from == DigiviceFormKorno);
+    s.form = DigiviceFormWavedrake;
+    s.prev_form = DigiviceFormNone;
+    digivice_rules_upgrade_legacy(&s, T0 + 6);
+    CHECK(digivice_rules_form_attr(&s) == DigiviceAttrPortador);
+}
+
+static void test_player_type_follows_the_attribute(void) {
+    DigiviceState s = fresh(T0);
+    s.form = DigiviceFormCerrojo;
+    CHECK(digivice_rules_player_type(&s) == DigiviceTypeNfc);
+    s.form = DigiviceFormAriete;
+    CHECK(digivice_rules_player_type(&s) == DigiviceTypeSubGhz);
+    s.form = DigiviceFormFuzzcan;
+    CHECK(digivice_rules_player_type(&s) == DigiviceTypeIr);
+    s.form = DigiviceFormChatarro;
+    CHECK(digivice_rules_player_type(&s) == DigiviceTypeUsb);
+}
+
+// The real pet at the v3.2 update: a saved v3 BITLING, migrated to v4 (clock re-anchored to the
+// load time, as the service does), then moved onto the tree.
+static void test_the_neglected_bitling_survives_the_update(void) {
+    uint32_t load = T0 + H(300);
+    DigiviceState s = fresh(T0);
+    s.form = DigiviceFormBitling;
+    s.corruption = 100;
+    s.sick = 1;
+    s.sick_since = T0;
+    s.doses_needed = 1;
+    s.hunger = 0;
+    s.mood = 0;
+    s.exp = 12;
+    s.last_tick = load;
+    s.stage_since = load;
+    CHECK(digivice_rules_upgrade_legacy(&s, load));
+    CHECK(s.form == DigiviceFormPipo);
+    CHECK(s.corruption == 100 && s.sick == 1 && s.hunger == 0 && s.mood == 0 && s.exp == 12);
+
+    // First ticks: nothing evolves, nothing transforms, the stage timer runs from the load.
+    digivice_rules_tick(&s, load + 60);
+    CHECK(!digivice_rules_evolve(&s, load + 60));
+    CHECK(s.form == DigiviceFormPipo && s.evo_from == DigiviceFormNone);
+    CHECK(s.stage_since == load);
+    CHECK(s.corruption == 100 && s.sick == 1 && s.hunger == 0 && s.mood == 0 && s.exp == 12);
+
+    // A Baby never turns into a VIRUBYTE, however corrupted.
+    digivice_rules_tick(&s, load + DIGIVICE_EVO_BABY1_S - 60);
+    CHECK(s.form == DigiviceFormPipo);
+    CHECK(!digivice_rules_evolve(&s, load + DIGIVICE_EVO_BABY1_S - 1));
+
+    // Only when its own 10 minutes are up does it grow, along the tree.
+    CHECK(digivice_rules_evolve(&s, load + DIGIVICE_EVO_BABY1_S));
+    CHECK(s.form == DigiviceFormOrejin && s.evo_from == DigiviceFormPipo);
+}
+
 int main(void) {
     test_stage_and_attr_come_from_the_roster();
+    test_egg_hatches_into_a_baby_of_either_line();
+    test_both_egg_lines_are_reachable();
+    test_evolution_resets_counters_and_keeps_lifetime_record();
+    test_a_pending_cutscene_blocks_the_next_evolution();
+    test_corruption_transform_does_not_reset_the_stage();
+    test_legacy_forms_move_onto_the_new_tree();
+    test_legacy_upgrade_keeps_attributes_and_maps_hidden_slots();
+    test_player_type_follows_the_attribute();
+    test_the_neglected_bitling_survives_the_update();
     test_training_counts_successes_only();
     test_poop_mistake_counts_for_the_evolution_for_now();
     test_night_owl_counts_the_light_left_on();
@@ -1348,15 +1427,10 @@ int main(void) {
     test_recovery_resets_when_corruption_returns();
     test_timing_zone();
     test_same_visible_ignores_bookkeeping();
-    test_egg_hatches_after_300s();
-    test_baby_to_rookie_at_50_exp();
-    test_champion_paths_and_ties();
-    test_evolution_waits_for_ack();
     test_champion_and_corrupt_do_not_evolve();
     test_deed_types();
     test_deed_grants_exp_and_data();
     test_spawn_rules();
-    test_player_type_by_form();
     test_deed_out_of_range_is_ignored();
     test_spawn_deed_when_ineligible_still_rewards();
     test_v2_defaults_and_layout();

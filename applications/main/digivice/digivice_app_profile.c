@@ -33,25 +33,13 @@ static void digivice_profile_bar(
     }
 }
 
-/** EXP toward the next evolution, as 0..62 px of the bar. */
+/** Time in the current form toward its evolution, as 0..62 px of the bar. */
 static uint8_t digivice_profile_exp_px(const DigiviceState* s) {
-    uint32_t target;
-    switch(digivice_rules_stage(s)) {
-    case DigiviceStageBaby:
-    case DigiviceStageBaby2:
-        target = DIGIVICE_ROOKIE_EXP;
-        break;
-    case DigiviceStageRookie:
-        target = DIGIVICE_CHAMPION_EXP;
-        break;
-    case DigiviceStageChampion:
-    case DigiviceStageUltimate:
-    case DigiviceStageMega:
-        return 62;
-    default:
-        return 0;
-    }
-    return s->exp >= target ? 62 : (uint8_t)(s->exp * 62 / target);
+    const DigiviceRosterEntry* e = digivice_roster(s->form);
+    if(!e || e->stay_s == 0) return 0;
+    uint32_t now = furi_hal_rtc_get_timestamp();
+    uint32_t elapsed = now > s->stage_since ? now - s->stage_since : 0;
+    return elapsed >= e->stay_s ? 62 : (uint8_t)(elapsed * 62UL / e->stay_s);
 }
 
 void digivice_profile_draw(Canvas* canvas, DigiviceApp* app) {

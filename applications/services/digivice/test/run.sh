@@ -6,9 +6,9 @@ services="$here/../.."
 app="$services/../main/digivice"
 out="${TMPDIR:-/tmp}"
 flags="-std=c11 -Wall -Wextra -Werror -I $services"
-rules="$here/../digivice_rules.c $here/../digivice_roster.c $here/../digivice_expedition.c $here/../digivice_battle.c"
+rules="$here/../digivice_rules.c $here/../digivice_roster.c $here/../digivice_expedition.c $here/../digivice_battle.c $here/../digivice_evolution.c"
 
-for name in rules expedition battle roster; do
+for name in rules expedition battle roster evolution; do
     # $rules is split on purpose: one argument per source file.
     cc $flags "$here/digivice_${name}_test.c" $rules -o "$out/digivice_${name}_test"
     "$out/digivice_${name}_test"

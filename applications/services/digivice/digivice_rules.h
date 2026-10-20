@@ -380,8 +380,13 @@ bool digivice_rules_on_deed(
     uint32_t now,
     uint8_t rng_pct);
 
-/** Advances at most one evolution stage. Returns true when the form changed. */
+/** Advances at most one evolution, by time in stage and the hidden counters. Returns true when
+ * the form changed. */
 bool digivice_rules_evolve(DigiviceState* s, uint32_t now);
+
+/** Maps the v1 to v3 forms (BITLING, BYTEMON and the four drakes, in form, prev_form and
+ * evo_from) onto the v3.2 tree, restarting stage_since at now. True when anything changed. */
+bool digivice_rules_upgrade_legacy(DigiviceState* s, uint32_t now);
 
 /** Returns false when the food was refused: that is an overfeed, counted once per refill. */
 bool digivice_rules_feed(DigiviceState* s, DigiviceFood food, uint32_t now);
