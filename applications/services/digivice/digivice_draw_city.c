@@ -1,6 +1,7 @@
 #include "digivice_draw.h"
 #include "digivice_city.h"
 #include "digivice_config.h"
+#include "digivice_pen.h"
 
 #define CITY_GROUND 50
 #define CITY_LOOP   DIGIVICE_SCENE_W
@@ -253,7 +254,155 @@ void digivice_draw_city(
     canvas_set_color(canvas, ColorBlack);
 }
 
-// Interim: Task 10 replaces this attribute mapping with the real sprites.
+// TRENCADIX (idx 0, Cifrado): a low lizard clad in a mosaic of broken tiles.
+static void cm_trencadix(const DvPen* p, uint32_t frame, DigivicePose pose) {
+    int32_t t = (int32_t)((frame / 3) % 2);
+    pen_ink(p, false);
+    pen_ell(p, -6, 8, 12, 6); // body
+    pen_ell(p, 8, 2, 7, 6); // head
+    pen_ell(p, -14, 6, 3, 3); // tail chain, curling up
+    pen_ell(p, -17, 2 - t, 2, 2);
+    pen_ell(p, -17, -3 - t, 2, 2);
+    pen_tri(p, -12, 12, -8, 12, -10, 16); // leg stubs
+    pen_tri(p, -4, 12, 0, 12, -2, 16);
+    pen_tri(p, 4, 12, 8, 12, 6, 16);
+    pen_ink(p, true);
+    for(int32_t ix = 0; ix < 6; ix++) {
+        for(int32_t iy = 0; iy < 3; iy++) {
+            int32_t x = -16 + ix * 4 + (ix * 7 + iy * 13) % 3;
+            int32_t y = 4 + iy * 4 + (ix + iy) % 2;
+            int32_t ex = x + 6;
+            int32_t ey = y - 8;
+            if(ex * ex * 36 + ey * ey * 144 > 4000) continue; // keep the tiles inside the body
+            pen_line(p, x, y, x + 1, y);
+        }
+    }
+    pen_eye(p, 8, 0, pose);
+    pen_eye(p, 11, 0, pose);
+    pen_ink(p, true);
+    if(pose == DigivicePoseAttack) {
+        pen_ell(p, 14, 4, 2, 2);
+    } else {
+        pen_line(p, 11, 4, 15, 4);
+    }
+}
+
+// MADROSO (idx 1, Portador): an upright bear beside its strawberry tree.
+static void cm_madroso(const DvPen* p, uint32_t frame, DigivicePose pose) {
+    int32_t f = (int32_t)((frame / 3) % 2);
+    pen_ink(p, false);
+    pen_ell(p, 0, 6, 9, 10); // body
+    pen_ell(p, 1, -8, 6, 5); // head
+    pen_ell(p, -4, -13, 2, 2); // ears
+    pen_ell(p, 6, -13, 2, 2);
+    pen_ell(p, -9, 4, 3, 4); // arms
+    if(pose == DigivicePoseAttack) {
+        pen_ell(p, 14, 0, 3, 3);
+    } else {
+        pen_ell(p, 10, 3 - f, 3, 4);
+    }
+    pen_box(p, -6, 14, 5, 3); // feet
+    pen_box(p, 2, 14, 5, 3);
+    pen_box(p, -17, -2, 3, 18); // tree
+    pen_ell(p, -16, -8, 6, 5);
+    pen_ink(p, true);
+    pen_ell(p, 0, 8, 5, 6); // belly
+    pen_dot(p, -19, -9); // fruit
+    pen_dot(p, -16, -11);
+    pen_dot(p, -13, -8);
+    pen_dot(p, -17, -6);
+    pen_dot(p, -14, -5);
+    pen_eye(p, -2, -9, pose);
+    pen_eye(p, 3, -9, pose);
+    pen_ink(p, true);
+    pen_line(p, 3, -5, 5, -5);
+}
+
+// TRACALUZ (idx 2, Ruido): a living firecracker with a sparking fuse.
+static void cm_tracaluz(const DvPen* p, uint32_t frame, DigivicePose pose) {
+    int32_t f = (int32_t)((frame / 3) % 2);
+    pen_ink(p, false);
+    pen_box(p, -8, -8 + f, 16, 18 - f); // paper tube
+    pen_ell(p, 0, -8 + f, 8, 3); // top cap
+    pen_ell(p, 0, 10, 8, 3); // bottom cap
+    pen_box(p, -7, 12, 4, 4); // feet
+    pen_box(p, 3, 12, 4, 4);
+    pen_ell(p, -11, 3, 3, 2); // arms
+    pen_ell(p, 11, 3 - f, 3, 2);
+    pen_line(p, 0, -11 + f, 3, -16 + f); // fuse
+    pen_line(p, 3, -16 + f, 1, -19 + f);
+    pen_ink(p, true);
+    for(int32_t y = -4 + f; y < 8; y += 6) { // painted bands
+        pen_line(p, -7, y, 7, y);
+    }
+    pen_eye(p, -4, -2, pose);
+    pen_eye(p, 2, -2, pose);
+    pen_ink(p, true);
+    pen_line(p, -2, 4, pose == DigivicePoseAttack ? 3 : 2, 4);
+    pen_ink(p, false);
+    // The spark: a few pixels that change every frame (single-frame toggle).
+    uint32_t k = frame % 4;
+    pen_dot(p, 1 + (int32_t)k % 3, -20 + f - (int32_t)(k / 2));
+    pen_dot(p, -1 + (int32_t)k, -19 + f);
+}
+
+// GIRALDIN (idx 3, Portador): a weathervane knight on its pole.
+static void cm_giraldin(const DvPen* p, uint32_t frame, DigivicePose pose) {
+    int32_t tip = pose == DigivicePoseAttack ? 16 : 12;
+    pen_ink(p, false);
+    pen_box(p, -1, 2, 3, 14); // pole
+    pen_ell(p, 0, 15, 6, 1);
+    pen_tri(p, -7, 2, 7, 2, 0, -8); // body
+    pen_ell(p, 0, -11, 5, 5); // head
+    pen_line(p, 6, -2, tip, -10); // sword arm and blade
+    pen_line(p, tip, -10, tip, -15);
+    pen_line(p, tip - 2, -10, tip + 2, -10);
+    pen_ell(p, -9, 0, 4, 6); // shield
+    pen_line(p, -8, -17, 8, -17); // weathervane arrow
+    if((frame / 2) % 2) {
+        pen_tri(p, 8, -19, 8, -15, 11, -17);
+    } else {
+        pen_tri(p, -8, -19, -8, -15, -11, -17);
+    }
+    pen_ink(p, true);
+    pen_ell(p, -9, 0, 2, 4);
+    pen_line(p, -1, -11, 4, -11); // visor
+    pen_ink(p, false);
+    pen_line(p, -9, -3, -9, 3);
+    pen_line(p, -11, 0, -7, 0);
+}
+
+// ESCAMATI (idx 4, Cifrado): a titanium-scaled fish that walks on two legs.
+static void cm_escamati(const DvPen* p, uint32_t frame, DigivicePose pose) {
+    int32_t f = (int32_t)((frame / 3) % 2);
+    pen_ink(p, false);
+    pen_ell(p, 0, 2, 14, 9); // body
+    pen_tri(p, -14, -5, -14, 9, -20, 2 + f * 2); // tail
+    pen_tri(p, -4, -7, 6, -7, 0, -14); // dorsal fin
+    pen_box(p, -4, 9, 3, 8); // legs down to the foot line
+    pen_box(p, 5, 9, 3, 8);
+    pen_ink(p, true);
+    for(int32_t i = 0; i < 5; i++) { // scales: "<" arcs in five columns of three
+        int32_t x = -11 + i * 4;
+        for(int32_t y = -3 + (i % 2) * 2; y <= 5; y += 4) {
+            pen_line(p, x + 2, y - 1, x, y);
+            pen_line(p, x, y, x + 2, y + 1);
+        }
+    }
+    pen_eye(p, 8, -1, pose);
+    pen_ink(p, true);
+    if(pose == DigivicePoseAttack) {
+        pen_ell(p, 12, 4, 4, 3);
+    } else {
+        pen_ell(p, 12, 4, 3, 2);
+    }
+}
+
+typedef void (*CmDraw)(const DvPen* p, uint32_t frame, DigivicePose pose);
+
+static const CmDraw cm_table[DIGIVICE_CITY_COUNT] = {
+    cm_trencadix, cm_madroso, cm_tracaluz, cm_giraldin, cm_escamati};
+
 bool digivice_draw_city_monster(
     Canvas* canvas,
     uint8_t idx,
@@ -264,16 +413,16 @@ bool digivice_draw_city_monster(
     bool flip,
     bool silhouette) {
     if(idx >= DIGIVICE_CITY_COUNT) return false;
-    static const uint8_t by_attr[DigiviceAttrCount] = {
-        DigiviceFoeKorno, DigiviceFoeFuzzcan, DigiviceFoeChipko, DigiviceFoeMokobit};
-    digivice_draw_foe(
-        canvas,
-        (DigiviceFoe)by_attr[digivice_city_monster_attr(idx)],
-        cx,
-        foot_y,
-        frame,
-        pose,
-        flip,
-        silhouette);
+    int32_t bob = pose == DigivicePoseIdle && (frame / 3) % 2 ? 1 : 0;
+    int32_t back = pose == DigivicePoseHurt ? 2 : 0;
+    DvPen p = {
+        .canvas = canvas,
+        .cx = flip ? cx + back : cx - back,
+        .cy = foot_y - 16 + bob,
+        .flip = flip,
+        .sil = silhouette,
+    };
+    cm_table[idx](&p, frame, pose);
+    canvas_set_color(canvas, ColorBlack);
     return true;
 }
