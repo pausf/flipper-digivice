@@ -1,5 +1,6 @@
 #include "digivice_draw.h"
 #include "digivice_config.h"
+#include "digivice_roster.h"
 
 #include <stdio.h>
 #include <u8g2.h>
@@ -498,6 +499,9 @@ void digivice_draw_form(
         dv_virubyte(canvas, cx, cy, frame, silhouette, pose);
         break;
     default:
+        if(!digivice_draw_roster(canvas, form, cx, cy, frame, pose, silhouette)) {
+            digivice_draw_ring(canvas, cx, cy, 8, 7);
+        }
         break;
     }
 }
@@ -536,17 +540,8 @@ void digivice_draw_meter(Canvas* canvas, int32_t x, int32_t y, uint8_t zone_star
 }
 
 const char* digivice_form_name(DigiviceForm form) {
-    static const char* const names[DigiviceFormCount] = {
-        "BYTEEGG",
-        "BITLING",
-        "BYTEMON",
-        "TAGDRAKE",
-        "WAVEDRAKE",
-        "BEAMDRAKE",
-        "PLUGDRAKE",
-        "VIRUBYTE",
-    };
-    return form < DigiviceFormCount ? names[form] : "?";
+    const DigiviceRosterEntry* e = digivice_roster(form);
+    return e ? e->name : "?";
 }
 
 const char* digivice_type_name(DigiviceType type) {

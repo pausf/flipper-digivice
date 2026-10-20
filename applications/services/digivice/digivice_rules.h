@@ -32,15 +32,46 @@ typedef enum {
     DigiviceFormBeamdrake,
     DigiviceFormPlugdrake,
     DigiviceFormVirubyte,
+    DigiviceFormPipo,
+    DigiviceFormChispi,
+    DigiviceFormOrejin,
+    DigiviceFormColix,
+    DigiviceFormKorno,
+    DigiviceFormChipko,
+    DigiviceFormEstatik,
+    DigiviceFormMokobit,
+    DigiviceFormAriete,
+    DigiviceFormEcolobo,
+    DigiviceFormVampixel,
+    DigiviceFormCerrojo,
+    DigiviceFormBuhoscan,
+    DigiviceFormFuzzcan,
+    DigiviceFormSilbapo,
+    DigiviceFormChatarro,
+    DigiviceFormCharco,
+    DigiviceFormLanzero,
+    DigiviceFormWyvolt,
+    DigiviceFormFangorey,
+    DigiviceFormBovedax,
+    DigiviceFormKoloso,
+    DigiviceFormAureola,
+    DigiviceFormDrakstat,
+    DigiviceFormOrakulo,
+    DigiviceFormNularca,
+    DigiviceFormPrismar,
+    DigiviceFormBaliza,
     DigiviceFormCount,
     DigiviceFormNone = 0xFF,
 } DigiviceForm;
 
 typedef enum {
     DigiviceStageEgg,
-    DigiviceStageBaby,
-    DigiviceStageRookie,
+    DigiviceStageBaby, /**< Baby I */
+    DigiviceStageBaby2,
+    DigiviceStageRookie, /**< Novato */
     DigiviceStageChampion,
+    DigiviceStageUltimate, /**< Supremo */
+    DigiviceStageMega,
     DigiviceStageCount,
 } DigiviceStage;
 

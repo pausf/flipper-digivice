@@ -1259,7 +1259,23 @@ static void test_vigor_ticks_match_one_catch_up(void) {
     CHECK(a.vigor == b.vigor && a.vigor_acc_s == b.vigor_acc_s);
 }
 
+static void test_stage_and_attr_come_from_the_roster(void) {
+    DigiviceState s = fresh(T0);
+    s.form = DigiviceFormAriete;
+    CHECK(digivice_rules_stage(&s) == DigiviceStageChampion);
+    CHECK(digivice_rules_form_attr(&s) == DigiviceAttrPortador);
+    s.form = DigiviceFormNularca;
+    CHECK(digivice_rules_stage(&s) == DigiviceStageMega);
+    s.form = DigiviceFormCharco;
+    CHECK(digivice_rules_stage(&s) == DigiviceStageRookie);
+    s.form = DigiviceFormVirubyte;
+    s.prev_form = DigiviceFormLanzero;
+    CHECK(digivice_rules_stage(&s) == DigiviceStageUltimate);
+    CHECK(digivice_rules_form_attr(&s) == DigiviceAttrRuido);
+}
+
 int main(void) {
+    test_stage_and_attr_come_from_the_roster();
     test_meat_fills_hunger_and_refuses_when_full();
     test_refusal_counts_once_until_the_meter_drains();
     test_protein_fills_vigor_and_strength();

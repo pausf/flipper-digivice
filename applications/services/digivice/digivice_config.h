@@ -48,9 +48,10 @@
 #define DIGIVICE_SICK_TWO_DOSES_S (12UL * 3600UL)
 #define DIGIVICE_LIGHT_MISTAKE_S  3600UL
 
-// Battle. Indexed by DigiviceStage: egg, baby, rookie, champion. Multipliers are x10.
-#define DIGIVICE_STAGE_POWER       {0, 10, 20, 40}
-#define DIGIVICE_VIRUX_POWER       {24, 24, 24, 46}
+// Battle. Indexed by DigiviceStage: egg, baby I, baby II, rookie, champion, ultimate, mega.
+// Multipliers are x10.
+#define DIGIVICE_STAGE_POWER       {0, 10, 14, 20, 40, 56, 76}
+#define DIGIVICE_VIRUX_POWER       {24, 24, 24, 24, 46, 64, 84}
 #define DIGIVICE_STRENGTH_CAP      24
 #define DIGIVICE_CHARGE_X10        {6, 10, 15}
 #define DIGIVICE_ATTR_PCT          5
@@ -72,8 +73,8 @@
 #define DIGIVICE_DROP_PCT          10
 #define DIGIVICE_INJURY_S          3600UL
 
-// Projectile sizes in px; the Baby fires 2x2, the area 8 boss a 9x5 beam.
-#define DIGIVICE_STAGE_SHOT      {2, 2, 3, 5}
+// Projectile sizes in px; the Baby fires 2x2, the Mega the 10 px beam.
+#define DIGIVICE_STAGE_SHOT      {2, 2, 2, 3, 5, 7, DIGIVICE_SHOT_BEAM}
 #define DIGIVICE_SHOT_ROOKIE_FOE 3
 #define DIGIVICE_SHOT_CHAMP_FOE  5
 #define DIGIVICE_SHOT_BOSS       7
@@ -133,3 +134,10 @@
 
 // Calls: awake seconds a hunger or vigor call waits before it becomes a care mistake.
 #define DIGIVICE_CALL_WINDOW_S (10UL * 60UL)
+
+// Time in each form before it can evolve (wall clock). The egg keeps DIGIVICE_HATCH_S.
+#define DIGIVICE_EVO_BABY1_S    (10UL * 60UL)
+#define DIGIVICE_EVO_BABY2_S    (12UL * 3600UL)
+#define DIGIVICE_EVO_ROOKIE_S   (24UL * 3600UL)
+#define DIGIVICE_EVO_CHAMP_S    (36UL * 3600UL)
+#define DIGIVICE_EVO_ULTIMATE_S (48UL * 3600UL)

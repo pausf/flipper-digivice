@@ -1,6 +1,7 @@
 #include "digivice_rules.h"
 #include "digivice_config.h"
 #include "digivice_expedition.h"
+#include "digivice_roster.h"
 
 #include <string.h>
 
@@ -206,17 +207,8 @@ int8_t digivice_rules_attr_adv(uint8_t attacker, uint8_t defender) {
 }
 
 DigiviceAttr digivice_rules_form_attr(const DigiviceState* s) {
-    switch(s->form) {
-    case DigiviceFormWavedrake:
-        return DigiviceAttrPortador;
-    case DigiviceFormTagdrake:
-        return DigiviceAttrCifrado;
-    case DigiviceFormBeamdrake:
-    case DigiviceFormVirubyte:
-        return DigiviceAttrRuido;
-    default:
-        return DigiviceAttrNulo;
-    }
+    const DigiviceRosterEntry* e = digivice_roster(s->form);
+    return e ? (DigiviceAttr)e->attr : DigiviceAttrNulo;
 }
 
 DigiviceAttr digivice_rules_type_attr(DigiviceType type) {
@@ -246,16 +238,8 @@ bool digivice_rules_set_mode(DigiviceState* s, uint8_t mode) {
 
 DigiviceStage digivice_rules_stage(const DigiviceState* s) {
     uint8_t form = s->form == DigiviceFormVirubyte ? s->prev_form : s->form;
-    switch(form) {
-    case DigiviceFormByteegg:
-        return DigiviceStageEgg;
-    case DigiviceFormBitling:
-        return DigiviceStageBaby;
-    case DigiviceFormBytemon:
-        return DigiviceStageRookie;
-    default:
-        return DigiviceStageChampion;
-    }
+    const DigiviceRosterEntry* e = digivice_roster(form);
+    return e ? (DigiviceStage)e->stage : DigiviceStageEgg;
 }
 
 bool digivice_rules_is_sleep_hour(uint8_t hour) {

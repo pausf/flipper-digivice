@@ -38,12 +38,15 @@ static uint8_t digivice_profile_exp_px(const DigiviceState* s) {
     uint32_t target;
     switch(digivice_rules_stage(s)) {
     case DigiviceStageBaby:
+    case DigiviceStageBaby2:
         target = DIGIVICE_ROOKIE_EXP;
         break;
     case DigiviceStageRookie:
         target = DIGIVICE_CHAMPION_EXP;
         break;
     case DigiviceStageChampion:
+    case DigiviceStageUltimate:
+    case DigiviceStageMega:
         return 62;
     default:
         return 0;

@@ -72,6 +72,15 @@ void digivice_draw_form(
     uint32_t frame,
     DigivicePose pose,
     bool silhouette);
+/** Draws a roster form (digivice_draw_roster.c). False when the form is not a roster form. */
+bool digivice_draw_roster(
+    Canvas* canvas,
+    DigiviceForm form,
+    int32_t cx,
+    int32_t cy,
+    uint32_t frame,
+    DigivicePose pose,
+    bool silhouette);
 void digivice_draw_virux(Canvas* canvas, int32_t cx, int32_t cy, uint32_t frame);
 
 /** Segmented timing meter; the zone is drawn hollow and the cursor as a tall bar. */

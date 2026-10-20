@@ -58,6 +58,13 @@ typedef enum {
     DigiviceStrModeNormal,
     DigiviceStrModeHacker,
     DigiviceStrExp,
+    DigiviceStrStageEgg,
+    DigiviceStrStageBaby,
+    DigiviceStrStageBaby2,
+    DigiviceStrStageRookie,
+    DigiviceStrStageChampion,
+    DigiviceStrStageUltimate,
+    DigiviceStrStageMega,
 
     DigiviceStrSettingsLanguage,
     DigiviceStrLangName,

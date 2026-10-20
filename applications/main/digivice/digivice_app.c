@@ -290,6 +290,9 @@ static void digivice_app_draw_callback(Canvas* canvas, void* context) {
     case DigiviceScreenSettings:
         digivice_settings_draw(canvas, app);
         break;
+    case DigiviceScreenDex:
+        digivice_dex_draw(canvas, app);
+        break;
     case DigiviceScreenEvolution:
         digivice_draw_evolution(
             canvas,
@@ -336,13 +339,19 @@ static void digivice_app_input(DigiviceApp* app, const InputEvent* event) {
         digivice_battle_input(app, event);
         break;
     case DigiviceScreenProfile:
-        if(event->type == InputTypeShort &&
-           (event->key == InputKeyBack || event->key == InputKeyOk)) {
-            digivice_app_set_screen(app, DigiviceScreenMain);
+        if(event->type == InputTypeShort) {
+            if(event->key == InputKeyBack || event->key == InputKeyOk) {
+                digivice_app_set_screen(app, DigiviceScreenMain);
+            } else if(event->key == InputKeyRight) {
+                digivice_dex_enter(app);
+            }
         }
         break;
     case DigiviceScreenSettings:
         digivice_settings_input(app, event);
+        break;
+    case DigiviceScreenDex:
+        digivice_dex_input(app, event);
         break;
     case DigiviceScreenEvolution:
         break;
@@ -366,6 +375,7 @@ static void digivice_app_tick(DigiviceApp* app) {
             if(app->screen == DigiviceScreenMain) digivice_expedition_auto_start(app);
         }
         break;
+    case DigiviceScreenDex:
     case DigiviceScreenProfile:
     case DigiviceScreenSettings:
         if(app->frame % 10 == 0) digivice_app_refresh(app);

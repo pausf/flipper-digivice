@@ -8,6 +8,7 @@
 #include <digivice/digivice_config.h>
 #include <digivice/digivice_draw.h>
 #include <digivice/digivice_i18n.h>
+#include <digivice/digivice_roster.h>
 
 #define DIGIVICE_APP_FRAME_MS   100
 #define DIGIVICE_APP_AIM_FRAMES 50
@@ -29,6 +30,7 @@ typedef enum {
     DigiviceScreenBattle,
     DigiviceScreenProfile,
     DigiviceScreenSettings,
+    DigiviceScreenDex,
     DigiviceScreenEvolution,
     DigiviceScreenError,
 } DigiviceScreen;
@@ -79,6 +81,7 @@ typedef struct {
     bool running;
 
     uint8_t menu_index; /**< DigiviceIcon */
+    uint8_t dex_sel; /**< bestiary preview: form shown */
     DigiviceStr notice;
     uint32_t notice_frames;
 
@@ -163,6 +166,10 @@ void digivice_care_tick(DigiviceApp* app);
 void digivice_care_draw(Canvas* canvas, DigiviceApp* app, int32_t pet_x);
 
 void digivice_profile_draw(Canvas* canvas, DigiviceApp* app);
+
+void digivice_dex_enter(DigiviceApp* app);
+void digivice_dex_input(DigiviceApp* app, const InputEvent* event);
+void digivice_dex_draw(Canvas* canvas, DigiviceApp* app);
 
 void digivice_settings_enter(DigiviceApp* app);
 void digivice_settings_input(DigiviceApp* app, const InputEvent* event);

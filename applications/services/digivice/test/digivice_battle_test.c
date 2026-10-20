@@ -469,7 +469,21 @@ static void test_draw_and_flee_change_nothing_else(void) {
     CHECK(b.distance == 0 && b.cleared == 0);
 }
 
+static void test_stage_tables_cover_every_stage(void) {
+    const uint16_t power[DigiviceStageCount] = DIGIVICE_STAGE_POWER;
+    const uint8_t shot[DigiviceStageCount] = DIGIVICE_STAGE_SHOT;
+    const uint16_t virux[DigiviceStageCount] = DIGIVICE_VIRUX_POWER;
+    CHECK(DigiviceStageCount == 7);
+    for(int i = 2; i < DigiviceStageCount; i++) {
+        CHECK(power[i] > power[i - 1]);
+        CHECK(shot[i] >= shot[i - 1] || shot[i] == DIGIVICE_SHOT_BEAM);
+        CHECK(virux[i] >= virux[i - 1]);
+    }
+    CHECK(shot[DigiviceStageMega] == DIGIVICE_SHOT_BEAM && shot[DigiviceStageUltimate] == 7);
+}
+
 int main(void) {
+    test_stage_tables_cover_every_stage();
     test_hit_pct();
     test_power();
     test_charge();
