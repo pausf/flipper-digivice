@@ -152,6 +152,17 @@ static void test_spawn_hook_in_the_walk(void) {
     CHECK(s.enc_expires == T0 + DIGIVICE_PACE_S + DIGIVICE_ENCOUNTER_TTL_S);
 }
 
+static void test_expired_partner_restores_pity(void) {
+    DigiviceState s = rookie();
+    s.enc_foe = DIGIVICE_ENC_HOMAGE + 2;
+    s.enc_expires = T0 + 60;
+    s.special_count = 0;
+    digivice_expedition_expire(&s, T0 + 59);
+    CHECK(s.enc_foe == DIGIVICE_ENC_HOMAGE + 2 && s.special_count == 0);
+    digivice_expedition_expire(&s, T0 + 60);
+    CHECK(s.enc_foe == DIGIVICE_ENC_NONE && s.special_count == DIGIVICE_HOMAGE_RETRY);
+}
+
 #else
 
 static void test_everything_is_inert(void) {
@@ -190,6 +201,7 @@ int main(void) {
     test_capture_pct();
     test_resolve();
     test_spawn_hook_in_the_walk();
+    test_expired_partner_restores_pity();
 #else
     test_everything_is_inert();
 #endif

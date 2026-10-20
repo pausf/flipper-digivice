@@ -135,6 +135,8 @@ bool digivice_expedition_trail_pending(const DigiviceState* s, uint32_t now) {
 
 void digivice_expedition_expire(DigiviceState* s, uint32_t now) {
     if(s->enc_foe != DIGIVICE_ENC_NONE && now >= s->enc_expires) {
+        // A partner that walked off unfought keeps its pity, like a declined one.
+        if(digivice_homage_code(s->enc_foe)) s->special_count = DIGIVICE_HOMAGE_RETRY;
         s->enc_foe = DIGIVICE_ENC_NONE;
         s->enc_expires = 0;
     }
