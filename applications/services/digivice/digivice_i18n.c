@@ -184,6 +184,10 @@ static const char* const strings_es[DigiviceStrCount] = {
     [DigiviceStrEscaped] = "SE ESCAP" O_ACUTE,
     [DigiviceStrCaptureNew] = "NUEVO EN EL NIDO",
     [DigiviceStrCaptureFriend] = "YA ES TU AMIGO",
+    [DigiviceStrNidoTitle] = "NIDO",
+    [DigiviceStrNidoEmpty] = "VAC" I_ACUTE "O: CAPTURA COMPA" N_TILDE "EROS",
+    [DigiviceStrNidoPick] = "OK: COMPA" N_TILDE "ERO",
+    [DigiviceStrNidoChosen] = "COMPA" N_TILDE "ERO",
 };
 
 static const char* const strings_en[DigiviceStrCount] = {
@@ -356,6 +360,10 @@ static const char* const strings_en[DigiviceStrCount] = {
     [DigiviceStrEscaped] = "IT GOT AWAY",
     [DigiviceStrCaptureNew] = "NEW IN THE NEST",
     [DigiviceStrCaptureFriend] = "ALREADY A FRIEND",
+    [DigiviceStrNidoTitle] = "NEST",
+    [DigiviceStrNidoEmpty] = "EMPTY: CATCH PARTNERS",
+    [DigiviceStrNidoPick] = "OK: COMPANION",
+    [DigiviceStrNidoChosen] = "COMPANION",
 };
 
 // Slot widths in pixels, from the layouts in digivice_draw.c and the app screens.
@@ -550,6 +558,10 @@ static const uint8_t budgets[DigiviceStrCount] = {
     [DigiviceStrEscaped] = SLOT_LABEL,
     [DigiviceStrCaptureNew] = SLOT_P30,
     [DigiviceStrCaptureFriend] = SLOT_P30,
+    [DigiviceStrNidoTitle] = SLOT_T14,
+    [DigiviceStrNidoEmpty] = SLOT_P30,
+    [DigiviceStrNidoPick] = SLOT_P26,
+    [DigiviceStrNidoChosen] = SLOT_H12,
 };
 
 const char* digivice_str(DigiviceLang lang, DigiviceStr id) {

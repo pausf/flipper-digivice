@@ -448,6 +448,7 @@ static void draw_hike(Canvas* canvas, DigiviceApp* app) {
         app->frame,
         DigivicePoseIdle,
         false);
+    digivice_app_draw_companion(canvas, app, 40, 46, false);
 
     draw_panel(canvas);
     if(app->hike_done) {

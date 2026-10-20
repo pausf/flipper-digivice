@@ -32,6 +32,7 @@ typedef enum {
     DigiviceScreenProfile,
     DigiviceScreenSettings,
     DigiviceScreenDex,
+    DigiviceScreenNido,
     DigiviceScreenEvolution,
     DigiviceScreenError,
 } DigiviceScreen;
@@ -83,6 +84,7 @@ typedef struct {
 
     uint8_t menu_index; /**< DigiviceIcon */
     uint8_t dex_sel; /**< bestiary preview: form shown */
+    uint8_t nido_sel; /**< NIDO: partner highlighted */
     DigiviceStr notice;
     uint32_t notice_frames;
 
@@ -140,6 +142,16 @@ typedef struct {
 } DigiviceApp;
 
 void digivice_app_set_screen(DigiviceApp* app, DigiviceScreen screen);
+void digivice_nido_enter(DigiviceApp* app);
+void digivice_nido_input(DigiviceApp* app, const InputEvent* event);
+void digivice_nido_draw(Canvas* canvas, DigiviceApp* app);
+/** The chosen partner at half size, feet on foot_y; draws nothing without a companion. */
+void digivice_app_draw_companion(
+    Canvas* canvas,
+    const DigiviceApp* app,
+    int32_t x,
+    int32_t foot_y,
+    bool asleep);
 /** Re-reads the service state and jumps to the cutscene when an evolution is pending. */
 void digivice_app_refresh(DigiviceApp* app);
 uint8_t digivice_app_rng_pct(void);

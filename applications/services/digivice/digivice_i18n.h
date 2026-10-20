@@ -188,6 +188,10 @@ typedef enum {
     DigiviceStrEscaped,
     DigiviceStrCaptureNew,
     DigiviceStrCaptureFriend,
+    DigiviceStrNidoTitle,
+    DigiviceStrNidoEmpty,
+    DigiviceStrNidoPick,
+    DigiviceStrNidoChosen,
 
     DigiviceStrCount,
 } DigiviceStr;

@@ -219,6 +219,7 @@ void digivice_encounter_draw(Canvas* canvas, DigiviceApp* app) {
             app->frame,
             DigivicePoseIdle,
             false);
+        digivice_app_draw_companion(canvas, app, 12, 51, false);
         if(boss) {
             if(f >= 8) {
                 // The silhouette rises from below.

@@ -99,11 +99,15 @@ void digivice_app_refresh(DigiviceApp* app) {
 }
 
 /** Pet x on the main screen: a slow walk back and forth across the band. */
-static int32_t digivice_main_pet_x(const DigiviceApp* app) {
+static int32_t digivice_main_pet_x_at(const DigiviceApp* app, uint32_t frame) {
     if(app->care != DigiviceCareNone || digivice_rules_is_asleep(furi_hal_rtc_get_timestamp()))
         return 50;
-    int32_t walk = (int32_t)((app->frame / 2) % 40);
+    int32_t walk = (int32_t)((frame / 2) % 40);
     return 34 + (walk < 20 ? walk : 40 - walk);
+}
+
+static int32_t digivice_main_pet_x(const DigiviceApp* app) {
+    return digivice_main_pet_x_at(app, app->frame);
 }
 
 static void digivice_main_draw(Canvas* canvas, DigiviceApp* app) {
@@ -126,6 +130,9 @@ static void digivice_main_draw(Canvas* canvas, DigiviceApp* app) {
         app->frame,
         asleep ? DigivicePoseSleep : DigivicePoseIdle,
         false);
+    uint32_t lag_frame = app->frame > 6 ? app->frame - 6 : 0;
+    digivice_app_draw_companion(
+        canvas, app, digivice_main_pet_x_at(app, lag_frame) - 20, FLOOR_Y + 3, asleep);
 
     bool cleaning = app->care == DigiviceCareClean;
     digivice_draw_poops(canvas, cleaning ? app->care_poop : s->poop, 96, 39, app->frame);
@@ -295,6 +302,9 @@ static void digivice_app_draw_callback(Canvas* canvas, void* context) {
     case DigiviceScreenDex:
         digivice_dex_draw(canvas, app);
         break;
+    case DigiviceScreenNido:
+        digivice_nido_draw(canvas, app);
+        break;
     case DigiviceScreenEvolution:
         digivice_draw_evolution(
             canvas,
@@ -346,6 +356,8 @@ static void digivice_app_input(DigiviceApp* app, const InputEvent* event) {
                 digivice_app_set_screen(app, DigiviceScreenMain);
             } else if(event->key == InputKeyRight) {
                 digivice_dex_enter(app);
+            } else if(event->key == InputKeyLeft && digivice_homage_enabled()) {
+                digivice_nido_enter(app);
             }
         }
         break;
@@ -354,6 +366,9 @@ static void digivice_app_input(DigiviceApp* app, const InputEvent* event) {
         break;
     case DigiviceScreenDex:
         digivice_dex_input(app, event);
+        break;
+    case DigiviceScreenNido:
+        digivice_nido_input(app, event);
         break;
     case DigiviceScreenEvolution:
         break;
@@ -378,6 +393,7 @@ static void digivice_app_tick(DigiviceApp* app) {
         }
         break;
     case DigiviceScreenDex:
+    case DigiviceScreenNido:
     case DigiviceScreenProfile:
     case DigiviceScreenSettings:
         if(app->frame % 10 == 0) digivice_app_refresh(app);
