@@ -93,12 +93,135 @@ static void mon_charco(const DvPen* p, uint32_t frame, DigivicePose pose) {
     pen_dot(p, -9 - (int32_t)((frame / 3) % 3), -6 + (int32_t)((frame / 2) % 4));
 }
 
+// Champion, Portador: a woolly ram with curled horns and a wave on the flank.
+static void mon_ariete(const DvPen* p, uint32_t frame, DigivicePose pose) {
+    int32_t bob = pose == DigivicePoseIdle && (frame / 4) % 2 ? 1 : 0;
+    pen_ink(p, false);
+    pen_ell(p, -2, 3 + bob, 13, 9);
+    pen_ell(p, 10, -4 + bob, 6, 6);
+    pen_ell(p, 12, -10 + bob, 3, 3);
+    pen_ell(p, 6, -9 + bob, 3, 3);
+    pen_box(p, -10, 11, 3, 6);
+    pen_box(p, 4, 11, 3, 6);
+    pen_eye(p, 10, -6 + bob, pose);
+    pen_ink(p, true);
+    pen_line(p, -6, 2 + bob, -3, 0 + bob);
+    pen_line(p, -3, 0 + bob, 0, 2 + bob);
+    pen_line(p, 0, 2 + bob, 3, 0 + bob);
+    pen_dot(p, 13, -10 + bob);
+    pen_ink(p, false);
+}
+
+// Champion, Portador: a slim wolf with pointed ears, a flame tail and a wave on the flank.
+static void mon_ecolobo(const DvPen* p, uint32_t frame, DigivicePose pose) {
+    int32_t bob = pose == DigivicePoseIdle && (frame / 4) % 2 ? 1 : 0;
+    pen_ink(p, false);
+    pen_tri(p, -10, 2 + bob, -9, 7 + bob, -20, -8 + bob * 3);
+    pen_ell(p, -3, 4 + bob, 11, 5);
+    pen_ell(p, 6, 2 + bob, 6, 7);
+    pen_box(p, -12, 8, 3, 9);
+    pen_box(p, -7, 8, 3, 9);
+    pen_box(p, 4, 8, 3, 9);
+    pen_box(p, 9, 8, 3, 9);
+    pen_ell(p, 11, -6 + bob, 6, 5);
+    pen_tri(p, 13, -9 + bob, 20, -4 + bob, 13, -1 + bob);
+    pen_tri(p, 6, -10 + bob, 10, -11 + bob, 7, -18 + bob);
+    pen_tri(p, 11, -11 + bob, 15, -10 + bob, 15, -17 + bob);
+    pen_eye(p, 12, -8 + bob, pose);
+    pen_ink(p, true);
+    for(int32_t x = -11; x < 3; x++)
+        pen_dot(p, x, 4 + bob + ((x + (int32_t)frame / 3) % 4 < 2 ? 0 : 1));
+    pen_line(p, -17, -4 + bob * 3, -12, 1 + bob);
+    pen_ink(p, false);
+}
+
+// Champion, Ruido: a bat whose dark wings glitch one column sideways.
+static void mon_vampixel(const DvPen* p, uint32_t frame, DigivicePose pose) {
+    int32_t bob = pose == DigivicePoseIdle && (frame / 3) % 2 ? 1 : 0;
+    int32_t gl = (int32_t)((frame / 2) % 2);
+    pen_ink(p, false);
+    for(int32_t sd = -1; sd <= 1; sd += 2) {
+        pen_tri(p, sd * 4, -2 + bob, sd * 20, -14 + bob, sd * 18, 2 + bob);
+        pen_tri(p, sd * 4, -2 + bob, sd * 18, 2 + bob, sd * 13, 10 + bob);
+        pen_tri(p, sd * 4, 2 + bob, sd * 13, 10 + bob, sd * 7, 12 + bob);
+    }
+    pen_ell(p, 0, 5 + bob, 6, 8);
+    pen_ell(p, 0, -6 + bob, 6, 5);
+    pen_tri(p, -7, -8 + bob, -3, -11 + bob, -8, -18 + bob);
+    pen_tri(p, 3, -11 + bob, 7, -8 + bob, 8, -18 + bob);
+    pen_box(p, -4, 12, 2, 6);
+    pen_box(p, 2, 12, 2, 6);
+    pen_eye(p, -4, -8 + bob, pose);
+    pen_eye(p, 2, -8 + bob, pose);
+    pen_ink(p, true);
+    pen_line(p, -3, -2 + bob, -1, -2 + bob);
+    pen_dot(p, -2, -1 + bob);
+    pen_dot(p, 2, -1 + bob);
+    // Glitch: one wing column is shifted sideways and the gap is left blank.
+    pen_line(p, 12, -2 + bob, 12, 8 + bob);
+    pen_ink(p, false);
+    pen_line(p, 12 + gl * 2, -2 + bob, 12 + gl * 2, 6 + bob);
+    pen_dot(p, -12 - gl, -6 + bob);
+}
+
+// Champion, Cifrado: a beetle with a padlock shell and a key horn.
+static void mon_cerrojo(const DvPen* p, uint32_t frame, DigivicePose pose) {
+    int32_t bob = pose == DigivicePoseIdle && (frame / 4) % 2 ? 1 : 0;
+    pen_ink(p, false);
+    pen_box(p, -17, -6 + bob, 26, 17 - bob);
+    pen_box(p, 7, 2, 10, 9);
+    pen_tri(p, 13, 3, 18, 3, 20, -12);
+    pen_tri(p, 16, -6, 20, -9, 20, -3);
+    pen_box(p, -14, 11, 3, 7);
+    pen_box(p, -6, 11, 3, 7);
+    pen_box(p, 2, 11, 3, 7);
+    pen_eye(p, 10, 4, pose);
+    pen_ink(p, true);
+    pen_ell(p, -5, 0 + bob, 3, 3);
+    pen_tri(p, -7, 1 + bob, -3, 1 + bob, -5, 6 + bob);
+    pen_dot(p, -14, -4 + bob);
+    pen_dot(p, 4, -4 + bob);
+    pen_dot(p, -14, 8 + bob);
+    pen_dot(p, 4, 8 + bob);
+    pen_ink(p, false);
+}
+
+// Champion, Cifrado: an owl with a scanner visor and a grid of feathers.
+static void mon_buhoscan(const DvPen* p, uint32_t frame, DigivicePose pose) {
+    int32_t bob = pose == DigivicePoseIdle && (frame / 4) % 2 ? 1 : 0;
+    pen_ink(p, false);
+    pen_tri(p, -11, -9 + bob, -5, -11 + bob, -13, -18 + bob);
+    pen_tri(p, 5, -11 + bob, 11, -9 + bob, 13, -18 + bob);
+    pen_ell(p, 0, 2 + bob, 11, 13 - bob);
+    pen_ell(p, -12, 4 + bob, 4, 8);
+    pen_ell(p, 12, 4 + bob, 4, 8);
+    pen_box(p, -5, 14, 3, 4);
+    pen_box(p, 2, 14, 3, 4);
+    pen_ink(p, true);
+    pen_box(p, -10, -8 + bob, 20, 8);
+    pen_ink(p, false);
+    pen_eye(p, -7, -6 + bob, pose);
+    pen_eye(p, 4, -6 + bob, pose);
+    int32_t sy = -7 + bob + (int32_t)((frame / 2) % 6);
+    pen_line(p, -10, sy, 9, sy);
+    pen_tri(p, -2, 1 + bob, 2, 1 + bob, 0, 5 + bob);
+    pen_ink(p, true);
+    for(int32_t y = 6; y < 13; y += 2)
+        for(int32_t x = -5 + (y % 4 ? 1 : 0); x < 6; x += 3) pen_dot(p, x, y + bob);
+    pen_ink(p, false);
+}
+
 static const MonDraw mon_table[DigiviceFormCount] = {
     [DigiviceFormPipo] = mon_pipo,
     [DigiviceFormChispi] = mon_chispi,
     [DigiviceFormOrejin] = mon_orejin,
     [DigiviceFormColix] = mon_colix,
     [DigiviceFormCharco] = mon_charco,
+    [DigiviceFormAriete] = mon_ariete,
+    [DigiviceFormEcolobo] = mon_ecolobo,
+    [DigiviceFormVampixel] = mon_vampixel,
+    [DigiviceFormCerrojo] = mon_cerrojo,
+    [DigiviceFormBuhoscan] = mon_buhoscan,
 };
 
 static DigiviceFoe foe_of(DigiviceForm form, bool* known) {
@@ -114,8 +237,6 @@ static DigiviceFoe foe_of(DigiviceForm form, bool* known) {
         return DigiviceFoeMokobit;
     case DigiviceFormFuzzcan:
         return DigiviceFoeFuzzcan;
-    case DigiviceFormVampixel:
-        return DigiviceFoeVampixel;
     case DigiviceFormSilbapo:
         return DigiviceFoeSilbapo;
     case DigiviceFormChatarro:
