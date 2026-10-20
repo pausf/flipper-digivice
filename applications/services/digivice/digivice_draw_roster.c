@@ -344,6 +344,166 @@ static void mon_koloso(const DvPen* p, uint32_t frame, DigivicePose pose) {
     pen_eye(p, -1, -19 + sway, pose);
 }
 
+// Mega, Portador: a seraph with four sine-wave wings and a halo.
+static void mon_aureola(const DvPen* p, uint32_t frame, DigivicePose pose) {
+    static const int8_t wave[6] = {0, 1, 2, 1, 0, -1};
+    int32_t bob = pose == DigivicePoseIdle && (frame / 4) % 2 ? 1 : 0;
+    uint32_t k = (frame / 2) % 3;
+    pen_ink(p, false);
+    for(int32_t sd = -1; sd <= 1; sd += 2) {
+        for(int32_t row = 0; row < 2; row++) {
+            int32_t px = sd * 5;
+            int32_t py = 0 + row * 8;
+            for(int32_t i = 1; i <= 5; i++) {
+                int32_t nx = sd * (5 + i * 4);
+                int32_t ny = row * 8 - i * (row ? 1 : 3) + wave[((uint32_t)i + k * 2) % 6];
+                pen_line(p, px, py + bob, nx, ny + bob);
+                pen_line(p, px, py + bob + 1, nx, ny + bob + 1);
+                px = nx;
+                py = ny;
+            }
+        }
+    }
+    pen_tri(p, -10, 20, 10, 20, 0, -4);
+    pen_ell(p, 0, -2 + bob, 5, 4);
+    pen_ell(p, 0, -9 + bob, 5, 5);
+    pen_box(p, -7, 20, 15, 2);
+    pen_ell(p, 0, -18 + bob, 7, 2);
+    pen_ink(p, true);
+    pen_ell(p, 0, -18 + bob, 5, 1);
+    pen_eye(p, -3, -10 + bob, pose);
+    pen_eye(p, 2, -10 + bob, pose);
+    pen_ink(p, false);
+}
+
+// Mega, Ruido: a static dragon with horns, jagged wings dithered by the frame, and plates.
+static void mon_drakstat(const DvPen* p, uint32_t frame, DigivicePose pose) {
+    int32_t bob = pose == DigivicePoseIdle && (frame / 4) % 2 ? 1 : 0;
+    pen_ink(p, false);
+    pen_tri(p, -4, -2, -24, -18, -22, 2);
+    pen_tri(p, -4, 2, -22, 2, -12, 10);
+    pen_ell(p, 0, 6 + bob, 10, 11);
+    pen_ell(p, 6, -4 + bob, 5, 5);
+    pen_ell(p, 11, -11 + bob, 6, 5);
+    pen_box(p, 14, -12 + bob, 9, 6);
+    pen_tri(p, 7, -15 + bob, 10, -16 + bob, 2, -22 + bob);
+    pen_tri(p, 11, -16 + bob, 14, -15 + bob, 14, -22 + bob);
+    pen_box(p, -8, 14, 5, 8);
+    pen_box(p, 4, 14, 5, 8);
+    pen_ink(p, true);
+    for(int32_t x = -23; x < -4; x++)
+        for(int32_t y = -18 + (x + 24) * 4 / 5; y <= 1; y++)
+            if((x + y + (int32_t)frame) & 1) pen_dot(p, x, y);
+    for(int32_t i = 0; i < 4; i++) {
+        int32_t x = -6 + i * 3;
+        pen_tri(p, x, -2 - i * 2, x + 3, -3 - i * 2, x, -7 - i * 2);
+    }
+    pen_ink(p, false);
+    pen_eye(p, 10, -12 + bob, pose);
+}
+
+// Mega, Cifrado: a floating hooded oracle with a keyhole eye and three orbiting cubes.
+static void mon_orakulo(const DvPen* p, uint32_t frame, DigivicePose pose) {
+    static const int8_t orb[8][2] = {
+        {14, 0}, {10, 4}, {0, 6}, {-10, 4}, {-14, 0}, {-10, -4}, {0, -6}, {10, -4}};
+    int32_t bob = pose == DigivicePoseIdle && (frame / 4) % 2 ? 1 : 0;
+    uint32_t k = (frame / 2) % 8;
+    pen_ink(p, false);
+    pen_tri(p, -17, 20 + bob, 17, 20 + bob, 0, -8);
+    pen_box(p, -18, -6 + bob, 8, 12);
+    pen_box(p, 10, -6 + bob, 8, 12);
+    pen_tri(p, -11, -9 + bob, 11, -9 + bob, 0, -21 + bob);
+    pen_box(p, -10, -12 + bob, 20, 7);
+    pen_ink(p, true);
+    pen_box(p, -7, -15 + bob, 14, 9);
+    pen_ink(p, false);
+    pen_eye(p, -5, -13 + bob, pose);
+    pen_eye(p, 2, -13 + bob, pose);
+    pen_ink(p, true);
+    pen_ell(p, 0, 3 + bob, 4, 4);
+    pen_ink(p, false);
+    pen_ell(p, 0, 2 + bob, 1, 1);
+    pen_box(p, 0, 3 + bob, 1, 3);
+    for(uint32_t i = 0; i < 3; i++) {
+        uint32_t o = (k + i * 3) % 8;
+        pen_box(p, orb[o][0] - 1, orb[o][1] + 2 + bob, 2, 2);
+    }
+}
+
+// Mega, Nulo: a sovereign whose cloak holds its body as negative space, under a hollow crown.
+static void mon_nularca(const DvPen* p, uint32_t frame, DigivicePose pose) {
+    int32_t bob = pose == DigivicePoseIdle && (frame / 4) % 2 ? 1 : 0;
+    int32_t wv = (int32_t)((frame / 3) % 2);
+    pen_ink(p, false);
+    pen_tri(p, -21, 22, 21, 22, 0, -10);
+    pen_ell(p, -10, -3, 5, 4);
+    pen_ell(p, 10, -3, 5, 4);
+    pen_ink(p, true);
+    for(int32_t x = -20; x < 21; x += 5) pen_box(p, x, 20 + wv, 2, 3);
+    pen_ell(p, 0, 7 + bob, 7, 13);
+    pen_ink(p, false);
+    pen_ell(p, 0, 7 + bob, 5, 11);
+    pen_ink(p, true);
+    pen_ell(p, 0, 7 + bob, 3, 9);
+    pen_ink(p, false);
+    pen_ell(p, 0, -10 + bob, 5, 5);
+    pen_eye(p, -3, -11 + bob, pose);
+    pen_eye(p, 2, -11 + bob, pose);
+    pen_line(p, -6, -17 + bob, 6, -17 + bob);
+    pen_line(p, -6, -17 + bob, -6, -22 + bob);
+    pen_line(p, 0, -17 + bob, 0, -22 + bob);
+    pen_line(p, 6, -17 + bob, 6, -22 + bob);
+    pen_dot(p, -22, 8 - wv * 3);
+    pen_dot(p, 22, 4 - wv * 3);
+}
+
+// Special, Portador: a faceted crystal regent with waves above and a grid below.
+static void mon_prismar(const DvPen* p, uint32_t frame, DigivicePose pose) {
+    int32_t bob = pose == DigivicePoseIdle && (frame / 4) % 2 ? 1 : 0;
+    pen_ink(p, false);
+    pen_tri(p, 0, -20 + bob, 13, 0, -13, 0);
+    pen_tri(p, -13, 0, 13, 0, 0, 20);
+    pen_tri(p, -19, -10, -11, -2, -21, 5);
+    pen_tri(p, 19, -10, 21, 5, 11, -2);
+    pen_tri(p, -4, -18 + bob, 4, -18 + bob, 0, -23 + bob);
+    pen_eye(p, -3, -8 + bob, pose);
+    pen_eye(p, 2, -8 + bob, pose);
+    pen_ink(p, true);
+    pen_line(p, 0, 0, 0, 19);
+    pen_line(p, -13, 0, 13, 0);
+    pen_line(p, 0, 19, -7, 0);
+    pen_line(p, 0, 19, 7, 0);
+    for(int32_t x = -8; x < 9; x++)
+        pen_dot(p, x, -3 + (((x + (int32_t)frame / 2) & 3) < 2 ? 0 : 1));
+    for(int32_t y = 4; y < 16; y += 3)
+        for(int32_t x = -4; x < 5; x += 3) pen_dot(p, x, y);
+    pen_ink(p, false);
+}
+
+// Special, Nulo: a beacon ghost with a lantern on its head that sweeps two rays.
+static void mon_baliza(const DvPen* p, uint32_t frame, DigivicePose pose) {
+    static const int8_t ray[4][2] = {{14, -6}, {16, 0}, {14, 6}, {16, -3}};
+    int32_t bob = pose == DigivicePoseIdle && (frame / 4) % 2 ? 1 : 0;
+    uint32_t k = (frame / 3) % 4;
+    pen_ink(p, false);
+    pen_ell(p, 0, 4 + bob, 10, 11);
+    pen_box(p, -10, 4 + bob, 21, 14);
+    for(int32_t i = 0; i < 5; i++)
+        pen_ell(p, -8 + i * 4, 18 + (((int32_t)frame / 3 + i) & 1), 2, 2);
+    pen_ell(p, -13, 8 + bob, 3, 2);
+    pen_ell(p, 13, 8 + bob, 3, 2);
+    pen_box(p, -5, -17 + bob, 11, 8);
+    pen_tri(p, -6, -17 + bob, 6, -17 + bob, 0, -22 + bob);
+    pen_ink(p, true);
+    pen_box(p, -3, -15 + bob, 7, 4);
+    pen_ink(p, false);
+    pen_line(p, 0, -17 + bob, 0, -9 + bob);
+    pen_eye(p, -4, 2 + bob, pose);
+    pen_eye(p, 3, 2 + bob, pose);
+    pen_line(p, 6, -13 + bob, 6 + ray[k][0], -13 + bob + ray[k][1]);
+    pen_line(p, -5, -13 + bob, -5 - ray[k][0], -13 + bob + ray[k][1]);
+}
+
 static const MonDraw mon_table[DigiviceFormCount] = {
     [DigiviceFormPipo] = mon_pipo,
     [DigiviceFormChispi] = mon_chispi,
@@ -360,6 +520,12 @@ static const MonDraw mon_table[DigiviceFormCount] = {
     [DigiviceFormFangorey] = mon_fangorey,
     [DigiviceFormBovedax] = mon_bovedax,
     [DigiviceFormKoloso] = mon_koloso,
+    [DigiviceFormAureola] = mon_aureola,
+    [DigiviceFormDrakstat] = mon_drakstat,
+    [DigiviceFormOrakulo] = mon_orakulo,
+    [DigiviceFormNularca] = mon_nularca,
+    [DigiviceFormPrismar] = mon_prismar,
+    [DigiviceFormBaliza] = mon_baliza,
 };
 
 static DigiviceFoe foe_of(DigiviceForm form, bool* known) {
