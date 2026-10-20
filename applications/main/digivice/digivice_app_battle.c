@@ -15,6 +15,8 @@
 #define SHOT_FRAMES      (SHOT_WINDUP + SHOT_TRAVEL + SHOT_IMPACT)
 #define FADE_FRAMES      12
 #define CLEAR_START      20 // the boss "area cleared" line follows the victory banner
+#define CAPTURE_DIZZY_END 12
+#define CAPTURE_RING_END  40
 
 // Arena layout (combate.html): pet feet at (30, 50), foe feet at (98, 50).
 #define PET_X   30
@@ -23,6 +25,12 @@
 #define PET_CY  39
 #define MOUTH_Y 36
 #define GUARD_X 70
+
+static bool capture_active(const DigiviceApp* app) {
+    return app->result == DigiviceBattleResultWin &&
+           (app->reward.capture == DigiviceCaptureCaught ||
+            app->reward.capture == DigiviceCaptureEscaped);
+}
 
 static const DigiviceStr tier_str[DigiviceChargeCount] = {
     DigiviceStrBtlShotSmall,
@@ -148,6 +156,12 @@ static void draw_fighters(
     int32_t foe_dy,
     DigivicePose pet_pose,
     DigivicePose foe_pose) {
+    bool end = app->phase == DigiviceBattlePhaseEnd && capture_active(app);
+    uint32_t cf = app->screen_frame;
+    if(end && app->reward.capture == DigiviceCaptureEscaped && cf > CAPTURE_RING_END) {
+        foe_dx += (int32_t)(cf - CAPTURE_RING_END) * 2;
+    }
+    bool foe_hidden = end && app->reward.capture == DigiviceCaptureCaught && cf >= CAPTURE_RING_END;
     canvas_set_color(canvas, ColorBlack);
     digivice_draw_ring(canvas, PET_X + ox, FEET_Y + 1 + oy, 14, 2);
     digivice_draw_ring(canvas, FOE_X + ox, FEET_Y + 1 + oy, 16, 2);
@@ -161,17 +175,19 @@ static void draw_fighters(
         false);
     int32_t fx = FOE_X + ox + foe_dx;
     int32_t fy = FEET_Y + oy + foe_dy;
-    if(app->enc_kind == DigiviceEncounterBoss) {
-        digivice_draw_boss(
-            canvas, app->enc_area, (DigiviceForm)app->state.form, fx, fy, app->frame, false);
-    } else if(app->enc_kind == DigiviceEncounterVirux) {
-        digivice_draw_virux(canvas, fx, fy - 14, app->frame);
-    } else if(app->battle.foe_class == DigiviceFoeClassHomage) {
-        digivice_draw_homage(
-            canvas, app->battle.foe, fx, fy, app->frame, foe_pose, true, false, false);
-    } else {
-        digivice_draw_foe(
-            canvas, (DigiviceFoe)app->battle.foe, fx, fy, app->frame, foe_pose, true, false);
+    if(!foe_hidden) {
+        if(app->enc_kind == DigiviceEncounterBoss) {
+            digivice_draw_boss(
+                canvas, app->enc_area, (DigiviceForm)app->state.form, fx, fy, app->frame, false);
+        } else if(app->enc_kind == DigiviceEncounterVirux) {
+            digivice_draw_virux(canvas, fx, fy - 14, app->frame);
+        } else if(app->battle.foe_class == DigiviceFoeClassHomage) {
+            digivice_draw_homage(
+                canvas, app->battle.foe, fx, fy, app->frame, foe_pose, true, false, false);
+        } else {
+            digivice_draw_foe(
+                canvas, (DigiviceFoe)app->battle.foe, fx, fy, app->frame, foe_pose, true, false);
+        }
     }
 }
 
@@ -398,7 +414,9 @@ void digivice_battle_input(DigiviceApp* app, const InputEvent* event) {
         }
         break;
     case DigiviceBattlePhaseEnd:
-        if(app->screen_frame < END_INPUT_FRAMES) break;
+        if(app->screen_frame <
+           (capture_active(app) ? DIGIVICE_CAPTURE_FRAMES : END_INPUT_FRAMES))
+            break;
         if(event->key == InputKeyOk || event->key == InputKeyBack) battle_exit(app);
         break;
     default:
@@ -431,6 +449,10 @@ void digivice_battle_tick(DigiviceApp* app) {
         break;
     }
     case DigiviceBattlePhaseEnd:
+        if(capture_active(app) && f == CAPTURE_RING_END &&
+           app->reward.capture == DigiviceCaptureCaught) {
+            notification_message(app->notification, &digivice_sequence_evolution);
+        }
         if(app->area_cleared && f >= CLEAR_START + FADE_FRAMES) battle_exit(app);
         break;
     }
@@ -563,6 +585,27 @@ static void draw_shot_lines(Canvas* canvas, DigiviceApp* app, bool player, uint3
     }
 }
 
+static void draw_capture(Canvas* canvas, DigiviceApp* app, uint32_t f) {
+    int32_t cy = FEET_Y - 14;
+    bool caught = app->reward.capture == DigiviceCaptureCaught;
+    canvas_set_color(canvas, ColorBlack);
+    if(f < CAPTURE_DIZZY_END) {
+        digivice_draw_sparkle_ring(canvas, FOE_X, cy - 10, 10, 3, app->frame);
+    } else if(f < CAPTURE_RING_END) {
+        int32_t r = 22 - (int32_t)(f - CAPTURE_DIZZY_END) * 14 /
+                             (CAPTURE_RING_END - CAPTURE_DIZZY_END);
+        digivice_draw_dash_ring(canvas, FOE_X, cy, r, app->frame);
+    } else {
+        if(f == CAPTURE_RING_END) digivice_draw_invert(canvas, 0, 0, 128, 64);
+        if(caught) {
+            digivice_draw_sparkle_ring(canvas, FOE_X, cy, 14, 10, app->frame);
+            digivice_draw_star5(canvas, FOE_X, cy);
+        }
+        digivice_draw_label(
+            canvas, 10, digivice_app_str(app, caught ? DigiviceStrCaptured : DigiviceStrEscaped));
+    }
+}
+
 static void draw_end(Canvas* canvas, DigiviceApp* app) {
     uint32_t f = app->screen_frame;
     char line[48];
@@ -585,8 +628,12 @@ static void draw_end(Canvas* canvas, DigiviceApp* app) {
         0,
         0,
         won ? DigivicePoseAttack : DigivicePoseIdle,
-        lost ? DigivicePoseAttack : DigivicePoseHurt);
-    if(won) {
+        lost ? DigivicePoseAttack :
+               (capture_active(app) && f > CAPTURE_RING_END ? DigivicePoseIdle :
+                                                              DigivicePoseHurt));
+    if(won && capture_active(app)) {
+        draw_capture(canvas, app, f);
+    } else if(won) {
         // The foe fades out under a white dither.
         uint8_t level = f < FADE_FRAMES ? (uint8_t)(f * 16 / FADE_FRAMES) : 16;
         canvas_set_color(canvas, ColorWhite);
@@ -626,6 +673,10 @@ static void draw_end(Canvas* canvas, DigiviceApp* app) {
         digivice_draw_text(canvas, 3, 53, line);
         if(app->area_cleared && f >= CLEAR_START) {
             digivice_draw_text(canvas, 3, 59, digivice_app_str(app, DigiviceStrBtlAreaClear));
+        } else if(app->reward.capture == DigiviceCaptureCaught && f >= CAPTURE_RING_END) {
+            digivice_draw_text(canvas, 3, 59, digivice_app_str(app, DigiviceStrCaptureNew));
+        } else if(app->reward.capture == DigiviceCaptureFriend) {
+            digivice_draw_text(canvas, 3, 59, digivice_app_str(app, DigiviceStrCaptureFriend));
         } else if(app->reward.item == DigiviceItemShield && f >= 8) {
             digivice_draw_text(canvas, 3, 59, digivice_app_str(app, DigiviceStrBtlItemShield));
         }

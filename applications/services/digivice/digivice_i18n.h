@@ -184,6 +184,10 @@ typedef enum {
     DigiviceStrHomeBoss,
     // v3.3
     DigiviceStrEncSpecial,
+    DigiviceStrCaptured,
+    DigiviceStrEscaped,
+    DigiviceStrCaptureNew,
+    DigiviceStrCaptureFriend,
 
     DigiviceStrCount,
 } DigiviceStr;
