@@ -153,10 +153,211 @@ static void hm_patamon(const HmPen* p, uint32_t frame, DigivicePose pose) {
     hm_ink(p, false);
 }
 
+// 1: horned canine in a white pelt with a zig-zag hem.
+static void hm_gabumon(const HmPen* p, uint32_t frame, DigivicePose pose) {
+    int32_t w = (int32_t)((frame / 3) % 2);
+    hm_ink(p, false);
+    hm_ell(p, -2, 4, 7, 7); // body
+    hm_ell(p, 3, -6, 6, 5); // head
+    hm_ell(p, 8, -4, 3, 2); // snout
+    hm_tri(p, 1, -10, 5, -10, 4, -15); // horn
+    hm_box(p, -5, 10, 3, 3); // legs
+    hm_box(p, 0, 10, 3, 3);
+    hm_tri(p, -8, 5, -13, 8 + w, -8, 9); // tail
+    hm_ink(p, true);
+    hm_ell(p, -2, 3, 6, 6); // pelt
+    hm_ink(p, false);
+    for(int32_t i = 0; i < 4; i++) { // zig-zag hem
+        hm_tri(p, -7 + i * 3, 6, -5 + i * 3, 10, -3 + i * 3, 6);
+    }
+    hm_eye(p, 3, -8, pose);
+    hm_eye(p, 6, -8, pose);
+    hm_ink(p, true);
+    if(pose == DigivicePoseAttack) {
+        hm_ell(p, 9, -3, 2, 2);
+    } else {
+        hm_line(p, 7, -3, 10, -3);
+    }
+    hm_ink(p, false);
+}
+
+// 2: round bird with a three-tuft crest, a hooked beak and a flapping wing arm.
+static void hm_biyomon(const HmPen* p, uint32_t frame, DigivicePose pose) {
+    int32_t f = (int32_t)((frame / 2) % 2);
+    hm_ink(p, false);
+    hm_ell(p, 0, 3, 7, 8); // body
+    hm_ell(p, 3, -6, 6, 5); // head
+    hm_tri(p, 8, -7, 8, -3, 14, -5); // beak
+    hm_tri(p, 0, -10, 2, -10, -1, -15); // crest
+    hm_tri(p, 2, -10, 4, -10, 3, -16);
+    hm_tri(p, 4, -10, 6, -10, 7, -14);
+    hm_tri(p, -5, 0, -14, 6 - f * 2, -4, 6); // wing arm
+    hm_line(p, -2, 10, -2, 12); // legs
+    hm_line(p, 3, 10, 3, 12);
+    hm_box(p, -4, 12, 4, 1);
+    hm_box(p, 1, 12, 4, 1);
+    hm_tri(p, -6, 8, -13, 12, -4, 12); // tail feathers
+    hm_ink(p, true);
+    hm_ell(p, 2, 5, 3, 5); // belly
+    hm_eye(p, 2, -8, pose);
+    hm_eye(p, 6, -8, pose);
+    hm_ink(p, true);
+    hm_line(p, 8, -5, 12, -5);
+    if(pose == DigivicePoseAttack) hm_tri(p, 8, -5, 14, -5, 8, -2);
+    hm_ink(p, false);
+}
+
+// 3: armoured beetle with two antennae, flickering wings and a split shell.
+static void hm_tentomon(const HmPen* p, uint32_t frame, DigivicePose pose) {
+    bool flutter = (frame / 2) % 2;
+    hm_ink(p, false);
+    hm_ell(p, -1, 3, 9, 9); // shell
+    hm_ell(p, 8, -3, 5, 4); // head
+    hm_line(p, 6, -6, 4, -12); // antennae
+    hm_line(p, 9, -6, 12, -12);
+    hm_dot(p, 4, -12);
+    hm_dot(p, 12, -12);
+    hm_line(p, -6, 10, -8, 12); // legs
+    hm_line(p, -1, 11, -1, 12);
+    hm_line(p, 4, 10, 6, 12);
+    hm_line(p, 5, 2, 9, 5); // arm
+    if(flutter) {
+        hm_ell(p, -8, -6, 6, 2);
+        hm_ell(p, 0, -8, 6, 2);
+    }
+    hm_ink(p, true);
+    hm_line(p, -1, -5, -1, 11); // shell split
+    hm_ell(p, -5, 0, 2, 2); // spots
+    hm_ell(p, 3, 0, 2, 2);
+    hm_ell(p, -5, 6, 2, 2);
+    hm_ell(p, 3, 6, 2, 2);
+    hm_eye(p, 7, -5, pose);
+    hm_ink(p, true);
+    if(pose == DigivicePoseAttack) {
+        hm_ell(p, 10, -1, 2, 1);
+    } else {
+        hm_line(p, 9, -1, 11, -1);
+    }
+    hm_ink(p, false);
+}
+
+// 4: plant sprite with a flower crown, a leaf skirt and swaying vine arms.
+static void hm_palmon(const HmPen* p, uint32_t frame, DigivicePose pose) {
+    int32_t f = (int32_t)((frame / 3) % 2);
+    static const int8_t petal[6][2] = {
+        {-4, -11}, {-1, -14}, {5, -14}, {8, -11}, {5, -8}, {-1, -8}};
+    hm_ink(p, false);
+    for(int32_t i = 0; i < 6; i++) { // petals: solid and outlined, alternating
+        hm_ell(p, petal[i][0], petal[i][1], 3, 2);
+        if(i % 2) {
+            hm_ink(p, true);
+            hm_ell(p, petal[i][0], petal[i][1], 2, 1);
+            hm_ink(p, false);
+        }
+    }
+    hm_ell(p, 2, -4, 6, 5); // head
+    hm_tri(p, -5, 12, 9, 12, 2, 0); // body cone
+    hm_tri(p, -8, 8, -2, 12, -9, 12); // leaf skirt
+    hm_tri(p, 12, 8, 6, 12, 13, 12);
+    hm_line(p, -3, 3, -9, 5); // vine arms
+    hm_dot(p, -9, 6);
+    if(pose == DigivicePoseAttack) {
+        hm_line(p, 7, 3, 17, 2);
+        hm_dot(p, 17, 3);
+    } else {
+        hm_line(p, 7, 3, 13, 2 + f);
+        hm_dot(p, 13, 3 + f);
+    }
+    hm_box(p, -3, 12, 3, 1); // feet
+    hm_box(p, 3, 12, 3, 1);
+    hm_ink(p, true);
+    hm_ell(p, 2, -11, 2, 2); // flower centre
+    hm_ell(p, 2, -4, 4, 3); // face
+    hm_eye(p, 0, -5, pose);
+    hm_eye(p, 4, -5, pose);
+    hm_ink(p, false);
+    hm_line(p, 1, -2, 3, -2);
+}
+
+// 7: cat with tall ears, white gloves and a ringed tail that sways.
+static void hm_gatomon(const HmPen* p, uint32_t frame, DigivicePose pose) {
+    int32_t q = (int32_t)((frame / 3) % 4);
+    int32_t f = q < 3 ? q : 1; // 0, 1, 2, 1
+    hm_ink(p, false);
+    hm_ell(p, 0, 4, 5, 8); // body
+    hm_ell(p, 2, -6, 7, 6); // head
+    hm_tri(p, -4, -9, 0, -11, -4, -17); // ears
+    hm_tri(p, 4, -11, 8, -9, 9, -17);
+    hm_box(p, -3, 10, 3, 3); // legs
+    hm_box(p, 2, 10, 3, 3);
+    for(int32_t i = 0; i < 5; i++) { // tail
+        hm_ell(p, -5 - i * 3 / 2 - f * i / 4, 8 - i * 3, 1, 1);
+    }
+    if(pose == DigivicePoseAttack) {
+        hm_box(p, 7, 1, 7, 5); // glove outline
+    } else {
+        hm_box(p, 3, 1, 6, 5);
+    }
+    hm_box(p, -9, 1, 5, 5);
+    hm_ink(p, true);
+    for(int32_t i = 1; i < 4; i++) { // tail rings
+        hm_dot(p, -5 - i * 3 / 2 - f * i / 4, 8 - i * 3);
+    }
+    hm_box(p, -8, 2, 3, 3); // gloves
+    if(pose == DigivicePoseAttack) {
+        hm_box(p, 8, 2, 5, 3);
+    } else {
+        hm_box(p, 4, 2, 4, 3);
+    }
+    hm_ell(p, 2, -6, 5, 4); // face
+    hm_eye(p, 0, -7, pose);
+    hm_eye(p, 4, -7, pose);
+    hm_ink(p, false);
+    hm_dot(p, 6, -5); // nose
+    hm_line(p, 8, -5, 12, -6); // whiskers
+    if(pose == DigivicePoseAttack) {
+        hm_dot(p, 13, 2); // claws
+        hm_dot(p, 13, 3);
+        hm_dot(p, 13, 4);
+    }
+}
+
+// 8: round head with two very long ears, a small body and a forehead mark.
+static void hm_terriermon(const HmPen* p, uint32_t frame, DigivicePose pose) {
+    int32_t f = (int32_t)((frame / 3) % 2);
+    hm_ink(p, false);
+    hm_tri(p, -3, -6, -6, -4, -10, 10 + f); // ears
+    hm_tri(p, 5, -6, 8, -4, 12, 10 + f);
+    hm_ell(p, 1, -4, 7, 6); // head
+    hm_ell(p, 1, 6, 5, 5); // body
+    hm_ell(p, -5, 5, 2, 2); // arms
+    hm_ell(p, 7, 5, 2, 2);
+    hm_ell(p, -2, 12, 3, 1); // feet
+    hm_ell(p, 4, 12, 3, 1);
+    hm_tri(p, 0, -10, 3, -10, 1, -14); // forehead mark
+    hm_ink(p, true);
+    hm_ell(p, 3, -2, 3, 2); // muzzle
+    hm_ell(p, 1, 7, 3, 3); // belly
+    hm_eye(p, -1, -5, pose);
+    hm_eye(p, 4, -5, pose);
+    hm_ink(p, false);
+    if(pose == DigivicePoseAttack) {
+        hm_ell(p, 4, 0, 2, 2);
+    } else {
+        hm_line(p, 2, 0, 5, 0);
+    }
+}
+
 static const HmDraw hm_table[DIGIVICE_HOMAGE_COUNT] = {
     [0] = hm_agumon,
+    [1] = hm_gabumon,
+    [2] = hm_biyomon,
+    [3] = hm_tentomon,
+    [4] = hm_palmon,
     [5] = hm_gomamon,
     [6] = hm_patamon,
+    [7] = hm_gatomon,
+    [8] = hm_terriermon,
 };
 
 bool digivice_draw_homage(
