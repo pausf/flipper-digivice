@@ -491,6 +491,52 @@ static void test_battle_result_counts_win_and_lose_but_not_fled_or_draw(void) {
     CHECK(s.battles == 2 && s.wins_stage == 1);
 }
 
+#if DIGIVICE_EASTER_EGGS
+static void test_partner_battle_init_and_result(void) {
+    DigiviceState s = with_form(DigiviceFormKorno);
+    s.mood = 4;
+    s.enc_foe = DIGIVICE_ENC_HOMAGE + 2;
+    s.enc_expires = T0 + 1000;
+    DigiviceBattle b;
+    digivice_battle_init(&b, &s, DigiviceEncounterTrail, T0);
+    CHECK(b.foe_class == DigiviceFoeClassHomage && b.foe == 2);
+    CHECK(b.foe_power == 20 * DIGIVICE_HOMAGE_X10 / 10);
+    CHECK(b.foe_attr == digivice_homage_attr(2));
+    CHECK(b.foe_shot == b.player_shot);
+
+    s.special_count = 3;
+    DigiviceReward r = digivice_rules_battle_result(
+        &s, DigiviceEncounterTrail, DigiviceBattleResultWin, false, T0 + 1000, 50, T0);
+    CHECK(r.capture == DigiviceCaptureCaught || r.capture == DigiviceCaptureEscaped);
+    CHECK(r.partner == 2);
+    CHECK(r.exp == (DIGIVICE_TRAIL_EXP_BASE + DIGIVICE_TRAIL_EXP_AREA) * DIGIVICE_SPECIAL_EXP_X);
+    CHECK(s.enc_foe == DIGIVICE_ENC_NONE);
+    // The partner fight itself does not count towards the next one.
+    CHECK(r.capture == DigiviceCaptureEscaped ? s.special_count == DIGIVICE_HOMAGE_RETRY :
+                                                 s.special_count == 3);
+}
+
+static void test_partner_loss_and_counting(void) {
+    DigiviceState s = with_form(DigiviceFormKorno);
+    s.enc_foe = DIGIVICE_ENC_HOMAGE;
+    s.enc_expires = T0 + 1000;
+    digivice_rules_battle_result(
+        &s, DigiviceEncounterTrail, DigiviceBattleResultLose, false, T0 + 1000, 50, T0);
+    CHECK(s.special_count == DIGIVICE_HOMAGE_RETRY);
+    CHECK(s.caught == 0);
+
+    DigiviceState t = with_form(DigiviceFormKorno);
+    t.enc_foe = 0;
+    t.enc_expires = T0 + 1000;
+    digivice_rules_battle_result(
+        &t, DigiviceEncounterTrail, DigiviceBattleResultWin, false, T0 + 1000, 50, T0);
+    CHECK(t.special_count == 1);
+    digivice_rules_battle_result(
+        &t, DigiviceEncounterTrail, DigiviceBattleResultFled, false, 0, 50, T0);
+    CHECK(t.special_count == 1);
+}
+#endif
+
 int main(void) {
     test_stage_tables_cover_every_stage();
     test_hit_pct();
@@ -513,6 +559,10 @@ int main(void) {
     test_virux_rewards();
     test_win_without_virux_type_grants_exp_only();
     test_draw_and_flee_change_nothing_else();
+#if DIGIVICE_EASTER_EGGS
+    test_partner_battle_init_and_result();
+    test_partner_loss_and_counting();
+#endif
 
     if(failures) {
         printf("%d check(s) failed\n", failures);

@@ -158,7 +158,21 @@
 #define DIGIVICE_EASTER_EGGS 1
 #endif
 
-#define DIGIVICE_HOMAGE_COUNT     9
-#define DIGIVICE_HOMAGE_MASK      0x01FF
-#define DIGIVICE_CITY_COUNT       5
-#define DIGIVICE_HOMAGE_GUARANTEE 4 // last index of the odds table (Task 3)
+#define DIGIVICE_HOMAGE_COUNT 9
+#define DIGIVICE_HOMAGE_MASK  0x01FF
+#define DIGIVICE_CITY_COUNT   5
+
+// Special encounters. Odds in percent by battles since the last partner (index 0..GUARANTEE).
+#define DIGIVICE_HOMAGE_ODDS       {0, 10, 20, 40, 100}
+#define DIGIVICE_HOMAGE_GUARANTEE  4
+#define DIGIVICE_HOMAGE_RETRY      2
+#define DIGIVICE_HOMAGE_X10        12
+#define DIGIVICE_SPECIAL_MIN_STAGE 3 // Rookie
+#define DIGIVICE_SPECIAL_EXP_X     2
+
+// Capture.
+#define DIGIVICE_CAPTURE_BASE_PCT 60
+#define DIGIVICE_CAPTURE_MOOD_PCT 5
+#define DIGIVICE_CAPTURE_MAX_PCT  95
+#define DIGIVICE_FRIEND_EXP       15
+#define DIGIVICE_CAPTURE_FRAMES   60

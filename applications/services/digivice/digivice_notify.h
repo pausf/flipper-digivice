@@ -13,5 +13,7 @@ extern const NotificationSequence digivice_sequence_sick_silent;
 extern const NotificationSequence digivice_sequence_poop;
 extern const NotificationSequence digivice_sequence_bedtime;
 extern const NotificationSequence digivice_sequence_encounter;
+extern const NotificationSequence digivice_sequence_special;
+extern const NotificationSequence digivice_sequence_special_hold;
 extern const NotificationSequence digivice_sequence_lose;
 extern const NotificationSequence digivice_sequence_call;

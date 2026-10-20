@@ -7,6 +7,7 @@
 #include <digivice/digivice.h>
 #include <digivice/digivice_config.h>
 #include <digivice/digivice_draw.h>
+#include <digivice/digivice_homage.h>
 #include <digivice/digivice_i18n.h>
 #include <digivice/digivice_roster.h>
 

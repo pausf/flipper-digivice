@@ -37,7 +37,15 @@ static void battle_exit(DigiviceApp* app) {
 static const char* foe_name(const DigiviceApp* app) {
     if(app->enc_kind == DigiviceEncounterBoss) return digivice_expedition_boss_name(app->enc_area);
     if(app->enc_kind == DigiviceEncounterVirux) return "VIRUX";
+    if(app->battle.foe_class == DigiviceFoeClassHomage) {
+        return digivice_homage_name(app->battle.foe);
+    }
     return digivice_expedition_foe_name((DigiviceFoe)app->battle.foe);
+}
+
+static bool is_special(const DigiviceApp* app) {
+    return app->enc_kind == DigiviceEncounterTrail &&
+           app->battle.foe_class != DigiviceFoeClassPool;
 }
 
 // Glyph-safe prefix: the byte length of the first `glyphs` UTF-8 glyphs of `text`.
@@ -82,7 +90,9 @@ void digivice_encounter_start(DigiviceApp* app, DigiviceEncounterKind kind) {
     app->streak_lost = false;
     app->area_cleared = false;
     digivice_app_set_screen(app, DigiviceScreenEncounter);
-    notification_message(app->notification, &digivice_sequence_encounter);
+    notification_message(
+        app->notification,
+        is_special(app) ? &digivice_sequence_special : &digivice_sequence_encounter);
 }
 
 static void battle_set_phase(DigiviceApp* app, DigiviceBattlePhase phase) {
@@ -112,7 +122,13 @@ void digivice_encounter_input(DigiviceApp* app, const InputEvent* event) {
 
 void digivice_encounter_tick(DigiviceApp* app) {
     uint32_t f = app->screen_frame;
-    if(f == 16) foe_led(app);
+    if(f == 16) {
+        if(is_special(app)) {
+            notification_message(app->notification, &digivice_sequence_special_hold);
+        } else {
+            foe_led(app);
+        }
+    }
     if(f >= ENCOUNTER_FRAMES) {
         notification_message(app->notification, &sequence_reset_rgb);
         digivice_app_set_screen(app, DigiviceScreenBattle);
@@ -150,6 +166,9 @@ static void draw_fighters(
             canvas, app->enc_area, (DigiviceForm)app->state.form, fx, fy, app->frame, false);
     } else if(app->enc_kind == DigiviceEncounterVirux) {
         digivice_draw_virux(canvas, fx, fy - 14, app->frame);
+    } else if(app->battle.foe_class == DigiviceFoeClassHomage) {
+        digivice_draw_homage(
+            canvas, app->battle.foe, fx, fy, app->frame, foe_pose, true, false, false);
     } else {
         digivice_draw_foe(
             canvas, (DigiviceFoe)app->battle.foe, fx, fy, app->frame, foe_pose, true, false);
@@ -205,7 +224,14 @@ void digivice_encounter_draw(Canvas* canvas, DigiviceApp* app) {
                 }
             }
         } else if(f < 8) {
-            digivice_draw_exclam_bubble(canvas, 40, 14 - (int32_t)(f % 4 < 2));
+            if(is_special(app)) {
+                digivice_draw_sparkle_ring(canvas, 34, PET_CY, 18, 12, app->frame);
+                if(f % 2 == 0) {
+                    digivice_draw_label(canvas, 28, digivice_app_str(app, DigiviceStrEncSpecial));
+                }
+            } else {
+                digivice_draw_exclam_bubble(canvas, 40, 14 - (int32_t)(f % 4 < 2));
+            }
         } else {
             // Wipe in 16 strips, with glitch rows and two inverted frames.
             for(int32_t k = 0; k < (int32_t)(f - 8) * 2; k++)
@@ -251,7 +277,7 @@ void digivice_encounter_draw(Canvas* canvas, DigiviceApp* app) {
     draw_panel(canvas);
     if(f >= 29) {
         uint32_t typed = (f - 29) * 3;
-        if(boss) {
+        if(boss || is_special(app)) {
             snprintf(line, sizeof(line), "%s", foe_name(app));
         } else {
             snprintf(

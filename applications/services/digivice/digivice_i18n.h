@@ -182,6 +182,8 @@ typedef enum {
     DigiviceStrNoticeGone,
     DigiviceStrHomeEncounter,
     DigiviceStrHomeBoss,
+    // v3.3
+    DigiviceStrEncSpecial,
 
     DigiviceStrCount,
 } DigiviceStr;

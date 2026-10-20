@@ -250,6 +250,16 @@ void digivice_rules_mix_entropy(DigiviceState* s, uint32_t entropy) {
     if(s->rng == 0) s->rng = 1;
 }
 
+uint32_t digivice_rules_hash(uint32_t x, uint32_t salt) {
+    x ^= salt * 0x9E3779B9UL;
+    x ^= x >> 16;
+    x *= 0x7FEB352DUL;
+    x ^= x >> 15;
+    x *= 0x846CA68BUL;
+    x ^= x >> 16;
+    return x;
+}
+
 // The attribute each attribute beats; Nulo beats nothing and loses to nothing.
 static const uint8_t attr_beats[DigiviceAttrNulo] = {
     [DigiviceAttrPortador] = DigiviceAttrRuido,

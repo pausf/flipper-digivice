@@ -346,7 +346,10 @@ static void digivice_changed(Digivice* digivice, const DigiviceState* before) {
             digivice->notification,
             asleep ? &digivice_sequence_sick_silent : &digivice_sequence_sick);
     } else if(digivice_encounter_appeared(before, &after) && !asleep) {
-        notification_message(digivice->notification, &digivice_sequence_encounter);
+        notification_message(
+            digivice->notification,
+            digivice_homage_code(after.enc_foe) ? &digivice_sequence_special :
+                                                  &digivice_sequence_encounter);
     } else if((after.call_flags & ~before->call_flags) != 0 && !asleep) {
         notification_message(digivice->notification, &digivice_sequence_call);
     } else if(after.poop > before->poop && !asleep) {

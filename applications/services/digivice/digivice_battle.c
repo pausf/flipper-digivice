@@ -97,6 +97,12 @@ void digivice_battle_init(
         b->foe_attr = digivice_rules_type_attr((DigiviceType)s->virux_type);
         b->foe_power = virux_power[stage];
         b->foe_shot = b->player_shot;
+    } else if(digivice_homage_code(s->enc_foe)) {
+        b->foe_class = DigiviceFoeClassHomage;
+        b->foe = (uint8_t)(s->enc_foe - DIGIVICE_ENC_HOMAGE);
+        b->foe_attr = digivice_homage_attr(b->foe);
+        b->foe_power = (uint16_t)(stage_power[stage] * DIGIVICE_HOMAGE_X10 / 10);
+        b->foe_shot = b->player_shot;
     } else {
         DigiviceFoe foe = digivice_expedition_pool_foe(s->area, s->enc_foe <= 1 ? s->enc_foe : 0);
         b->foe = foe;
@@ -174,8 +180,12 @@ DigiviceReward digivice_rules_battle_result(
     uint8_t rng_pct,
     uint32_t now) {
     DigiviceReward reward = {.exp = 0, .item = DigiviceItemNone};
+    bool homage = kind == DigiviceEncounterTrail && s->enc_expires == offered_expires &&
+                  digivice_homage_code(s->enc_foe);
+    uint8_t partner = homage ? (uint8_t)(s->enc_foe - DIGIVICE_ENC_HOMAGE) : 0;
     if(result == DigiviceBattleResultWin || result == DigiviceBattleResultLose) {
         digivice_rules_count_battle(s, result == DigiviceBattleResultWin);
+        if(!homage) digivice_homage_count_battle(s);
     }
     if(shield_used && s->item == DigiviceItemShield) s->item = DigiviceItemNone;
     uint8_t area = s->area < DIGIVICE_AREA_COUNT ? s->area : DIGIVICE_AREA_COUNT - 1;
@@ -185,6 +195,12 @@ DigiviceReward digivice_rules_battle_result(
         if(kind == DigiviceEncounterTrail) {
             reward.exp = DIGIVICE_TRAIL_EXP_BASE + DIGIVICE_TRAIL_EXP_AREA * (area + 1);
             if(rng_pct < DIGIVICE_DROP_PCT) drop_shield(s, &reward);
+            if(homage) {
+                reward.exp *= DIGIVICE_SPECIAL_EXP_X;
+                reward.partner = partner;
+                reward.capture = digivice_homage_resolve(s, partner, digivice_rules_rng_pct(s));
+                if(reward.capture == DigiviceCaptureFriend) reward.exp += DIGIVICE_FRIEND_EXP;
+            }
         } else if(kind == DigiviceEncounterBoss) {
             reward.exp = DIGIVICE_BOSS_EXP_BASE + DIGIVICE_BOSS_EXP_AREA * (area + 1);
             if(s->cleared & (1U << area)) reward.exp /= 2;
@@ -208,6 +224,8 @@ DigiviceReward digivice_rules_battle_result(
         s->injured_until = now + DIGIVICE_INJURY_S;
         if(kind != DigiviceEncounterVirux) digivice_expedition_streak_lost(s);
     }
+
+    if(homage && result != DigiviceBattleResultWin) s->special_count = DIGIVICE_HOMAGE_RETRY;
 
     if(kind == DigiviceEncounterTrail) {
         // A long fight may have outlived its encounter and a newer one spawned meanwhile.

@@ -157,6 +157,22 @@ void digivice_draw_foe(
     DigivicePose pose,
     bool flip,
     bool silhouette);
+
+// digivice_homage_draw.c: homage partners (no names here, only ids).
+
+/** Homage partner `id` standing on foot_y, 24 px tall (12 px when `half`, for companions), facing
+ * right unless `flip`. False when the id is out of range or the partners are compiled out. */
+bool digivice_draw_homage(
+    Canvas* canvas,
+    uint8_t id,
+    int32_t cx,
+    int32_t foot_y,
+    uint32_t frame,
+    DigivicePose pose,
+    bool flip,
+    bool silhouette,
+    bool half);
+
 /** Area boss, at most 56x48, facing left. NEGATIVO (area 8) is `pet` drawn in negative. */
 void digivice_draw_boss(
     Canvas* canvas,

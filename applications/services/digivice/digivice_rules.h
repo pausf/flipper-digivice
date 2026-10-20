@@ -437,6 +437,8 @@ uint32_t digivice_rules_rng(DigiviceState* s);
 uint8_t digivice_rules_rng_pct(DigiviceState* s);
 /** XORs hardware entropy into s->rng and keeps it nonzero. */
 void digivice_rules_mix_entropy(DigiviceState* s, uint32_t entropy);
+/** Pure integer hash for rolls that must not advance s->rng. */
+uint32_t digivice_rules_hash(uint32_t x, uint32_t salt);
 
 /** +1 when the attacker beats the defender, -1 when the defender beats it, 0 otherwise. */
 int8_t digivice_rules_attr_adv(uint8_t attacker, uint8_t defender);

@@ -22,6 +22,8 @@ App(
         "digivice_draw_world.c",
         "digivice_draw_scene.c",
         "digivice_draw_roster.c",
+        "digivice_homage.c",
+        "digivice_homage_draw.c",
         "digivice_i18n.c",
     ],
     stack_size=3 * 1024,

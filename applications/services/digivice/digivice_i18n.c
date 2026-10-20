@@ -179,6 +179,7 @@ static const char* const strings_es[DigiviceStrCount] = {
     [DigiviceStrNoticeGone] = "SE FUE...",
     [DigiviceStrHomeEncounter] = "ENCUENTRO",
     [DigiviceStrHomeBoss] = EXCL_INV "JEFE!",
+    [DigiviceStrEncSpecial] = EXCL_INV "ENCUENTRO ESPECIAL!",
 };
 
 static const char* const strings_en[DigiviceStrCount] = {
@@ -346,6 +347,7 @@ static const char* const strings_en[DigiviceStrCount] = {
     [DigiviceStrNoticeGone] = "IT'S GONE...",
     [DigiviceStrHomeEncounter] = "ENCOUNTER",
     [DigiviceStrHomeBoss] = "BOSS!",
+    [DigiviceStrEncSpecial] = "SPECIAL ENCOUNTER!",
 };
 
 // Slot widths in pixels, from the layouts in digivice_draw.c and the app screens.
@@ -535,6 +537,7 @@ static const uint8_t budgets[DigiviceStrCount] = {
     [DigiviceStrHomeEncounter] = SLOT_HOME,
     [DigiviceStrHomeCall] = SLOT_HOME,
     [DigiviceStrHomeBoss] = SLOT_HOME,
+    [DigiviceStrEncSpecial] = SLOT_LABEL,
 };
 
 const char* digivice_str(DigiviceLang lang, DigiviceStr id) {

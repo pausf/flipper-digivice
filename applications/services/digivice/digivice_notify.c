@@ -112,6 +112,34 @@ const NotificationSequence digivice_sequence_poop = {
     NULL,
 };
 
+// Rainbow sweep when a special encounter shows up.
+const NotificationSequence digivice_sequence_special = {
+    &message_red_255,
+    &message_delay_100,
+    &message_red_0,
+    &message_green_255,
+    &message_delay_100,
+    &message_green_0,
+    &message_blue_255,
+    &message_delay_100,
+    &message_blue_0,
+    &message_red_255,
+    &message_blue_255,
+    &message_delay_250,
+    &message_red_0,
+    &message_blue_0,
+    NULL,
+};
+
+// Magenta that stays on through the fight lead-in; the encounter exit resets it.
+const NotificationSequence digivice_sequence_special_hold = {
+    &message_green_0,
+    &message_red_255,
+    &message_blue_255,
+    &message_do_not_reset,
+    NULL,
+};
+
 // Two red blinks with a buzz each: a trail encounter spawned or the boss is ready.
 const NotificationSequence digivice_sequence_encounter = {
     &message_red_255,

@@ -3,6 +3,7 @@
 // Pure battle rules: no furi includes, so the host test can compile this file with plain cc.
 
 #include "digivice_expedition.h"
+#include "digivice_homage.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -50,14 +51,24 @@ typedef enum {
     DigiviceShotShielded, /**< foe hit cancelled by the Shield */
 } DigiviceShot;
 
+typedef enum {
+    DigiviceFoeClassPool, /**< `foe` is a DigiviceFoe */
+    DigiviceFoeClassHomage, /**< `foe` is the partner id */
+    DigiviceFoeClassCity, /**< `foe` is the city monster index */
+} DigiviceFoeClass;
+
 typedef struct {
     uint16_t exp;
     uint8_t item; /**< DigiviceItem dropped, DigiviceItemNone when nothing dropped */
+    uint8_t capture; /**< DigiviceCapture */
+    uint8_t partner; /**< partner id when capture != None */
 } DigiviceReward;
 
 typedef struct {
     uint8_t kind; /**< DigiviceEncounterKind */
-    uint8_t foe; /**< DigiviceFoe (trail), area (boss) or DigiviceType (VIRUX) */
+    /** DigiviceFoe (pool), partner id, city monster index, area (boss) or DigiviceType (VIRUX) */
+    uint8_t foe;
+    uint8_t foe_class; /**< DigiviceFoeClass */
     uint8_t player_attr; /**< DigiviceAttr */
     uint8_t foe_attr;
     uint8_t player_shot; /**< projectile size in px, DIGIVICE_SHOT_BEAM for the beam */
