@@ -123,3 +123,11 @@
 
 // Cutscene length in frames of the 100 ms animation clock.
 #define DIGIVICE_EVO_FRAMES 50
+
+// Vigor: the strength hearts that protein fills (v3.2).
+#define DIGIVICE_VIGOR_MAX     4
+#define DIGIVICE_VIGOR_START   2
+#define DIGIVICE_VIGOR_DECAY_S (4UL * 3600UL)
+
+// Calls: awake seconds a hunger or vigor call waits before it becomes a care mistake.
+#define DIGIVICE_CALL_WINDOW_S (10UL * 60UL)

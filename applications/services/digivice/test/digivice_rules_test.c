@@ -478,7 +478,7 @@ static void test_v2_defaults_and_layout(void) {
     // The v1 file is 56 bytes, v2 appends 28 and v3 another 32, each keeping the older offsets.
     CHECK(sizeof(DigiviceStateV1) == 56);
     CHECK(sizeof(DigiviceStateV2) == 84);
-    CHECK(sizeof(DigiviceState) == 116);
+    CHECK(sizeof(DigiviceState) == 140);
     CHECK(offsetof(DigiviceState, corrupt_acc_s) == offsetof(DigiviceStateV1, corrupt_acc_s));
     CHECK(offsetof(DigiviceState, light_on_asleep_s) ==
           offsetof(DigiviceStateV2, light_on_asleep_s));
@@ -1130,8 +1130,80 @@ static void test_60s_ticks_match_one_tick_with_care(void) {
     CHECK(memcmp(&a, &b, sizeof(a)) == 0);
 }
 
+static void test_v4_layout(void) {
+    CHECK(sizeof(DigiviceStateV3) == 116);
+    CHECK(sizeof(DigiviceState) == 140);
+    CHECK(offsetof(DigiviceState, vigor) == sizeof(DigiviceStateV3));
+    CHECK(offsetof(DigiviceState, rng) == offsetof(DigiviceStateV3, rng));
+}
+
+static void check_v4_defaults(const DigiviceState* s, uint32_t stage_since) {
+    CHECK(s->vigor == DIGIVICE_VIGOR_START);
+    CHECK(s->call_flags == 0);
+    CHECK(s->feed_flags == (DIGIVICE_FEED_ARM_HUNGER | DIGIVICE_FEED_ARM_VIGOR));
+    CHECK(s->evo_mistakes == 0 && s->train_count == 0 && s->battles == 0);
+    CHECK(s->wins_stage == 0 && s->overfeed == 0 && s->night_owl == 0);
+    CHECK(s->call_hunger_s == 0 && s->call_vigor_s == 0 && s->vigor_acc_s == 0);
+    CHECK(s->stage_since == stage_since);
+}
+
+static void test_v4_defaults_on_init_and_reset(void) {
+    DigiviceState s = fresh(T0);
+    check_v4_defaults(&s, T0);
+    s.vigor = 0;
+    s.overfeed = 9;
+    digivice_rules_reset(&s, T0 + 50);
+    check_v4_defaults(&s, T0 + 50);
+}
+
+static void test_migrate_v3_keeps_everything(void) {
+    DigiviceState src = fresh(T0);
+    src.form = DigiviceFormTagdrake;
+    src.prev_form = DigiviceFormBytemon;
+    src.area = 3;
+    src.cleared = 5;
+    src.rng = 0xDEADBEEFUL;
+    src.hunger = 2;
+    src.lang = DigiviceLangEn;
+    DigiviceStateV3 v3;
+    memcpy(&v3, &src, sizeof(v3));
+    DigiviceState out;
+    memset(&out, 0xA5, sizeof(out));
+    digivice_rules_migrate_v3(&v3, &out);
+    CHECK(memcmp(&out, &v3, sizeof(v3)) == 0);
+    check_v4_defaults(&out, v3.last_tick);
+}
+
+static void test_migrate_v2_applies_v4_defaults(void) {
+    DigiviceStateV2 v2 = v2_fixture();
+    DigiviceState out;
+    digivice_rules_migrate_v2(&v2, &out);
+    check_v4_defaults(&out, v2.last_tick);
+}
+
+static void test_sanitize_v4_fields(void) {
+    DigiviceState s = fresh(T0);
+    s.vigor = 9;
+    s.call_flags = 0xFF;
+    s.feed_flags = 0xFF;
+    s.call_hunger_s = 60000;
+    s.call_vigor_s = 60000;
+    s.vigor_acc_s = DIGIVICE_VIGOR_DECAY_S + 5;
+    digivice_rules_sanitize(&s);
+    CHECK(s.vigor == DIGIVICE_VIGOR_MAX);
+    CHECK(s.call_flags == (DIGIVICE_CALL_HUNGER | DIGIVICE_CALL_VIGOR));
+    CHECK(s.feed_flags == (DIGIVICE_FEED_ARM_HUNGER | DIGIVICE_FEED_ARM_VIGOR));
+    CHECK(s.call_hunger_s == DIGIVICE_CALL_WINDOW_S && s.call_vigor_s == DIGIVICE_CALL_WINDOW_S);
+    CHECK(s.vigor_acc_s == 0);
+}
+
 int main(void) {
     test_init();
+    test_v4_layout();
+    test_v4_defaults_on_init_and_reset();
+    test_migrate_v3_keeps_everything();
+    test_migrate_v2_applies_v4_defaults();
+    test_sanitize_v4_fields();
     test_hunger_decays_every_2h();
     test_mood_decays_every_3h();
     test_60s_ticks_lose_nothing();

@@ -60,6 +60,30 @@ static void v3_defaults(DigiviceState* s) {
     s->rng = (s->last_tick ^ s->born_at ^ 0x9E3779B9UL) | 1UL;
 }
 
+static void v4_defaults(DigiviceState* s, uint32_t stage_since) {
+    s->vigor = DIGIVICE_VIGOR_START;
+    s->call_flags = 0;
+    s->feed_flags = DIGIVICE_FEED_ARM_HUNGER | DIGIVICE_FEED_ARM_VIGOR;
+    s->evo_mistakes = 0;
+    s->train_count = 0;
+    s->battles = 0;
+    s->wins_stage = 0;
+    s->overfeed = 0;
+    s->night_owl = 0;
+    memset(s->reserved4, 0, sizeof(s->reserved4));
+    s->call_hunger_s = 0;
+    s->call_vigor_s = 0;
+    s->stage_since = stage_since;
+    s->vigor_acc_s = 0;
+}
+
+void digivice_rules_migrate_v3(const DigiviceStateV3* v3, DigiviceState* s) {
+    memset(s, 0, sizeof(*s));
+    // The v4 struct starts with the exact v3 layout (static_assert in digivice_rules.h).
+    memcpy(s, v3, sizeof(*v3));
+    v4_defaults(s, v3->last_tick);
+}
+
 void digivice_rules_init(DigiviceState* s, uint32_t now) {
     memset(s, 0, sizeof(DigiviceState));
     s->form = DigiviceFormByteegg;
@@ -75,6 +99,7 @@ void digivice_rules_init(DigiviceState* s, uint32_t now) {
     s->mode = DigiviceModeNormal;
     s->light_on = 1;
     v3_defaults(s);
+    v4_defaults(s, now);
 }
 
 void digivice_rules_reset(DigiviceState* s, uint32_t now) {
@@ -117,10 +142,17 @@ void digivice_rules_migrate_v2(const DigiviceStateV2* v2, DigiviceState* s) {
     // The v3 struct starts with the exact v2 layout (static_assert in digivice_rules.h).
     memcpy(s, v2, sizeof(DigiviceStateV2));
     v3_defaults(s);
+    v4_defaults(s, s->last_tick);
 }
 
 void digivice_rules_sanitize(DigiviceState* s) {
     if(s->lang >= DigiviceLangCount) s->lang = DigiviceLangEs;
+    if(s->vigor > DIGIVICE_VIGOR_MAX) s->vigor = DIGIVICE_VIGOR_MAX;
+    s->call_flags &= DIGIVICE_CALL_HUNGER | DIGIVICE_CALL_VIGOR;
+    s->feed_flags &= DIGIVICE_FEED_ARM_HUNGER | DIGIVICE_FEED_ARM_VIGOR;
+    if(s->call_hunger_s > DIGIVICE_CALL_WINDOW_S) s->call_hunger_s = DIGIVICE_CALL_WINDOW_S;
+    if(s->call_vigor_s > DIGIVICE_CALL_WINDOW_S) s->call_vigor_s = DIGIVICE_CALL_WINDOW_S;
+    if(s->vigor_acc_s >= DIGIVICE_VIGOR_DECAY_S) s->vigor_acc_s = 0;
     if(s->mode >= DigiviceModeCount) s->mode = DigiviceModeNormal;
     if(s->area >= DIGIVICE_AREA_COUNT) s->area = 0;
     if(s->enc_foe > 1) s->enc_foe = DIGIVICE_ENC_NONE;
@@ -509,6 +541,9 @@ bool digivice_rules_same_visible(const DigiviceState* a, const DigiviceState* b)
     y.hike_count = a->hike_count;
     y.scan_count = a->scan_count;
     y.bonus_window_start = a->bonus_window_start;
+    y.vigor_acc_s = a->vigor_acc_s;
+    y.call_hunger_s = a->call_hunger_s;
+    y.call_vigor_s = a->call_vigor_s;
     // Paces are bookkeeping; only reaching the boss (distance 0) is visible.
     if((a->distance == 0) == (b->distance == 0)) y.distance = a->distance;
     return memcmp(a, &y, sizeof(DigiviceState)) == 0;

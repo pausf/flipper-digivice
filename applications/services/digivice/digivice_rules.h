@@ -142,6 +142,66 @@ typedef struct {
     uint32_t light_on_asleep_s; /**< seconds the light stayed on in the current sleep window */
 } DigiviceStateV2;
 
+/** Exact copy of the v3 save layout (saved_struct version 0x03). Never change it. */
+typedef struct {
+    uint8_t form; /**< DigiviceForm */
+    uint8_t prev_form; /**< form to restore after corruption recovery */
+    uint8_t evo_from; /**< form before the last evolution, DigiviceFormNone when none is pending */
+    uint8_t hunger; /**< 0..DIGIVICE_HUNGER_MAX */
+    uint8_t mood; /**< 0..DIGIVICE_MOOD_MAX */
+    uint8_t corruption; /**< 0..DIGIVICE_CORRUPTION_MAX */
+    uint8_t virux_type; /**< DigiviceType, DigiviceTypeNone when no VIRUX is pending */
+    uint8_t reserved;
+    uint16_t strength;
+    uint16_t wins;
+    uint16_t losses;
+    uint16_t data[DigiviceTypeCount];
+    uint32_t exp;
+    uint32_t virux_expires;
+    uint32_t last_tick;
+    uint32_t born_at;
+    uint32_t clean_since; /**< when corruption last reached 0, 0 while corruption > 0 */
+    // Awake seconds carried between ticks so 60 s ticks lose nothing to rounding.
+    uint32_t hunger_acc_s;
+    uint32_t mood_acc_s;
+    uint32_t corrupt_acc_s;
+    // v2 fields, appended so the v1 prefix keeps its offsets.
+    uint8_t lang; /**< DigiviceLang */
+    uint8_t mode; /**< DigiviceMode */
+    uint8_t poop; /**< 0..DIGIVICE_POOP_MAX */
+    uint8_t sick; /**< 0/1 */
+    uint8_t care_mistakes; /**< since the last full cure, saturates at 255 */
+    uint8_t light_on; /**< 0/1, forced back to 1 whenever the pet is awake */
+    uint8_t doses_needed; /**< remaining doses while sick */
+    uint8_t reserved2;
+    uint32_t poop_acc_s; /**< awake seconds toward the next poop */
+    uint32_t poop_dirty_since; /**< when the oldest uncleaned poop appeared, 0 when none */
+    uint32_t starving_since; /**< when hunger hit 0, 0 while hunger > 0 */
+    uint32_t sick_since; /**< when sickness started, 0 while healthy */
+    uint32_t light_on_asleep_s; /**< seconds the light stayed on in the current sleep window */
+    // v3 fields, appended so the v2 prefix keeps its offsets.
+    uint8_t area; /**< 0..DIGIVICE_AREA_COUNT-1, the active Expedition area */
+    uint8_t cleared; /**< bit i set once the boss of area i is defeated */
+    uint8_t enc_foe; /**< pending trail foe, index 0 or 1 in the area pool, DIGIVICE_ENC_NONE */
+    uint8_t mid_state; /**< midway event: 0 not reached, 1 available, 2 done */
+    uint8_t item; /**< DigiviceItem */
+    uint8_t hike_count; /**< Hike paces granted in the current bonus window */
+    uint8_t scan_count; /**< scan paces granted in the current bonus window */
+    uint8_t reserved3;
+    uint16_t distance; /**< paces left in the area; 0 means the boss is ready */
+    uint16_t paces_since_fight; /**< paces since the last encounter spawned, saturates */
+    uint32_t pace_acc_s; /**< awake seconds toward the next pace */
+    uint32_t enc_expires; /**< when the pending trail encounter leaves, 0 when none */
+    uint32_t bonus_window_start; /**< start of the hourly Hike and scan window, 0 when none */
+    uint32_t injured_until; /**< end of the defeat injury, 0 when healthy */
+    uint32_t rng; /**< xorshift32 state, never 0 */
+} DigiviceStateV3;
+
+#define DIGIVICE_CALL_HUNGER     0x01
+#define DIGIVICE_CALL_VIGOR      0x02
+#define DIGIVICE_FEED_ARM_HUNGER 0x01
+#define DIGIVICE_FEED_ARM_VIGOR  0x02
+
 /** Persisted pet state. Fixed-width fields only: it is written as-is by saved_struct. */
 typedef struct {
     uint8_t form; /**< DigiviceForm */
@@ -195,6 +255,21 @@ typedef struct {
     uint32_t bonus_window_start; /**< start of the hourly Hike and scan window, 0 when none */
     uint32_t injured_until; /**< end of the defeat injury, 0 when healthy */
     uint32_t rng; /**< xorshift32 state, never 0 */
+    // v4 fields, appended so the v3 prefix keeps its offsets.
+    uint8_t vigor; /**< 0..DIGIVICE_VIGOR_MAX, the strength hearts protein fills */
+    uint8_t call_flags; /**< DIGIVICE_CALL_HUNGER | DIGIVICE_CALL_VIGOR: calls waiting */
+    uint8_t feed_flags; /**< DIGIVICE_FEED_ARM_*: a refusal of that food counts as overfeed */
+    uint8_t evo_mistakes; /**< call mistakes in this stage, reset on evolution */
+    uint8_t train_count; /**< successful trainings in this stage */
+    uint8_t battles; /**< Win or Lose results in this stage */
+    uint8_t wins_stage; /**< Wins in this stage */
+    uint8_t overfeed; /**< refusals counted in this stage */
+    uint8_t night_owl; /**< sleeps with the light left on, in this stage */
+    uint8_t reserved4[3];
+    uint16_t call_hunger_s; /**< awake seconds the hunger call has waited */
+    uint16_t call_vigor_s; /**< awake seconds the vigor call has waited */
+    uint32_t stage_since; /**< when the current form began, wall clock */
+    uint32_t vigor_acc_s; /**< awake seconds toward the next vigor heart lost */
 } DigiviceState;
 
 _Static_assert(sizeof(DigiviceStateV1) == 56, "the v1 file layout is frozen");
@@ -202,15 +277,22 @@ _Static_assert(sizeof(DigiviceStateV2) == 84, "the v2 file layout is frozen");
 _Static_assert(
     offsetof(DigiviceState, area) == sizeof(DigiviceStateV2),
     "v3 keeps the v2 prefix");
-_Static_assert(sizeof(DigiviceState) == 116, "v3 file layout");
+_Static_assert(sizeof(DigiviceStateV3) == 116, "the v3 file layout is frozen");
+_Static_assert(
+    offsetof(DigiviceState, vigor) == sizeof(DigiviceStateV3),
+    "v4 keeps the v3 prefix");
+_Static_assert(sizeof(DigiviceState) == 140, "v4 file layout");
 
 void digivice_rules_init(DigiviceState* s, uint32_t now);
 /** Fresh egg that keeps the owner's language and mode. */
 void digivice_rules_reset(DigiviceState* s, uint32_t now);
 /** Copies every v1 field and gives the v2 ones their defaults (Spanish, Normal, light on). */
 void digivice_rules_migrate_v1(const DigiviceStateV1* v1, DigiviceStateV2* v2);
-/** Copies the v2 prefix and gives the v3 fields their defaults: area 1 from its start. */
+/** Copies the v2 prefix and yields the current state: v3 defaults (area 1 from its start), then
+ * v4 defaults. */
 void digivice_rules_migrate_v2(const DigiviceStateV2* v2, DigiviceState* s);
+/** Copies the v3 prefix and gives the v4 fields their defaults. */
+void digivice_rules_migrate_v3(const DigiviceStateV3* v3, DigiviceState* s);
 /** Repairs out-of-range fields from a loaded file instead of trusting them. */
 void digivice_rules_sanitize(DigiviceState* s);
 /** Return false (and change nothing) when the value is out of range. */

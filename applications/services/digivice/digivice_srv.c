@@ -9,7 +9,8 @@
 
 #define DIGIVICE_STATE_PATH    INT_PATH(".digivice.state")
 #define DIGIVICE_STATE_MAGIC      0xD1
-#define DIGIVICE_STATE_VERSION    0x03
+#define DIGIVICE_STATE_VERSION    0x04
+#define DIGIVICE_STATE_VERSION_V3 0x03
 #define DIGIVICE_STATE_VERSION_V2 0x02
 #define DIGIVICE_STATE_VERSION_V1 0x01
 
@@ -159,7 +160,7 @@ void digivice_ack_evolution(Digivice* digivice) {
 
 // Private
 
-/** Reads a v3 file, or a v2 or v1 file migrated to v3 (`migrated` is then set). */
+/** Reads a v4 file, or a v3, v2 or v1 file migrated to v4 (`migrated` is then set). */
 static bool digivice_load_file(DigiviceState* loaded, bool* migrated) {
     uint8_t magic = 0;
     uint8_t version = 0;
@@ -176,7 +177,21 @@ static bool digivice_load_file(DigiviceState* loaded, bool* migrated) {
             DIGIVICE_STATE_MAGIC,
             DIGIVICE_STATE_VERSION);
     }
-    // Old files go v1 -> v2 -> v3: at most the 56 B v1 and 84 B v2 copies share the stack.
+    if(version == DIGIVICE_STATE_VERSION_V3 && size == sizeof(DigiviceStateV3)) {
+        DigiviceStateV3 v3;
+        if(!saved_struct_load(
+               DIGIVICE_STATE_PATH,
+               &v3,
+               sizeof(DigiviceStateV3),
+               DIGIVICE_STATE_MAGIC,
+               DIGIVICE_STATE_VERSION_V3)) {
+            return false;
+        }
+        digivice_rules_migrate_v3(&v3, loaded);
+        *migrated = true;
+        return true;
+    }
+    // Older files go v1 -> v2 -> v4: at most the 56 B v1 and 84 B v2 copies share the stack.
     DigiviceStateV2 v2;
     if(version == DIGIVICE_STATE_VERSION_V2 && size == sizeof(DigiviceStateV2)) {
         if(!saved_struct_load(
@@ -219,11 +234,15 @@ static void digivice_load(Digivice* digivice) {
     if(ok) {
         // Time under an older firmware was never played under these rules: restart the clock so
         // the first tick sees ~0 s elapsed instead of charging care, paces and encounters for it.
-        if(migrated) loaded.last_tick = furi_hal_rtc_get_timestamp();
+        if(migrated) {
+            uint32_t now = furi_hal_rtc_get_timestamp();
+            loaded.last_tick = now;
+            loaded.stage_since = now;
+        }
         digivice->state = loaded;
-        // A migrated pet is written back as v3 on the next flush.
+        // A migrated pet is written back as v4 on the next flush.
         digivice->dirty = migrated;
-        if(migrated) FURI_LOG_I(TAG, "Migrated an older state to v3");
+        if(migrated) FURI_LOG_I(TAG, "Migrated an older state to v4");
     } else {
         FURI_LOG_W(TAG, "No valid state, hatching a new egg");
         digivice_rules_init(&digivice->state, furi_hal_rtc_get_timestamp());
