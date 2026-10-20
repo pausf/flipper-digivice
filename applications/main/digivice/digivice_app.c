@@ -151,7 +151,9 @@ static void digivice_main_draw(Canvas* canvas, DigiviceApp* app) {
     for(uint8_t i = 0; i < DigiviceIconCount; i++) {
         int32_t x = 8 + (i % 4) * 31;
         int32_t y = i < 4 ? 1 : 54;
-        digivice_draw_icon(canvas, (DigiviceIcon)i, x, y, i == app->menu_index);
+        bool call_blink = i == DigiviceIconFeed && s->call_flags != 0 &&
+                          (app->frame / 5) % 2 == 0;
+        digivice_draw_icon(canvas, (DigiviceIcon)i, x, y, (i == app->menu_index) != call_blink);
     }
     if(digivice_rules_attention(s, now) && (app->frame % 10) < 5) {
         digivice_draw_text(canvas, 8 + 2 * 31 + 11, 2, "!");

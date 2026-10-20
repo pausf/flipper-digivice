@@ -80,6 +80,7 @@ static const char* const strings_es[DigiviceStrCount] = {
     [DigiviceStrEvolution] = "> " EXCL_INV "EVOLUCI" O_ACUTE "N!",
     [DigiviceStrHomeVirux] = "!VIRUX",
     [DigiviceStrHomeLightsOff] = "APAGA LA LUZ",
+    [DigiviceStrHomeCall] = "LLAMADA",
     [DigiviceStrHomeMeterHunger] = "H",
     [DigiviceStrHomeMeterMood] = "A",
 
@@ -246,6 +247,7 @@ static const char* const strings_en[DigiviceStrCount] = {
     [DigiviceStrEvolution] = "> EVOLUTION!",
     [DigiviceStrHomeVirux] = "!VIRUX",
     [DigiviceStrHomeLightsOff] = "LIGHTS OFF?",
+    [DigiviceStrHomeCall] = "CALL",
     [DigiviceStrHomeMeterHunger] = "H",
     [DigiviceStrHomeMeterMood] = "M",
 
@@ -531,6 +533,7 @@ static const uint8_t budgets[DigiviceStrCount] = {
     [DigiviceStrNoticeAreaLocked] = SLOT_N22,
     [DigiviceStrNoticeGone] = SLOT_N22,
     [DigiviceStrHomeEncounter] = SLOT_HOME,
+    [DigiviceStrHomeCall] = SLOT_HOME,
     [DigiviceStrHomeBoss] = SLOT_HOME,
 };
 

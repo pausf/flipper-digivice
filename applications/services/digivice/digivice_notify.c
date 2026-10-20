@@ -139,3 +139,24 @@ const NotificationSequence digivice_sequence_lose = {
     &message_red_0,
     NULL,
 };
+
+// Amber (red + green) double blink with two short buzzes: the pet is calling.
+const NotificationSequence digivice_sequence_call = {
+    &message_red_255,
+    &message_green_255,
+    &message_vibro_on,
+    &message_delay_100,
+    &message_vibro_off,
+    &message_delay_100,
+    &message_red_0,
+    &message_green_0,
+    &message_delay_100,
+    &message_red_255,
+    &message_green_255,
+    &message_vibro_on,
+    &message_delay_100,
+    &message_vibro_off,
+    &message_red_0,
+    &message_green_0,
+    NULL,
+};

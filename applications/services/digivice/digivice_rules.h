@@ -388,6 +388,9 @@ bool digivice_rules_evolve(DigiviceState* s, uint32_t now);
  * evo_from) onto the v3.2 tree, restarting stage_since at now. True when anything changed. */
 bool digivice_rules_upgrade_legacy(DigiviceState* s, uint32_t now);
 
+/** True while a hunger or vigor call is waiting for an answer. */
+bool digivice_rules_call_active(const DigiviceState* s);
+
 /** Returns false when the food was refused: that is an overfeed, counted once per refill. */
 bool digivice_rules_feed(DigiviceState* s, DigiviceFood food, uint32_t now);
 DigiviceResult digivice_rules_can_train(const DigiviceState* s, uint32_t now);

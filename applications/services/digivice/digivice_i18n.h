@@ -82,6 +82,7 @@ typedef enum {
     DigiviceStrEvolution,
     DigiviceStrHomeVirux,
     DigiviceStrHomeLightsOff,
+    DigiviceStrHomeCall,
     DigiviceStrHomeMeterHunger,
     DigiviceStrHomeMeterMood,
 

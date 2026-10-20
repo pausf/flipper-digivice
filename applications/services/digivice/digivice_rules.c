@@ -283,7 +283,17 @@ void digivice_rules_count_battle(DigiviceState* s, bool won) {
     if(won) bump(&s->wins_stage);
 }
 
+bool digivice_rules_call_active(const DigiviceState* s) {
+    return s->call_flags != 0;
+}
+
+// Poop and light still push the pet towards sickness (v2.1) but are no evolution mistakes.
 static void add_mistake(DigiviceState* s) {
+    bump(&s->care_mistakes);
+}
+
+// An ignored call is the only care mistake that counts for the evolution.
+static void add_call_mistake(DigiviceState* s) {
     bump(&s->care_mistakes);
     bump(&s->evo_mistakes);
 }
@@ -292,11 +302,13 @@ static void set_hunger(DigiviceState* s, uint8_t hunger, uint32_t now) {
     if(hunger == 0 && s->hunger > 0) s->starving_since = now;
     if(hunger > 0) s->starving_since = 0;
     if(hunger < DIGIVICE_HUNGER_MAX) s->feed_flags |= DIGIVICE_FEED_ARM_HUNGER;
+    if(hunger == 0 && s->hunger > 0) s->call_flags |= DIGIVICE_CALL_HUNGER;
     s->hunger = hunger;
 }
 
 static void set_vigor(DigiviceState* s, uint8_t vigor) {
     if(vigor < DIGIVICE_VIGOR_MAX) s->feed_flags |= DIGIVICE_FEED_ARM_VIGOR;
+    if(vigor == 0 && s->vigor > 0) s->call_flags |= DIGIVICE_CALL_VIGOR;
     s->vigor = vigor;
 }
 
@@ -345,6 +357,12 @@ static uint32_t awake_step(const DigiviceState* s, uint32_t step) {
     if(s->mood > 0) {
         step = min_u32(step, (DIGIVICE_MOOD_DECAY_S - s->mood_acc_s + rate - 1) / rate);
     }
+    if(s->call_flags & DIGIVICE_CALL_HUNGER) {
+        step = min_u32(step, DIGIVICE_CALL_WINDOW_S - s->call_hunger_s);
+    }
+    if(s->call_flags & DIGIVICE_CALL_VIGOR) {
+        step = min_u32(step, DIGIVICE_CALL_WINDOW_S - s->call_vigor_s);
+    }
     if(corrupting(s)) step = min_u32(step, 3600UL - s->corrupt_acc_s);
     if(pooping(s)) step = min_u32(step, DIGIVICE_POOP_EVERY_S - s->poop_acc_s);
     return step;
@@ -354,6 +372,18 @@ static void awake_advance(DigiviceState* s, uint32_t step, uint32_t t_end) {
     // Paces first: they use the state the step started with, like the care accumulators.
     digivice_expedition_walk(s, step, t_end);
     bool poops = pooping(s);
+    if(s->call_flags & DIGIVICE_CALL_HUNGER) s->call_hunger_s += (uint16_t)step;
+    if(s->call_flags & DIGIVICE_CALL_VIGOR) s->call_vigor_s += (uint16_t)step;
+    if(s->call_hunger_s >= DIGIVICE_CALL_WINDOW_S) {
+        s->call_flags &= (uint8_t)~DIGIVICE_CALL_HUNGER;
+        s->call_hunger_s = 0;
+        add_call_mistake(s);
+    }
+    if(s->call_vigor_s >= DIGIVICE_CALL_WINDOW_S) {
+        s->call_flags &= (uint8_t)~DIGIVICE_CALL_VIGOR;
+        s->call_vigor_s = 0;
+        add_call_mistake(s);
+    }
     if(s->hunger > 0) s->hunger_acc_s += step;
     if(s->vigor > 0) s->vigor_acc_s += step;
     // Doubled decay can overshoot by under `rate` seconds; the remainder is carried, not lost.
@@ -475,8 +505,12 @@ bool digivice_rules_feed(DigiviceState* s, DigiviceFood food, uint32_t now) {
     }
     if(meat) {
         set_hunger(s, s->hunger + 1, now);
+        s->call_flags &= (uint8_t)~DIGIVICE_CALL_HUNGER;
+        s->call_hunger_s = 0;
     } else {
         set_vigor(s, s->vigor + 1);
+        s->call_flags &= (uint8_t)~DIGIVICE_CALL_VIGOR;
+        s->call_vigor_s = 0;
         add_u16(&s->strength, DIGIVICE_PROTEIN_STRENGTH);
     }
     set_corruption(s, (int32_t)s->corruption - DIGIVICE_CORRUPTION_FEED_DROP, now);

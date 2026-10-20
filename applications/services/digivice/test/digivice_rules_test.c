@@ -850,7 +850,7 @@ static void test_dirty_poop_is_one_mistake_per_6h(void) {
     CHECK(s.care_mistakes == 1);
     CHECK(s.poop_dirty_since == T0 + H(6));
     digivice_rules_tick(&s, T0 + H(12) - 1);
-    CHECK(s.care_mistakes == 1);
+    CHECK(s.poop_dirty_since == T0 + H(6)); // the next mistake is not due yet
 }
 
 static void test_clean(void) {
@@ -900,6 +900,7 @@ static void test_sick_from_24h_of_starvation(void) {
     // An egg has no poop or light mistakes, so only starvation can make it sick.
     DigiviceState s = fresh(T0);
     s.hunger = 1;
+    s.vigor = 0; // an empty vigor meter would call and add a mistake of its own
     digivice_rules_tick(&s, T0 + H(2));
     CHECK(s.hunger == 0 && s.starving_since == T0 + H(2));
     // Wall time: the night in between counts.
@@ -1206,12 +1207,100 @@ static void test_training_counts_successes_only(void) {
     CHECK(s.train_count == 1);
 }
 
-static void test_poop_mistake_counts_for_the_evolution_for_now(void) {
+static void test_hunger_call_starts_when_hunger_empties(void) {
+    DigiviceState s = fresh(10 * 3600UL);
+    s.hunger = 1;
+    s.hunger_acc_s = DIGIVICE_HUNGER_DECAY_S - 60;
+    digivice_rules_tick(&s, 10 * 3600UL + 60);
+    CHECK(s.hunger == 0);
+    CHECK(s.call_flags & DIGIVICE_CALL_HUNGER);
+    CHECK(digivice_rules_call_active(&s));
+    CHECK(s.care_mistakes == 0 && s.evo_mistakes == 0);
+}
+
+static void test_ignored_hunger_call_is_one_mistake(void) {
+    DigiviceState s = fresh(10 * 3600UL);
+    s.hunger = 0;
+    s.starving_since = 10 * 3600UL;
+    s.call_flags = DIGIVICE_CALL_HUNGER;
+    s.call_hunger_s = 0;
+    s.vigor = 4;
+    digivice_rules_tick(&s, 10 * 3600UL + DIGIVICE_CALL_WINDOW_S);
+    CHECK(!(s.call_flags & DIGIVICE_CALL_HUNGER));
+    CHECK(s.evo_mistakes == 1 && s.care_mistakes == 1);
+    // No second call from the same empty meter.
+    digivice_rules_tick(&s, 10 * 3600UL + 3 * DIGIVICE_CALL_WINDOW_S);
+    CHECK(s.evo_mistakes == 1);
+}
+
+static void test_answering_in_time_costs_nothing(void) {
+    DigiviceState s = fresh(10 * 3600UL);
+    s.hunger = 0;
+    s.starving_since = 10 * 3600UL;
+    s.call_flags = DIGIVICE_CALL_HUNGER;
+    digivice_rules_tick(&s, 10 * 3600UL + 300);
+    CHECK(digivice_rules_feed(&s, DigiviceFoodMeat, 10 * 3600UL + 300));
+    CHECK(!(s.call_flags & DIGIVICE_CALL_HUNGER) && s.call_hunger_s == 0);
+    digivice_rules_tick(&s, 10 * 3600UL + 2 * DIGIVICE_CALL_WINDOW_S);
+    CHECK(s.evo_mistakes == 0);
+}
+
+static void test_vigor_call_is_answered_by_protein_and_counted_apart(void) {
+    DigiviceState s = fresh(10 * 3600UL);
+    s.vigor = 1;
+    s.vigor_acc_s = DIGIVICE_VIGOR_DECAY_S - 60;
+    s.hunger = DIGIVICE_HUNGER_MAX;
+    digivice_rules_tick(&s, 10 * 3600UL + 60);
+    CHECK(s.vigor == 0 && (s.call_flags & DIGIVICE_CALL_VIGOR));
+    CHECK(!(s.call_flags & DIGIVICE_CALL_HUNGER));
+    CHECK(digivice_rules_feed(&s, DigiviceFoodProtein, 10 * 3600UL + 60));
+    CHECK(!(s.call_flags & DIGIVICE_CALL_VIGOR));
+}
+
+static void test_two_calls_at_once_cost_two_mistakes(void) {
+    DigiviceState s = fresh(10 * 3600UL);
+    s.hunger = 0;
+    s.vigor = 0;
+    s.starving_since = 10 * 3600UL;
+    s.call_flags = DIGIVICE_CALL_HUNGER | DIGIVICE_CALL_VIGOR;
+    digivice_rules_tick(&s, 10 * 3600UL + DIGIVICE_CALL_WINDOW_S);
+    CHECK(s.evo_mistakes == 2);
+}
+
+static void test_a_sleeping_pet_does_not_burn_the_window(void) {
+    // 22:55 awake, 5 min into a call, then asleep from 23:00 to 07:00.
+    DigiviceState s = fresh(22 * 3600UL + 55 * 60UL);
+    s.hunger = 0;
+    s.starving_since = 22 * 3600UL + 55 * 60UL;
+    s.call_flags = DIGIVICE_CALL_HUNGER;
+    s.vigor = 4;
+    digivice_rules_tick(&s, 24 * 3600UL + 7 * 3600UL + 60UL); // 07:01 next day, hours asleep
+    CHECK(s.evo_mistakes == 0);
+    CHECK(s.call_flags & DIGIVICE_CALL_HUNGER);
+}
+
+static void test_poop_and_light_no_longer_hurt_the_evolution(void) {
     DigiviceState s = fresh(8 * 3600UL);
     s.poop = 1;
     s.poop_dirty_since = 8 * 3600UL;
     digivice_rules_tick(&s, 8 * 3600UL + DIGIVICE_POOP_MISTAKE_S);
-    CHECK(s.care_mistakes >= 1 && s.evo_mistakes >= 1);
+    CHECK(s.care_mistakes >= 1); // v2.1 sickness driver stays
+    CHECK(s.evo_mistakes == 0);
+}
+
+static void test_call_ticks_match_one_catch_up(void) {
+    DigiviceState a = fresh(10 * 3600UL);
+    a.hunger = 0;
+    a.starving_since = 10 * 3600UL;
+    a.call_flags = DIGIVICE_CALL_HUNGER;
+    a.vigor = 4;
+    DigiviceState b = a;
+    for(uint32_t t = 10 * 3600UL + 60; t <= 10 * 3600UL + 1200; t += 60) {
+        digivice_rules_tick(&a, t);
+    }
+    digivice_rules_tick(&b, 10 * 3600UL + 1200);
+    CHECK(a.evo_mistakes == b.evo_mistakes && a.call_flags == b.call_flags);
+    CHECK(a.call_hunger_s == b.call_hunger_s);
 }
 
 static void test_night_owl_counts_the_light_left_on(void) {
@@ -1395,7 +1484,14 @@ int main(void) {
     test_player_type_follows_the_attribute();
     test_the_neglected_bitling_survives_the_update();
     test_training_counts_successes_only();
-    test_poop_mistake_counts_for_the_evolution_for_now();
+    test_hunger_call_starts_when_hunger_empties();
+    test_ignored_hunger_call_is_one_mistake();
+    test_answering_in_time_costs_nothing();
+    test_vigor_call_is_answered_by_protein_and_counted_apart();
+    test_two_calls_at_once_cost_two_mistakes();
+    test_a_sleeping_pet_does_not_burn_the_window();
+    test_poop_and_light_no_longer_hurt_the_evolution();
+    test_call_ticks_match_one_catch_up();
     test_night_owl_counts_the_light_left_on();
     test_count_battle_ignores_nothing_and_saturates();
     test_meat_fills_hunger_and_refuses_when_full();

@@ -669,7 +669,7 @@ void digivice_draw_home(
     if(!sd_ok) digivice_draw_text(canvas, 115, 57, "SD!");
 
     // Something waits on the trail: a blinking "!" over the pet and, for a fight, a label.
-    if(digivice_rules_attention(state, now) && (frame % 10) < 6) {
+    if((digivice_rules_attention(state, now) || state->call_flags) && (frame % 10) < 6) {
         digivice_draw_exclam_bubble(canvas, 76, hy - 26);
         text[0] = '\0';
         if(digivice_rules_virux_active(state, now)) {
@@ -685,6 +685,8 @@ void digivice_draw_home(
         } else if(
             digivice_expedition_boss_ready(state) && digivice_expedition_boss_gate_open(state)) {
             snprintf(text, sizeof(text), "%s", digivice_str(lang, DigiviceStrHomeBoss));
+        } else if(state->call_flags) {
+            snprintf(text, sizeof(text), "%s", digivice_str(lang, DigiviceStrHomeCall));
         }
         if(text[0]) {
             canvas_draw_box(canvas, 44, 56, 46, 8);
