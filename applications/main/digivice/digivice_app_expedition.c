@@ -10,7 +10,9 @@
 // Progress line of the trail view (expedicion.html, trail scene).
 #define LINE_X0 8
 #define LINE_X1 116
-#define LINE_Y  30
+#define LINE_Y  21
+// First row below the trail progress strip.
+#define STRIP_BOTTOM 24
 
 #define HIKE_TARGET_X 60
 #define HIKE_FLASH    2
@@ -290,6 +292,31 @@ static void draw_trail(Canvas* canvas, DigiviceApp* app) {
 
     snprintf(text, sizeof(text), "D%04u", (unsigned)s->distance);
     draw_top_bar(canvas, area_name(app, s->area), text);
+    if(s->item == DigiviceItemShield) digivice_draw_shield(canvas, 92, 0);
+    if(digivice_rules_injured(s, now)) digivice_draw_bandage(canvas, 82, 1);
+
+    // Progress strip: a thin white band under the status bar so the scene stays visible below.
+    canvas_set_color(canvas, ColorWhite);
+    canvas_draw_box(canvas, 0, 9, 128, STRIP_BOTTOM - 9);
+    canvas_set_color(canvas, ColorBlack);
+    for(int32_t x = LINE_X0; x < LINE_X1; x += 2)
+        canvas_draw_dot(canvas, x, LINE_Y);
+    int32_t px = LINE_X0 + (LINE_X1 - LINE_X0) * done / (len ? len : 1);
+    canvas_draw_line(canvas, LINE_X0, LINE_Y + 1, px, LINE_Y + 1);
+    canvas_draw_box(canvas, LINE_X0 - 2, 13, 1, 9);
+    canvas_draw_box(canvas, LINE_X0 - 1, 13, 4, 3);
+    int32_t mx = (LINE_X0 + LINE_X1) / 2;
+    canvas_draw_line(canvas, mx, 12, mx, LINE_Y);
+    if(s->mid_state == 0) {
+        canvas_draw_frame(canvas, mx + 1, 12, 5, 4);
+    } else {
+        canvas_draw_box(canvas, mx + 1, 12, 5, 4);
+    }
+    digivice_draw_skull(canvas, LINE_X1 + 2, 15);
+    int32_t bob = walking && (app->frame / 2) % 2 ? 1 : 0;
+    digivice_draw_ring(canvas, px, 16 - bob, 3, 3);
+    digivice_draw_fill_triangle(canvas, px - 2, 13 - bob, px, 13 - bob, px - 2, 10 - bob);
+    digivice_draw_fill_triangle(canvas, px + 1, 13 - bob, px + 3, 13 - bob, px + 3, 10 - bob);
     if(s->city && app->screen_frame < DIGIVICE_CITY_BANNER_FRAMES) {
         char banner[32];
         snprintf(
@@ -298,56 +325,7 @@ static void draw_trail(Canvas* canvas, DigiviceApp* app) {
             "%s%s",
             digivice_app_str(app, DigiviceStrCityEvent),
             digivice_city_name(s->city));
-        digivice_draw_label(canvas, 12, banner);
-    }
-    if(s->item == DigiviceItemShield) digivice_draw_shield(canvas, 92, 0);
-    if(digivice_rules_injured(s, now)) digivice_draw_bandage(canvas, 82, 1);
-
-    // Progress strip: start post, midway flag, skull at the end, the pet marker walking.
-    canvas_set_color(canvas, ColorWhite);
-    canvas_draw_box(canvas, 0, 18, 128, 16);
-    canvas_set_color(canvas, ColorBlack);
-    canvas_draw_line(canvas, LINE_X0, LINE_Y, LINE_X1, LINE_Y);
-    for(int32_t x = LINE_X0; x < LINE_X1; x += 2)
-        canvas_draw_dot(canvas, x, LINE_Y + 2);
-    int32_t px = LINE_X0 + (LINE_X1 - LINE_X0) * done / (len ? len : 1);
-    canvas_draw_line(canvas, LINE_X0, LINE_Y + 1, px, LINE_Y + 1);
-    canvas_draw_box(canvas, LINE_X0 - 2, 22, 1, 9);
-    canvas_draw_box(canvas, LINE_X0 - 1, 22, 4, 3);
-    int32_t mx = (LINE_X0 + LINE_X1) / 2;
-    canvas_draw_line(canvas, mx, 21, mx, LINE_Y);
-    if(s->mid_state == 0) {
-        canvas_draw_frame(canvas, mx + 1, 21, 5, 4);
-    } else {
-        canvas_draw_box(canvas, mx + 1, 21, 5, 4);
-    }
-    digivice_draw_skull(canvas, LINE_X1 + 2, 24);
-    int32_t bob = walking && (app->frame / 2) % 2 ? 1 : 0;
-    digivice_draw_ring(canvas, px, 25 - bob, 3, 3);
-    digivice_draw_fill_triangle(canvas, px - 2, 22 - bob, px, 22 - bob, px - 2, 19 - bob);
-    digivice_draw_fill_triangle(canvas, px + 1, 22 - bob, px + 3, 22 - bob, px + 3, 19 - bob);
-
-    canvas_set_color(canvas, ColorWhite);
-    canvas_draw_box(canvas, 0, 34, 128, 17);
-    canvas_set_color(canvas, ColorBlack);
-    snprintf(
-        text,
-        sizeof(text),
-        "%s %u/%u",
-        digivice_app_str(app, DigiviceStrExpPaces),
-        (unsigned)done,
-        (unsigned)len);
-    digivice_draw_text(canvas, 4, 37, text);
-    snprintf(
-        text,
-        sizeof(text),
-        "%s %u",
-        digivice_app_str(app, DigiviceStrExpLeft),
-        (unsigned)s->distance);
-    digivice_draw_text(canvas, 4, 44, text);
-    if(walking) {
-        digivice_draw_text(canvas, 78, 37, digivice_app_str(app, DigiviceStrExpRate));
-        digivice_draw_text(canvas, 78, 44, digivice_app_str(app, DigiviceStrExpAwake));
+        digivice_draw_label(canvas, STRIP_BOTTOM + 2, banner);
     }
 
     draw_panel(canvas);
@@ -357,7 +335,16 @@ static void draw_trail(Canvas* canvas, DigiviceApp* app) {
     } else if(s->mid_state == 0) {
         next = next_str[digivice_expedition_midway_kind(s->area)];
     }
-    digivice_draw_text(canvas, 3, 53, digivice_app_str(app, next));
+    const char* next_text = digivice_app_str(app, next);
+    digivice_draw_text(canvas, 3, 53, next_text);
+    snprintf(
+        text,
+        sizeof(text),
+        "%s %u/%u",
+        digivice_app_str(app, DigiviceStrExpPaces),
+        (unsigned)done,
+        (unsigned)len);
+    digivice_draw_text(canvas, 125 - digivice_draw_text_width(canvas, text), 53, text);
 
     DigiviceStr hint = DigiviceStrExpHintIdle;
     DigiviceStr reason = idle_reason(app, now);
@@ -371,7 +358,13 @@ static void draw_trail(Canvas* canvas, DigiviceApp* app) {
     } else if(reason != DigiviceStrMenuFeed) {
         hint = reason;
     }
-    digivice_draw_text(canvas, 3, 59, digivice_app_str(app, hint));
+    const char* hint_text = digivice_app_str(app, hint);
+    digivice_draw_text(canvas, 3, 59, hint_text);
+    const char* rate = digivice_app_str(app, DigiviceStrExpRate);
+    int32_t rate_w = digivice_draw_text_width(canvas, rate);
+    if(walking && 3 + digivice_draw_text_width(canvas, hint_text) + 4 < 125 - rate_w) {
+        digivice_draw_text(canvas, 125 - rate_w, 59, rate);
+    }
 }
 
 static void draw_map(Canvas* canvas, DigiviceApp* app) {

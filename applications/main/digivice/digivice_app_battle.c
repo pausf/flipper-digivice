@@ -86,7 +86,7 @@ static const char* special_banner(const DigiviceApp* app, char* text, size_t siz
             size,
             "%s%s",
             digivice_app_str(app, DigiviceStrCityEvent),
-            digivice_city_name(app->state.city));
+            digivice_city_name((uint8_t)(app->battle.foe + 1)));
         return text;
     }
     return digivice_app_str(app, DigiviceStrEncSpecial);
