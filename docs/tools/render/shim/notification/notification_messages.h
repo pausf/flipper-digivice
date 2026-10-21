@@ -1,0 +1,8 @@
+#pragma once
+#include "notification.h"
+extern const NotificationSequence sequence_set_only_blue_255;
+extern const NotificationSequence sequence_set_only_red_255;
+extern const NotificationSequence sequence_set_only_green_255;
+extern const NotificationSequence sequence_blink_white_100;
+extern const NotificationSequence sequence_blink_green_100;
+extern const NotificationSequence sequence_reset_rgb;
